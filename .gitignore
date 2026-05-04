@@ -24,3 +24,5 @@ game.db
 game.db-journal
 # Dictionary (downloaded, not committed)
 data/enable2k.txt
+# Identity signing secret
+.secret
