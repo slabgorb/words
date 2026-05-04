@@ -42,6 +42,7 @@ function refresh() {
   } else {
     $('#status').textContent = ui.tentative.length ? '...' : '';
   }
+  maybeOfferNewGame();
 }
 
 function buildValidationPositions(v) {
@@ -105,6 +106,67 @@ async function submitMove() {
   refresh();
 }
 
+async function passTurn() {
+  if (!confirm('Pass your turn?')) return;
+  const r = await fetch('/api/pass', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ clientNonce: nonce() })
+  });
+  if (!r.ok) {
+    const b = await r.json().catch(() => ({}));
+    $('#status').textContent = `Pass failed: ${b.error || r.status}`;
+    return;
+  }
+  await fetchState(); refresh();
+}
+
+async function swapTiles() {
+  const which = prompt('Type the rack letters to swap (e.g. ABC):');
+  if (!which) return;
+  const tiles = which.toUpperCase().split('').filter(Boolean);
+  const r = await fetch('/api/swap', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ tiles, clientNonce: nonce() })
+  });
+  if (!r.ok) {
+    const b = await r.json().catch(() => ({}));
+    $('#status').textContent = `Swap failed: ${b.error || r.status}`;
+    return;
+  }
+  await fetchState();
+  ui.rackOrder = ui.server.racks[ui.server.you].slice();
+  refresh();
+}
+
+async function resign() {
+  if (!confirm('Resign and lose this game?')) return;
+  const r = await fetch('/api/resign', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ clientNonce: nonce() })
+  });
+  if (r.ok) { await fetchState(); refresh(); }
+}
+
+async function maybeOfferNewGame() {
+  if (ui.server.status !== 'ended') return;
+  const winner = ui.server.winner ?? 'tie';
+  $('#status').textContent = `Game ended (${ui.server.endedReason}) — winner: ${winner}. Click "Pass" to confirm a new game (both players must click).`;
+  // Repurpose the pass button while game is ended → New Game confirm
+  const btn = $('#btn-pass');
+  btn.textContent = 'Confirm new game';
+  btn.onclick = async () => {
+    const r = await fetch('/api/new-game', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (r.ok) {
+      const body = await r.json();
+      if (body.started) location.reload();
+      else $('#status').textContent = `Waiting for ${body.waitingFor} to confirm...`;
+    }
+  };
+}
+
 function startSSE() {
   const es = new EventSource('/api/events');
   es.addEventListener('move', async () => { await fetchState(); ui.rackOrder = ui.server.racks[ui.server.you].slice(); refresh(); });
@@ -135,6 +197,10 @@ async function init() {
   $('#btn-recall').addEventListener('click', recall);
   $('#btn-shuffle').addEventListener('click', () => { shuffleRack(); refresh(); });
   $('#btn-submit').addEventListener('click', submitMove);
+  $('#btn-pass').addEventListener('click', passTurn);
+  $('#btn-swap').addEventListener('click', swapTiles);
+  $('#btn-resign').addEventListener('click', resign);
+  await maybeOfferNewGame();
   startSSE();
 }
 
