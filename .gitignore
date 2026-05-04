@@ -17,6 +17,8 @@ tui-pid
 tmux.conf
 # Brainstorming visual companion sessions
 .superpowers/
+# Git worktrees (isolated implementation workspaces)
+.worktrees/
 # Node
 node_modules/
 # Game runtime
