@@ -69,3 +69,59 @@ export function validatePlacement(board, placement, isFirstMove) {
 
   return { valid: true, axis };
 }
+
+// Returns { mainWord: { text, tiles[] } | null, crossWords: Array<{ text, tiles[] }> }
+// `tiles` items are { r, c, letter, isNew: bool, blank?: bool }.
+// Words of length < 2 are not words; mainWord may be null if the placement is a single tile
+// with no neighbors along the axis.
+export function extractWords(board, placement, axis) {
+  const newByKey = new Map();
+  for (const t of placement) newByKey.set(`${t.r},${t.c}`, t);
+
+  const tileAt = (r, c) => {
+    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) return null;
+    const key = `${r},${c}`;
+    if (newByKey.has(key)) {
+      const t = newByKey.get(key);
+      return { r, c, letter: t.letter, blank: !!t.blank, isNew: true };
+    }
+    const cell = board[r][c];
+    if (cell === null) return null;
+    return { r, c, letter: cell.letter, blank: !!cell.blank, isNew: false };
+  };
+
+  // Walk along an axis from a starting cell, returning the contiguous tiles in order.
+  function walk(r, c, dr, dc) {
+    const tiles = [];
+    let rr = r, cc = c;
+    while (tileAt(rr, cc) !== null) { rr -= dr; cc -= dc; }
+    rr += dr; cc += dc;
+    while (tileAt(rr, cc) !== null) {
+      tiles.push(tileAt(rr, cc));
+      rr += dr; cc += dc;
+    }
+    return tiles;
+  }
+
+  // Main word: walk along the placement axis from any new tile.
+  const first = placement[0];
+  const mainTiles = axis === 'row'
+    ? walk(first.r, first.c, 0, 1)
+    : walk(first.r, first.c, 1, 0);
+  const mainWord = mainTiles.length >= 2
+    ? { text: mainTiles.map(t => t.letter).join(''), tiles: mainTiles }
+    : null;
+
+  // Crosswords: for each new tile, walk perpendicular to the axis. If length >= 2, it's a cross-word.
+  const crossWords = [];
+  for (const t of placement) {
+    const cross = axis === 'row'
+      ? walk(t.r, t.c, 1, 0)
+      : walk(t.r, t.c, 0, 1);
+    if (cross.length >= 2) {
+      crossWords.push({ text: cross.map(x => x.letter).join(''), tiles: cross });
+    }
+  }
+
+  return { mainWord, crossWords };
+}
