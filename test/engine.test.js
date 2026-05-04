@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BOARD_SIZE } from '../src/server/board.js';
-import { validatePlacement, extractWords, scoreMove, applyMove } from '../src/server/engine.js';
+import { validatePlacement, extractWords, scoreMove, applyMove, detectGameEnd, applyEndGameAdjustment } from '../src/server/engine.js';
 
 function emptyBoard() {
   return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
@@ -294,4 +294,65 @@ test('applyMove refill is bounded by bag size', () => {
   // Drew 2 (X, Y); rack now 6 tiles (4 left after removing CAT + 2 drawn)
   assert.equal(next.racks.keith.length, 6);
   assert.equal(next.bag.length, 0);
+});
+
+test('detectGameEnd: rack empty + bag empty → rack-empty', () => {
+  const state = baseState();
+  state.bag = [];
+  state.racks.keith = [];
+  state.racks.sonia = ['A','B','C'];
+  assert.equal(detectGameEnd(state), 'rack-empty');
+});
+
+test('detectGameEnd: rack empty but bag has tiles → null', () => {
+  const state = baseState();
+  state.bag = ['A'];
+  state.racks.keith = [];
+  assert.equal(detectGameEnd(state), null);
+});
+
+test('detectGameEnd: 6 consecutive scoreless turns → six-scoreless', () => {
+  const state = baseState();
+  state.consecutiveScorelessTurns = 6;
+  assert.equal(detectGameEnd(state), 'six-scoreless');
+});
+
+test('detectGameEnd: 5 consecutive scoreless turns → null', () => {
+  const state = baseState();
+  state.consecutiveScorelessTurns = 5;
+  assert.equal(detectGameEnd(state), null);
+});
+
+test('applyEndGameAdjustment rack-empty: out-player +sum(opp), opponent -sum(own)', () => {
+  const state = baseState();
+  state.racks.keith = [];
+  state.racks.sonia = ['Q','Z','A']; // 10 + 10 + 1 = 21
+  state.scores.keith = 100;
+  state.scores.sonia = 90;
+  const adjusted = applyEndGameAdjustment(state, 'rack-empty', 'keith');
+  assert.equal(adjusted.scores.keith, 100 + 21); // 121
+  assert.equal(adjusted.scores.sonia, 90 - 21);  // 69
+  assert.equal(adjusted.endedReason, 'rack-empty');
+  assert.equal(adjusted.winner, 'keith');
+});
+
+test('applyEndGameAdjustment six-scoreless: each player loses sum(own rack)', () => {
+  const state = baseState();
+  state.racks.keith = ['Q']; // 10
+  state.racks.sonia = ['A','A']; // 2
+  state.scores.keith = 50;
+  state.scores.sonia = 50;
+  const adjusted = applyEndGameAdjustment(state, 'six-scoreless', null);
+  assert.equal(adjusted.scores.keith, 50 - 10); // 40
+  assert.equal(adjusted.scores.sonia, 50 - 2);  // 48
+  assert.equal(adjusted.winner, 'sonia');
+});
+
+test('applyEndGameAdjustment resigned: opponent wins regardless of score', () => {
+  const state = baseState();
+  state.scores.keith = 200; // ahead but resigned
+  state.scores.sonia = 50;
+  const adjusted = applyEndGameAdjustment(state, 'resigned', 'keith');
+  assert.equal(adjusted.winner, 'sonia');
+  assert.equal(adjusted.endedReason, 'resigned');
 });

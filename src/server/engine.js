@@ -218,3 +218,53 @@ export function applyMove(state, move) {
 }
 
 export { PLAYER_IDS, otherPlayer };
+
+const SIX_SCORELESS = 6;
+
+export function detectGameEnd(state) {
+  if (state.consecutiveScorelessTurns >= SIX_SCORELESS) return 'six-scoreless';
+  if (state.bag.length === 0) {
+    if (state.racks.keith.length === 0 || state.racks.sonia.length === 0) return 'rack-empty';
+  }
+  return null;
+}
+
+function rackValue(rack) {
+  let total = 0;
+  for (const letter of rack) total += LETTER_VALUE[letter] ?? 0;
+  return total;
+}
+
+// `resignedPlayer` is set only when reason === 'resigned'; otherwise null.
+// For 'rack-empty', the out-player is whoever has length 0.
+export function applyEndGameAdjustment(state, reason, resignedPlayer) {
+  const next = {
+    ...state,
+    scores: { ...state.scores },
+    endedReason: reason,
+    winner: null
+  };
+
+  if (reason === 'resigned') {
+    next.winner = otherPlayer(resignedPlayer);
+    return next;
+  }
+
+  if (reason === 'rack-empty') {
+    const outPlayer = state.racks.keith.length === 0 ? 'keith' : 'sonia';
+    const opp = otherPlayer(outPlayer);
+    const oppRackValue = rackValue(state.racks[opp]);
+    next.scores[outPlayer] += oppRackValue;
+    next.scores[opp] -= oppRackValue;
+  } else if (reason === 'six-scoreless') {
+    next.scores.keith -= rackValue(state.racks.keith);
+    next.scores.sonia -= rackValue(state.racks.sonia);
+  }
+
+  // Determine winner by score (ties → null)
+  if (next.scores.keith > next.scores.sonia) next.winner = 'keith';
+  else if (next.scores.sonia > next.scores.keith) next.winner = 'sonia';
+  else next.winner = null;
+
+  return next;
+}
