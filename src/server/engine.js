@@ -25,8 +25,7 @@ export function validatePlacement(board, placement, isFirstMove) {
   const rows = new Set(placement.map(t => t.r));
   const cols = new Set(placement.map(t => t.c));
   let axis;
-  if (rows.size === 1 && cols.size === 1) axis = 'row';
-  else if (rows.size === 1) axis = 'row';
+  if (rows.size === 1) axis = 'row';
   else if (cols.size === 1) axis = 'col';
   else return { valid: false, reason: 'tiles must be in a single line (row or column)' };
 
@@ -38,7 +37,7 @@ export function validatePlacement(board, placement, isFirstMove) {
 
   // Contiguity: along the placement axis, the span from min to max must be filled
   // by either newly-placed tiles or existing board tiles. No gaps.
-  const fixed = axis === 'row' ? [...placement][0].r : [...placement][0].c;
+  const fixed = axis === 'row' ? placement[0].r : placement[0].c;
   const positions = placement.map(t => axis === 'row' ? t.c : t.r).sort((a, b) => a - b);
   const lo = positions[0], hi = positions[positions.length - 1];
   const placed = new Set(positions);
