@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Words</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="identity-picker" hidden>
+    <h1>Who are you?</h1>
+    <button data-id="keith">I'm Keith</button>
+    <button data-id="sonia">I'm Sonia</button>
+  </div>
+
+  <main id="game" hidden>
+    <header id="topbar">
+      <div id="score-keith"></div>
+      <div id="bag-count"></div>
+      <div id="turn-indicator"></div>
+      <div id="score-sonia"></div>
+    </header>
+    <section id="board"></section>
+    <section id="rack"></section>
+    <section id="controls">
+      <button id="btn-submit" disabled>Submit move</button>
+      <button id="btn-recall">Recall tiles</button>
+      <button id="btn-shuffle">Shuffle rack</button>
+      <button id="btn-pass">Pass</button>
+      <button id="btn-swap">Swap…</button>
+      <button id="btn-resign">Resign</button>
+    </section>
+    <div id="status"></div>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
