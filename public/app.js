@@ -79,6 +79,42 @@ function recall() {
   refresh();
 }
 
+function nonce() {
+  return crypto.randomUUID();
+}
+
+async function submitMove() {
+  if (!lastValidation?.valid) return;
+  const r = await fetch('/api/move', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      placement: ui.tentative.map(t => ({ r: t.r, c: t.c, letter: t.letter, blank: !!t.blank })),
+      clientNonce: nonce()
+    })
+  });
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    $('#status').textContent = `Server rejected: ${body.error || r.status}`;
+    return;
+  }
+  clearTentative();
+  lastValidation = null;
+  await fetchState();
+  // refresh rack-order to reflect new rack from server
+  ui.rackOrder = ui.server.racks[ui.server.you].slice();
+  refresh();
+}
+
+function startSSE() {
+  const es = new EventSource('/api/events');
+  es.addEventListener('move', async () => { await fetchState(); ui.rackOrder = ui.server.racks[ui.server.you].slice(); refresh(); });
+  es.addEventListener('pass', async () => { await fetchState(); refresh(); });
+  es.addEventListener('swap', async () => { await fetchState(); ui.rackOrder = ui.server.racks[ui.server.you].slice(); refresh(); });
+  es.addEventListener('resign', async () => { await fetchState(); refresh(); });
+  es.addEventListener('new-game', () => location.reload());
+  es.onerror = () => { /* browser auto-reconnects */ };
+}
+
 async function init() {
   const id = await whoami();
   if (!id) {
@@ -98,6 +134,8 @@ async function init() {
 
   $('#btn-recall').addEventListener('click', recall);
   $('#btn-shuffle').addEventListener('click', () => { shuffleRack(); refresh(); });
+  $('#btn-submit').addEventListener('click', submitMove);
+  startSSE();
 }
 
 init();
