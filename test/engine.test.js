@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BOARD_SIZE } from '../src/server/board.js';
-import { validatePlacement, extractWords } from '../src/server/engine.js';
+import { validatePlacement, extractWords, scoreMove } from '../src/server/engine.js';
 
 function emptyBoard() {
   return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
@@ -146,4 +146,65 @@ test('extractWords detects single-tile placement extending two perpendiculars', 
   assert.equal(result.mainWord, null);
   assert.equal(result.crossWords.length, 1);
   assert.equal(result.crossWords[0].text, 'OS');
+});
+
+test('scoreMove on first move with no premiums hit (except center DW)', () => {
+  // CAT at row 7 cols 6,7,8. Center (7,7) = DW. C=4, A=1, T=1 = 6, doubled by DW = 12.
+  const board = emptyBoard();
+  const placement = [
+    { r: 7, c: 6, letter: 'C' },
+    { r: 7, c: 7, letter: 'A' },
+    { r: 7, c: 8, letter: 'T' }
+  ];
+  const { mainWord, crossWords } = extractWords(board, placement, 'row');
+  const score = scoreMove(board, placement, mainWord, crossWords);
+  assert.equal(score, 12);
+});
+
+test('scoreMove applies premiums only to newly-placed tiles', () => {
+  // Existing A at (7,7) — DW already consumed.
+  // Play C at (7,6), T at (7,8) → main CAT.
+  // Premiums on (7,6) and (7,8) per WwF: both null. So just letter values.
+  // C=4 + A=1 (existing) + T=1 = 6, no word multiplier.
+  const board = emptyBoard();
+  board[7][7] = { letter: 'A', byPlayer: 'keith' };
+  const placement = [
+    { r: 7, c: 6, letter: 'C' },
+    { r: 7, c: 8, letter: 'T' }
+  ];
+  const { mainWord, crossWords } = extractWords(board, placement, 'row');
+  const score = scoreMove(board, placement, mainWord, crossWords);
+  assert.equal(score, 6);
+});
+
+test('scoreMove gives 7-letter bingo bonus of +35 (WwF)', () => {
+  // Place 7 A's at row 7 cols 4..10. Center (7,7) = DW.
+  // 7 * 1 = 7, * 2 (center DW) = 14. + 35 bingo = 49.
+  const board = emptyBoard();
+  const placement = [
+    { r: 7, c: 4, letter: 'A' },
+    { r: 7, c: 5, letter: 'A' },
+    { r: 7, c: 6, letter: 'A' },
+    { r: 7, c: 7, letter: 'A' },
+    { r: 7, c: 8, letter: 'A' },
+    { r: 7, c: 9, letter: 'A' },
+    { r: 7, c: 10, letter: 'A' }
+  ];
+  const { mainWord, crossWords } = extractWords(board, placement, 'row');
+  const score = scoreMove(board, placement, mainWord, crossWords);
+  assert.equal(score, 49);
+});
+
+test('scoreMove counts blank tiles as 0', () => {
+  // Place "CAT" with C as a blank. Center (7,7) = DW.
+  // 0 (blank) + 1 (A) + 1 (T) = 2, * 2 (DW) = 4.
+  const board = emptyBoard();
+  const placement = [
+    { r: 7, c: 6, letter: 'C', blank: true },
+    { r: 7, c: 7, letter: 'A' },
+    { r: 7, c: 8, letter: 'T' }
+  ];
+  const { mainWord, crossWords } = extractWords(board, placement, 'row');
+  const score = scoreMove(board, placement, mainWord, crossWords);
+  assert.equal(score, 4);
 });

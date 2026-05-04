@@ -1,6 +1,8 @@
-import { BOARD_SIZE } from './board.js';
+import { BOARD_SIZE, LETTER_VALUE, BOARD_PREMIUMS } from './board.js';
 
 const CENTER = 7;
+const BINGO_BONUS = 35; // WwF bingo bonus
+const RACK_SIZE = 7;
 
 // Validates that a placement is geometrically legal.
 // Returns { valid: true, axis: 'row'|'col' } or { valid: false, reason: string }.
@@ -124,4 +126,35 @@ export function extractWords(board, placement, axis) {
   }
 
   return { mainWord, crossWords };
+}
+
+// Score a single word given its tiles (array of {r,c,letter,isNew,blank?}).
+// Premiums apply only to newly-placed tiles.
+function scoreWord(tiles) {
+  let wordMult = 1;
+  let letterTotal = 0;
+  for (const t of tiles) {
+    const base = t.blank ? 0 : (LETTER_VALUE[t.letter] ?? 0);
+    if (t.isNew) {
+      const premium = BOARD_PREMIUMS[t.r][t.c];
+      switch (premium) {
+        case 'TL': letterTotal += base * 3; break;
+        case 'DL': letterTotal += base * 2; break;
+        case 'TW': letterTotal += base; wordMult *= 3; break;
+        case 'DW': letterTotal += base; wordMult *= 2; break;
+        default:   letterTotal += base; break;
+      }
+    } else {
+      letterTotal += base;
+    }
+  }
+  return letterTotal * wordMult;
+}
+
+export function scoreMove(board, placement, mainWord, crossWords) {
+  let total = 0;
+  if (mainWord) total += scoreWord(mainWord.tiles);
+  for (const cw of crossWords) total += scoreWord(cw.tiles);
+  if (placement.length === RACK_SIZE) total += BINGO_BONUS;
+  return total;
 }
