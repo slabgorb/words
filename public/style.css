@@ -468,11 +468,30 @@ body[data-theme="wood"] {
   --frame-hi:  #9a774f;
   --frame-lo:  #5a3f24;
   --grid-line: rgba(0,0,0,0.30);
-  --page-bg:   #efe6d3;
+
+  /* dark walnut page bg + cream ink */
+  --page-bg:    #2b1d12;
+  --page-ink:   #efe6d3;
+  --page-muted: rgba(239, 230, 211, 0.55);
+
   --tw: #e87053;
   --dw: #e8a263;
   --tl: #6dadc4;
   --dl: #98c4d8;
+}
+
+/* Wood-theme page wears a horizontal grain like the frame/rack */
+body[data-theme="wood"] {
+  background-image:
+    repeating-linear-gradient(88deg,
+      rgba(0,0,0,0.30) 0 2px, transparent 2px 9px,
+      rgba(255,255,255,0.04) 9px 10px, transparent 10px 18px);
+  background-attachment: fixed;
+}
+
+/* The topbar's bottom border vanishes on dark — flip to cream */
+body[data-theme="wood"] #topbar {
+  border-bottom-color: rgba(239, 230, 211, 0.18);
 }
 
 /* ----- jade theme: cream ink on tiles ----- */
