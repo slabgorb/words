@@ -94,5 +94,79 @@ export function buildRoutes({ db, dict, secret }) {
     res.json({ ok: true, moveId: result.moveId, idempotent: result.idempotent, ended: endReason });
   });
 
+  // -- Pass turn --
+  r.post('/pass', requireIdentity, (req, res) => {
+    const state = getGameState(db);
+    if (state.status !== 'active') return res.status(409).json({ error: 'game-ended' });
+    if (state.currentTurn !== req.playerId) return res.status(409).json({ error: 'not-your-turn' });
+    const { clientNonce } = req.body ?? {};
+    if (!clientNonce) return res.status(400).json({ error: 'bad-request' });
+    let next = applyMove(state, { playerId: req.playerId, kind: 'pass' });
+    const endReason = detectGameEnd(next);
+    if (endReason) next = applyEndGameAdjustment(next, endReason, null);
+    persistMove(db, next, { playerId: req.playerId, kind: 'pass', scoreDelta: 0, clientNonce });
+    broadcast({ type: 'pass', payload: { by: req.playerId, ended: !!endReason } });
+    res.json({ ok: true, ended: endReason });
+  });
+
+  // -- Swap tiles --
+  r.post('/swap', requireIdentity, (req, res) => {
+    const state = getGameState(db);
+    if (state.status !== 'active') return res.status(409).json({ error: 'game-ended' });
+    if (state.currentTurn !== req.playerId) return res.status(409).json({ error: 'not-your-turn' });
+    const { tiles, clientNonce } = req.body ?? {};
+    if (!Array.isArray(tiles) || tiles.length === 0 || !clientNonce) {
+      return res.status(400).json({ error: 'bad-request' });
+    }
+    if (state.bag.length < 7) return res.status(400).json({ error: 'bag-too-small' });
+    const rack = state.racks[req.playerId].slice();
+    for (const letter of tiles) {
+      const idx = rack.indexOf(letter);
+      if (idx === -1) return res.status(400).json({ error: 'rack-mismatch', missing: letter });
+      rack.splice(idx, 1);
+    }
+    let next = applyMove(state, { playerId: req.playerId, kind: 'swap', swapTiles: tiles });
+    const endReason = detectGameEnd(next);
+    if (endReason) next = applyEndGameAdjustment(next, endReason, null);
+    persistMove(db, next, { playerId: req.playerId, kind: 'swap', scoreDelta: 0, clientNonce });
+    broadcast({ type: 'swap', payload: { by: req.playerId, count: tiles.length, ended: !!endReason } });
+    res.json({ ok: true, ended: endReason });
+  });
+
+  // -- Resign --
+  r.post('/resign', requireIdentity, (req, res) => {
+    const state = getGameState(db);
+    if (state.status !== 'active') return res.status(409).json({ error: 'game-ended' });
+    const { clientNonce } = req.body ?? {};
+    if (!clientNonce) return res.status(400).json({ error: 'bad-request' });
+    const next = applyEndGameAdjustment(state, 'resigned', req.playerId);
+    persistMove(db, next, { playerId: req.playerId, kind: 'pass', scoreDelta: 0, clientNonce });
+    broadcast({ type: 'resign', payload: { by: req.playerId } });
+    res.json({ ok: true, ended: 'resigned' });
+  });
+
+  // -- New game (requires both confirms) --
+  // Simple model: a small in-memory pending-confirms set keyed on game-state.updated_at.
+  // Cleared on reset. This works because the server is single-process.
+  const pendingNewGame = new Set();
+  r.post('/new-game', requireIdentity, (_req2, res2) => {
+    const state = getGameState(db);
+    if (state.status !== 'ended') return res2.status(409).json({ error: 'game-not-ended' });
+    pendingNewGame.add(_req2.playerId);
+    if (pendingNewGame.size === 2) {
+      pendingNewGame.clear();
+      resetGame(db);
+      broadcast({ type: 'new-game', payload: {} });
+      return res2.json({ ok: true, started: true });
+    }
+    res2.json({ ok: true, started: false, waitingFor: ['keith','sonia'].find(p => p !== _req2.playerId) });
+  });
+
+  // -- SSE event stream --
+  r.get('/events', requireIdentity, (req, res) => {
+    // import lazily to avoid a circular import at top
+    import('./sse.js').then(({ subscribe }) => subscribe(req, res));
+  });
+
   return r;
 }

@@ -157,3 +157,41 @@ test('POST /api/validate with non-word returns valid:false but 200', async () =>
     assert.equal(body.score, 0);
   } finally { server.close(); }
 });
+
+test('POST /api/pass advances turn', async () => {
+  const db = openDb(':memory:');
+  const app = buildApp(db);
+  const server = await listen(app);
+  try {
+    const { url, cookie } = await asPlayer(server, 'keith');
+    const r = await fetch(`${url}/api/pass`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ clientNonce: 'p1' })
+    });
+    assert.equal(r.status, 200);
+    const state = await (await fetch(`${url}/api/state`, { headers: { cookie } })).json();
+    assert.equal(state.currentTurn, 'sonia');
+    assert.equal(state.consecutiveScorelessTurns, 1);
+  } finally { server.close(); }
+});
+
+test('POST /api/swap exchanges tiles', async () => {
+  const db = openDb(':memory:');
+  const app = buildApp(db);
+  const server = await listen(app);
+  try {
+    const { url, cookie } = await asPlayer(server, 'keith');
+    const stateBefore = await (await fetch(`${url}/api/state`, { headers: { cookie } })).json();
+    const swapTiles = stateBefore.racks.keith.slice(0, 3);
+    const r = await fetch(`${url}/api/swap`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ tiles: swapTiles, clientNonce: 's1' })
+    });
+    assert.equal(r.status, 200);
+    const stateAfter = await (await fetch(`${url}/api/state`, { headers: { cookie } })).json();
+    assert.equal(stateAfter.racks.keith.length, 7);
+    assert.equal(stateAfter.bag.length, stateBefore.bag.length); // size unchanged
+  } finally { server.close(); }
+});
