@@ -158,3 +158,63 @@ export function scoreMove(board, placement, mainWord, crossWords) {
   if (placement.length === RACK_SIZE) total += BINGO_BONUS;
   return total;
 }
+
+const PLAYER_IDS = ['keith', 'sonia'];
+
+function otherPlayer(id) { return id === 'keith' ? 'sonia' : 'keith'; }
+
+// Returns a new state. Does NOT mutate the input.
+// move: { playerId, kind: 'play'|'pass'|'swap', placement?, scoreDelta?, swapTiles? }
+export function applyMove(state, move) {
+  const next = {
+    board: state.board.map(row => row.slice()),
+    bag: state.bag.slice(),
+    racks: { keith: state.racks.keith.slice(), sonia: state.racks.sonia.slice() },
+    scores: { ...state.scores },
+    currentTurn: otherPlayer(state.currentTurn),
+    consecutiveScorelessTurns: state.consecutiveScorelessTurns
+  };
+
+  if (move.kind === 'play') {
+    const playerRack = next.racks[move.playerId];
+    // Place tiles, remove from rack
+    for (const t of move.placement) {
+      next.board[t.r][t.c] = { letter: t.letter, byPlayer: move.playerId, blank: !!t.blank };
+      // Remove one matching tile from rack: blank tiles play as '_' from rack but become specific letter.
+      const rackKey = t.blank ? '_' : t.letter;
+      const idx = playerRack.indexOf(rackKey);
+      if (idx === -1) throw new Error(`tile ${rackKey} not in rack`);
+      playerRack.splice(idx, 1);
+    }
+    // Refill rack from front of bag
+    while (playerRack.length < 7 && next.bag.length > 0) {
+      playerRack.push(next.bag.shift());
+    }
+    next.scores[move.playerId] = (next.scores[move.playerId] ?? 0) + (move.scoreDelta ?? 0);
+    next.consecutiveScorelessTurns = (move.scoreDelta && move.scoreDelta > 0) ? 0 : next.consecutiveScorelessTurns + 1;
+  } else if (move.kind === 'pass') {
+    next.consecutiveScorelessTurns += 1;
+  } else if (move.kind === 'swap') {
+    const playerRack = next.racks[move.playerId];
+    // Remove swap tiles from rack
+    for (const letter of move.swapTiles) {
+      const idx = playerRack.indexOf(letter);
+      if (idx === -1) throw new Error(`swap tile ${letter} not in rack`);
+      playerRack.splice(idx, 1);
+    }
+    // Draw replacements from front of bag
+    const drawCount = move.swapTiles.length;
+    for (let i = 0; i < drawCount && next.bag.length > 0; i++) {
+      playerRack.push(next.bag.shift());
+    }
+    // Return swapped tiles to bag (caller may shuffle later)
+    next.bag.push(...move.swapTiles);
+    next.consecutiveScorelessTurns += 1;
+  } else {
+    throw new Error(`unknown move kind: ${move.kind}`);
+  }
+
+  return next;
+}
+
+export { PLAYER_IDS, otherPlayer };

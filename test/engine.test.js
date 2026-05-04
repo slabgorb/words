@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BOARD_SIZE } from '../src/server/board.js';
-import { validatePlacement, extractWords, scoreMove } from '../src/server/engine.js';
+import { validatePlacement, extractWords, scoreMove, applyMove } from '../src/server/engine.js';
 
 function emptyBoard() {
   return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
@@ -207,4 +207,91 @@ test('scoreMove counts blank tiles as 0', () => {
   const { mainWord, crossWords } = extractWords(board, placement, 'row');
   const score = scoreMove(board, placement, mainWord, crossWords);
   assert.equal(score, 4);
+});
+
+function baseState() {
+  return {
+    board: emptyBoard(),
+    bag: ['Q','U','I','R','K','S','E','S','S','S'], // 10 tiles for predictable refill
+    racks: {
+      keith: ['C','A','T','S','E','E','D'],
+      sonia: ['A','A','A','A','A','A','A']
+    },
+    scores: { keith: 0, sonia: 0 },
+    currentTurn: 'keith',
+    consecutiveScorelessTurns: 0
+  };
+}
+
+test('applyMove places tiles on board, removes from rack, refills, advances turn', () => {
+  const state = baseState();
+  const placement = [
+    { r: 7, c: 6, letter: 'C' },
+    { r: 7, c: 7, letter: 'A' },
+    { r: 7, c: 8, letter: 'T' }
+  ];
+  const next = applyMove(state, {
+    playerId: 'keith',
+    kind: 'play',
+    placement,
+    scoreDelta: 12
+  });
+  // Board updated
+  assert.equal(next.board[7][6].letter, 'C');
+  assert.equal(next.board[7][7].letter, 'A');
+  assert.equal(next.board[7][8].letter, 'T');
+  // Rack: removed CAT (3 tiles), refilled to 7 from front of bag (Q,U,I)
+  assert.equal(next.racks.keith.length, 7);
+  assert.deepEqual(next.racks.keith.slice(-3), ['Q','U','I']);
+  // Bag shrunk by 3
+  assert.equal(next.bag.length, 7);
+  // Turn advanced
+  assert.equal(next.currentTurn, 'sonia');
+  // Score updated
+  assert.equal(next.scores.keith, 12);
+  // Scoreless counter reset
+  assert.equal(next.consecutiveScorelessTurns, 0);
+});
+
+test('applyMove for pass does not mutate board, advances turn, increments scoreless counter', () => {
+  const state = baseState();
+  const next = applyMove(state, { playerId: 'keith', kind: 'pass' });
+  assert.deepEqual(next.board, state.board);
+  assert.deepEqual(next.racks.keith, state.racks.keith);
+  assert.equal(next.currentTurn, 'sonia');
+  assert.equal(next.consecutiveScorelessTurns, 1);
+});
+
+test('applyMove for swap exchanges tiles, advances turn, increments scoreless counter', () => {
+  const state = baseState();
+  const next = applyMove(state, {
+    playerId: 'keith',
+    kind: 'swap',
+    swapTiles: ['C','A','T']
+  });
+  // 3 tiles removed, 3 drawn from bag front (Q,U,I), 3 returned to bag
+  assert.equal(next.racks.keith.length, 7);
+  assert(next.racks.keith.includes('Q'));
+  assert.equal(next.bag.length, 10); // size unchanged
+  assert.equal(next.currentTurn, 'sonia');
+  assert.equal(next.consecutiveScorelessTurns, 1);
+});
+
+test('applyMove refill is bounded by bag size', () => {
+  const state = baseState();
+  state.bag = ['X','Y']; // only 2 tiles left
+  const placement = [
+    { r: 7, c: 6, letter: 'C' },
+    { r: 7, c: 7, letter: 'A' },
+    { r: 7, c: 8, letter: 'T' }
+  ];
+  const next = applyMove(state, {
+    playerId: 'keith',
+    kind: 'play',
+    placement,
+    scoreDelta: 12
+  });
+  // Drew 2 (X, Y); rack now 6 tiles (4 left after removing CAT + 2 drawn)
+  assert.equal(next.racks.keith.length, 6);
+  assert.equal(next.bag.length, 0);
 });
