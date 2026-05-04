@@ -1,76 +1,769 @@
+/* ============================================================
+   Words — "Library" board L&F (ported from design exploration)
+   Oak board · ivory bevelled tiles · lozenge & star marks
+============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=JetBrains+Mono:wght@500;600&display=swap');
+
 :root {
-  --bg: #1a1a1a;
-  --fg: #e8e8e8;
-  --panel: #2a2a2a;
-  --accent: #3b82f6;
-  --pink: #ec4899;
-  --tw: #c44;
-  --dw: #d77;
-  --tl: #36a;
-  --dl: #6ac;
-  --tile: #f3e3a3;
-  --tile-fg: #1a1a1a;
+  --type-serif: 'Source Serif 4', 'Iowan Old Style', Cambria, Georgia, serif;
+  --type-sans: system-ui, -apple-system, sans-serif;
+  --type-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --page-bg: #efe6d3;
+  --page-ink: #2a2118;
+  --page-muted: rgba(42,33,24,0.55);
+
+  --frame-hi: #9a774f;
+  --frame-lo: #7a5a37;
+  --board-hi: #f3e3c0;
+  --board-mid: #ecd6a8;
+  --board-lo: #ddc28a;
+  --grid-line: rgba(56,38,20,0.18);
+
+  --tw: #a13b2a;        /* triple word — brick red ink */
+  --dw: #c47a4a;        /* double word — copper */
+  --tl: #1f4e6e;        /* triple letter — ink blue */
+  --dl: #3f7d9b;        /* double letter — slate blue */
+
+  --tile-bg-hi: #fffaee;
+  --tile-bg-mid: #faf3e2;
+  --tile-bg-lo: #e6d8b3;
+  --tile-edge: #c9b287;
+  --tile-edge-deep: rgba(120,86,40,0.45);
+  --tile-ink: #1a140c;
+  --tile-shadow: rgba(34,22,8,0.30);
+
+  --drop: #c47a4a;
+  --invalid: #b3382a;
+  --valid: #2f7a4a;
+  --gold: #c8932e;
+
+  --tile-texture: url('/assets/tile-cream.png?v=2');
 }
+
 * { box-sizing: border-box; }
-body {
+
+html, body {
   margin: 0;
-  font-family: system-ui, sans-serif;
-  background: var(--bg);
-  color: var(--fg);
-  display: flex;
-  justify-content: center;
+  background: var(--page-bg);
+  color: var(--page-ink);
+  font-family: var(--type-sans);
+  -webkit-font-smoothing: antialiased;
 }
-main { width: min(640px, 96vw); padding: 12px; }
+
+body { display: flex; justify-content: center; }
+
+main { width: min(720px, 96vw); padding: 16px 12px 32px; }
+
+/* ----- identity picker ----- */
 #identity-picker {
-  text-align: center; padding-top: 25vh;
+  text-align: center; padding-top: 22vh;
+  font-family: var(--type-serif);
+}
+#identity-picker h1 {
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: -0.01em;
 }
 #identity-picker button {
-  font-size: 24px; padding: 16px 32px; margin: 8px;
-  background: var(--panel); color: var(--fg); border: 1px solid #444;
-  border-radius: 8px; cursor: pointer;
+  font-family: var(--type-serif);
+  font-size: 22px;
+  padding: 14px 28px;
+  margin: 8px;
+  background: var(--tile-bg-mid);
+  color: var(--tile-ink);
+  border: 1px solid var(--tile-edge);
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 var(--tile-edge), 0 2px 4px var(--tile-shadow),
+              inset 0 1px 0 rgba(255,255,255,0.7);
+  transition: transform 80ms ease, box-shadow 120ms ease;
 }
+#identity-picker button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 0 var(--tile-edge), 0 6px 10px var(--tile-shadow),
+              inset 0 1px 0 rgba(255,255,255,0.7);
+}
+
+/* ----- topbar ----- */
 #topbar {
-  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
-  align-items: center; padding: 8px 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  align-items: center;
+  padding: 10px 4px 14px;
+  font-family: var(--type-serif);
+  border-bottom: 1px solid rgba(42,33,24,0.18);
+  margin-bottom: 14px;
 }
-#turn-indicator { text-align: center; font-weight: bold; }
-#bag-count { text-align: center; opacity: 0.7; font-size: 12px; }
+#score-keith, #score-sonia {
+  font-size: 16px;
+  font-weight: 500;
+}
+#score-sonia { text-align: right; }
+#turn-indicator {
+  text-align: center;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--tw);
+}
+#bag-count {
+  text-align: center;
+  font-family: var(--type-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--page-muted);
+}
+
+/* ----- board frame ----- */
 #board {
-  display: grid; grid-template-columns: repeat(15, 1fr);
-  gap: 1px; background: #111; padding: 2px;
-  aspect-ratio: 1 / 1; border-radius: 4px;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  grid-template-rows: repeat(15, 1fr);
+  gap: 0;
+  aspect-ratio: 1 / 1;
+  padding: 14px;
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -2px 6px rgba(0,0,0,0.30),
+    0 18px 36px rgba(34,22,8,0.30);
 }
+#board::before {
+  /* wood grain */
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background-image:
+    repeating-linear-gradient(88deg,
+      rgba(0,0,0,0.06) 0 2px, transparent 2px 9px,
+      rgba(255,255,255,0.04) 9px 10px, transparent 10px 18px);
+  pointer-events: none;
+}
+#board::after {
+  /* board surface — drawn under grid via z-index, but we use a sibling-less trick:
+     we instead let .cell carry the surface tones (see below). The ::after is the
+     subtle paper noise overlay over the whole grid. */
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border-radius: 2px;
+  background-image:
+    radial-gradient(rgba(56,38,20,0.07) 1px, transparent 1px);
+  background-size: 4px 4px;
+  pointer-events: none;
+  opacity: 0.55;
+  z-index: 2;
+}
+
+/* The board surface itself — we paint it via a backdrop on the grid container.
+   Easiest: make the cells transparent and let #board's gradient show through.
+   We override #board's bg with a layered fill. */
+#board {
+  background:
+    radial-gradient(circle at 50% 30%, var(--board-hi) 0%, var(--board-mid) 60%, var(--board-lo) 100%),
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  background-clip: content-box, padding-box;
+  background-origin: content-box, padding-box;
+  box-shadow:
+    inset 0 0 0 14px transparent, /* spacer for frame */
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -2px 6px rgba(0,0,0,0.30),
+    0 18px 36px rgba(34,22,8,0.30);
+}
+
+/* ----- cells ----- */
 .cell {
-  background: var(--panel); position: relative;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; user-select: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--grid-line);
+  z-index: 1;
+  transition: box-shadow 80ms ease;
 }
-.cell.tw { background: var(--tw); }
-.cell.dw { background: var(--dw); }
-.cell.tl { background: var(--tl); }
-.cell.dl { background: var(--dl); }
-.cell.star::after { content: "★"; color: white; opacity: 0.6; }
-.cell .tile { width: 100%; height: 100%; background: var(--tile); color: var(--tile-fg);
-  display: flex; align-items: center; justify-content: center; font-weight: bold; }
-.cell.placed .tile { box-shadow: inset 0 0 0 2px gold; }
-.cell.invalid .tile { box-shadow: inset 0 0 0 2px #f33; }
-.cell.valid .tile { box-shadow: inset 0 0 0 2px #2c2; }
+
+/* Premium decorations */
+.premium-rule {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid currentColor;
+  border-radius: 1px;
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+  pointer-events: none;
+}
+.cell.tw .premium-rule, .cell.tw .premium { color: var(--tw); }
+.cell.dw .premium-rule, .cell.dw .premium { color: var(--dw); opacity: 0.95; }
+.cell.tl .premium-rule, .cell.tl .premium { color: var(--tl); }
+.cell.dl .premium-rule, .cell.dl .premium { color: var(--dl); opacity: 0.95; }
+
+.cell.dw .premium-rule { opacity: 0.55; }
+.cell.dl .premium-rule { opacity: 0.55; }
+
+.premium {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  pointer-events: none;
+}
+.premium-sym {
+  font-family: var(--type-serif);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+}
+.premium-kind {
+  font-family: var(--type-sans);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+.cell.star { color: var(--tw); }
+.premium-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Drag-and-drop affordances */
+.cell.drop-target {
+  box-shadow:
+    inset 0 0 0 1px var(--grid-line),
+    inset 0 0 0 2px var(--drop);
+}
+#rack.drop-target {
+  outline: 2px dashed var(--drop);
+  outline-offset: -6px;
+}
+.tile.dragging,
+.rack-slot.tile.dragging {
+  opacity: 0.45;
+}
+.cell.placed .tile {
+  cursor: grab;
+}
+.cell.placed .tile:active {
+  cursor: grabbing;
+}
+
+/* ----- tiles (placed) ----- */
+/* No bevel CSS — the texture asset already carries highlight + edge.
+   We keep only the outer drop-shadow (tile sits on the board) and a
+   thin colored ring for state (placed / valid / invalid). */
+.cell .tile {
+  position: absolute;
+  inset: 2px;
+  border-radius: 3px;
+  background: var(--tile-texture) center/cover transparent;
+  color: var(--tile-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--type-serif);
+  user-select: none;
+  cursor: pointer;
+  box-shadow: 0 2px 3px var(--tile-shadow);
+  transition: transform 90ms ease, box-shadow 120ms ease;
+}
+.tile-letter {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(14px, 2.4vw, 22px);
+  font-weight: 500;
+  line-height: 1;
+  margin-top: -1px;
+  font-feature-settings: "lnum" 1;
+}
+.tile-points {
+  position: absolute;
+  z-index: 1;
+  right: 4px;
+  bottom: 2px;
+  font-family: var(--type-mono);
+  font-size: clamp(7px, 0.85vw, 10px);
+  font-weight: 600;
+  opacity: 0.65;
+  font-feature-settings: "tnum" 1;
+}
+
+/* States for tentative tiles — outline only, no inset bevel. */
+.cell.placed .tile { box-shadow: 0 4px 8px rgba(34,22,8,0.40), inset 0 0 0 2px var(--gold); }
+.cell.invalid .tile { box-shadow: 0 4px 8px rgba(34,22,8,0.40), inset 0 0 0 2px var(--invalid); }
+.cell.valid .tile { box-shadow: 0 4px 8px rgba(34,22,8,0.40), inset 0 0 0 2px var(--valid); }
+
+/* ----- rack ----- */
 #rack {
-  display: grid; grid-template-columns: repeat(7, 1fr);
-  gap: 4px; margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 14px;
+  padding: 10px 12px 14px;
+  background: linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.15),
+    inset 0 2px 6px rgba(34,22,8,0.45),
+    0 8px 18px rgba(34,22,8,0.30);
+  position: relative;
+}
+#rack::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background-image:
+    repeating-linear-gradient(88deg,
+      rgba(0,0,0,0.06) 0 2px, transparent 2px 9px,
+      rgba(255,255,255,0.04) 9px 10px, transparent 10px 18px);
+  pointer-events: none;
+}
+#rack::after {
+  content: '';
+  position: absolute;
+  left: 12px; right: 12px; bottom: 5px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.45), transparent);
+  border-radius: 2px;
 }
 .rack-slot {
-  aspect-ratio: 1/1; background: var(--panel); border-radius: 4px;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: bold; cursor: grab;
+  aspect-ratio: 1 / 1;
+  border-radius: 3px;
+  background: rgba(34,22,8,0.30);
+  box-shadow: inset 0 1px 3px rgba(34,22,8,0.55);
+  padding: 2px;
+  position: relative;
 }
-.rack-slot.tile { background: var(--tile); color: var(--tile-fg); }
+/* Rack slots that have a tile use the tile look. rack.js gives them
+   `.rack-slot.tile` with a `.tile-letter` + (optional) `.tile-points` child. */
+.rack-slot.tile {
+  background: var(--tile-texture) center/cover transparent;
+  color: var(--tile-ink);
+  font-family: var(--type-serif);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  box-shadow: 0 3px 5px var(--tile-shadow);
+  transition: transform 80ms ease, box-shadow 120ms ease;
+}
+.rack-slot.tile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 10px var(--tile-shadow);
+}
+.rack-slot.tile:active { cursor: grabbing; }
+.rack-slot.tile .tile-letter {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(20px, 3.6vw, 32px);
+  font-weight: 500;
+  line-height: 1;
+  margin-top: -1px;
+  font-feature-settings: "lnum" 1;
+}
+.rack-slot.tile .tile-points {
+  position: absolute;
+  z-index: 1;
+  right: 5px;
+  bottom: 3px;
+  font-family: var(--type-mono);
+  font-size: clamp(8px, 1.0vw, 11px);
+  font-weight: 600;
+  opacity: 0.65;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ----- controls ----- */
 #controls {
-  display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
 }
 #controls button {
-  background: var(--panel); color: var(--fg); border: 1px solid #444;
-  padding: 8px 12px; border-radius: 4px; cursor: pointer;
+  font-family: var(--type-serif);
+  font-size: 14px;
+  background: var(--tile-bg-mid);
+  color: var(--tile-ink);
+  border: 1px solid var(--tile-edge);
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 var(--tile-edge), inset 0 1px 0 rgba(255,255,255,0.7);
+  transition: transform 80ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+#controls button:hover:not(:disabled) {
+  background: var(--tile-bg-hi);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 0 var(--tile-edge), inset 0 1px 0 rgba(255,255,255,0.7);
+}
+#controls button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 2px var(--tile-shadow);
 }
 #controls button:disabled { opacity: 0.4; cursor: not-allowed; }
-#status { margin-top: 12px; min-height: 24px; opacity: 0.8; }
+#controls #btn-submit {
+  background: #2a2118;
+  color: var(--tile-bg-mid);
+  border-color: #2a2118;
+  box-shadow: 0 1px 0 #1a140c, inset 0 1px 0 rgba(255,255,255,0.10);
+}
+#controls #btn-submit:hover:not(:disabled) {
+  background: #3a2a1c;
+}
+
+/* ----- per-theme board palettes -----
+   Each theme overrides --board-*, --frame-*, --grid-line, --page-bg.
+   Drop in a real photo by setting --board-image to url(...); the CSS
+   layers it on top of the gradient, and the gradient becomes the
+   color fallback for areas the texture doesn't cover.                */
+body[data-theme="ivory"] {
+  --board-hi: #f3e3c0;
+  --board-mid: #ecd6a8;
+  --board-lo:  #ddc28a;
+  --frame-hi:  #9a774f;
+  --frame-lo:  #7a5a37;
+  --grid-line: rgba(56,38,20,0.18);
+}
+body[data-theme="marble"] {
+  --board-hi: #ece5d4;
+  --board-mid: #d6cdb6;
+  --board-lo:  #b8ad94;
+  --frame-hi:  #6b5d4a;
+  --frame-lo:  #443a2c;
+  --grid-line: rgba(40,30,18,0.22);
+  --page-bg:   #e8e2d3;
+}
+body[data-theme="jade"] {
+  --board-hi: #2f5a3e;
+  --board-mid: #234a31;
+  --board-lo:  #173724;
+  --frame-hi:  #b8902f;
+  --frame-lo:  #8a6b1e;
+  --grid-line: rgba(255,247,226,0.18);
+  --page-bg:   #1a2f24;
+  --page-ink:  #efe4c4;
+  --page-muted: rgba(239,228,196,0.55);
+  --tw: #e8704c;
+  --dw: #e0a060;
+  --tl: #6da7c4;
+  --dl: #95c4d8;
+}
+body[data-theme="wood"] {
+  --board-hi: #2d5a3c;
+  --board-mid: #244832;
+  --board-lo:  #1c3826;
+  --frame-hi:  #9a774f;
+  --frame-lo:  #5a3f24;
+  --grid-line: rgba(0,0,0,0.30);
+  --page-bg:   #efe6d3;
+  --tw: #e87053;
+  --dw: #e8a263;
+  --tl: #6dadc4;
+  --dl: #98c4d8;
+}
+
+/* ----- jade theme: cream ink on tiles ----- */
+body[data-theme="jade"] .cell .tile,
+body[data-theme="jade"] .rack-slot.tile,
+body[data-theme="jade"] .swap-tile,
+body[data-theme="jade"] .picker-btn {
+  color: var(--tile-bg-hi);
+}
+body[data-theme="jade"] .tile.blank .tile-letter {
+  color: rgba(255, 250, 238, 0.65);
+}
+body[data-theme="jade"] .rack-slot.tile.blank .tile-letter {
+  color: var(--tile-bg-hi);
+}
+
+/* ----- blank tile letter style ----- */
+.tile.blank .tile-letter {
+  font-style: italic;
+  color: rgba(26, 20, 12, 0.55);
+}
+.rack-slot.tile.blank .tile-letter {
+  font-style: normal;
+  color: var(--tile-ink);
+}
+
+/* ----- blank-letter picker modal ----- */
+.picker-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(34, 22, 8, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  animation: picker-fade 120ms ease;
+}
+@keyframes picker-fade { from { opacity: 0; } to { opacity: 1; } }
+.picker-panel {
+  background:
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  border-radius: 8px;
+  padding: 18px 18px 14px;
+  max-width: 360px;
+  width: min(360px, 92vw);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -2px 6px rgba(0,0,0,0.30),
+    0 18px 36px rgba(34,22,8,0.50);
+}
+.picker-title {
+  font-family: var(--type-serif);
+  font-style: italic;
+  font-size: 16px;
+  text-align: center;
+  color: var(--tile-bg-mid);
+  margin-bottom: 12px;
+}
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.picker-btn {
+  aspect-ratio: 1 / 1;
+  border-radius: 3px;
+  border: none;
+  background: var(--tile-texture) center/cover transparent;
+  color: var(--tile-ink);
+  font-family: var(--type-serif);
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 3px var(--tile-shadow);
+  transition: transform 80ms ease, box-shadow 120ms ease;
+}
+.picker-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 8px var(--tile-shadow);
+}
+.picker-btn:active { transform: translateY(0); }
+.picker-cancel {
+  display: block;
+  margin: 14px auto 0;
+  font-family: var(--type-serif);
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid var(--tile-bg-mid);
+  color: var(--tile-bg-mid);
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.picker-cancel:hover { opacity: 1; }
+
+/* swap variant */
+.swap-panel { max-width: 420px; width: min(420px, 92vw); }
+.picker-subtitle {
+  text-align: center;
+  font-family: var(--type-serif);
+  font-size: 12px;
+  color: rgba(255, 247, 226, 0.65);
+  margin: -6px 0 12px;
+}
+.swap-tray {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 10px 8px;
+  background: rgba(34, 22, 8, 0.30);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgba(34, 22, 8, 0.55);
+  margin-bottom: 12px;
+}
+.swap-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 3px;
+  border: none;
+  background: var(--tile-texture) center/cover transparent;
+  color: var(--tile-ink);
+  font-family: var(--type-serif);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 3px var(--tile-shadow);
+  transition: transform 80ms ease, box-shadow 120ms ease;
+}
+.swap-tile .tile-letter {
+  font-size: clamp(18px, 2.6vw, 22px);
+  line-height: 1;
+}
+.swap-tile .tile-points {
+  position: absolute;
+  right: 5px; bottom: 3px;
+  font-family: var(--type-mono);
+  font-size: 9px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+.swap-tile:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 8px var(--tile-shadow);
+}
+.swap-tile.selected {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 10px rgba(34,22,8,0.45), inset 0 0 0 2px var(--gold);
+}
+.swap-tile.in-use {
+  cursor: not-allowed;
+  opacity: 0.30;
+  filter: grayscale(60%);
+}
+.picker-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.picker-actions .picker-cancel { margin: 0; }
+.picker-confirm {
+  font-family: var(--type-serif);
+  font-size: 13px;
+  background: var(--tile-bg-mid);
+  color: var(--tile-ink);
+  border: 1px solid var(--tile-edge);
+  padding: 6px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 var(--tile-edge), inset 0 1px 0 rgba(255,255,255,0.7);
+}
+.picker-confirm:hover:not(:disabled) {
+  background: var(--tile-bg-hi);
+  transform: translateY(-1px);
+}
+.picker-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* confirm-action variant */
+.confirm-panel { max-width: 360px; width: min(360px, 92vw); }
+.confirm-panel .picker-title { margin-bottom: 8px; }
+.confirm-body {
+  font-family: var(--type-serif);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--tile-bg-mid);
+  text-align: center;
+  margin: 0 4px 16px;
+}
+.picker-confirm.picker-danger {
+  background: var(--invalid);
+  color: var(--tile-bg-hi);
+  border-color: #8a2a1f;
+}
+.picker-confirm.picker-danger:hover:not(:disabled) {
+  background: #c44030;
+}
+
+/* ----- mute toggle ----- */
+#btn-mute, #btn-theme {
+  position: fixed;
+  top: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  font-family: var(--type-serif);
+  font-weight: 600;
+  background: var(--tile-bg-mid);
+  color: var(--tile-ink);
+  border: 1px solid var(--tile-edge);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px var(--tile-shadow);
+  z-index: 50;
+  padding: 0;
+  line-height: 1;
+}
+#btn-mute { right: 14px; }
+#btn-theme { right: 58px; font-size: 14px; }
+#btn-mute:hover, #btn-theme:hover {
+  transform: translateY(-1px);
+  background: var(--tile-bg-hi);
+}
+
+/* ----- opponent move callouts ----- */
+.callout-host {
+  position: fixed;
+  top: 60px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  z-index: 40;
+  pointer-events: none;
+}
+.callout {
+  min-width: 160px;
+  max-width: 240px;
+  padding: 10px 14px 12px;
+  background:
+    linear-gradient(155deg,
+      var(--tile-bg-hi) 0%,
+      var(--tile-bg-mid) 28%,
+      #f0e4c6 78%,
+      var(--tile-bg-lo) 100%);
+  color: var(--tile-ink);
+  border-radius: 4px;
+  font-family: var(--type-serif);
+  box-shadow:
+    0 1px 0 var(--tile-edge),
+    0 8px 18px rgba(34,22,8,0.40),
+    inset 0 1px 0 rgba(255,255,255,0.75),
+    inset 0 -2px 0 var(--tile-edge-deep);
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+.callout.in { opacity: 1; transform: translateX(0); }
+.callout.out { opacity: 0; transform: translateX(20px); }
+.callout-who {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--page-muted);
+  margin-bottom: 2px;
+}
+.callout-words {
+  font-size: 18px;
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1.15;
+  word-break: break-word;
+}
+.callout-score {
+  margin-top: 6px;
+  font-family: var(--type-mono);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--tw);
+  line-height: 1;
+}
+.callout-quiet .callout-score { display: none; }
+.callout-quiet .callout-words { color: var(--page-muted); font-size: 15px; }
+
+/* ----- status ----- */
+#status {
+  margin-top: 12px;
+  min-height: 22px;
+  font-family: var(--type-serif);
+  font-style: italic;
+  color: var(--page-muted);
+}

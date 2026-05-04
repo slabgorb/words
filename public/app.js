@@ -2,6 +2,10 @@ import { ui, fetchState, loadTentative, saveTentative, clearTentative } from './
 import { renderBoard } from './board.js';
 import { renderRack, shuffleRack } from './rack.js';
 import { scheduleValidate } from './validator.js';
+import { pickBlankLetter, pickSwapTiles, confirmAction } from './picker.js';
+import { play, playForScore, primeAudio, isMuted, toggleMuted } from './sounds.js';
+import { cycleTheme, getTheme } from './themes.js';
+import { showMoveCallout, showPassCallout, showSwapCallout } from './callout.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -22,13 +26,23 @@ let lastValidation = null;
 
 function refresh() {
   const validation = lastValidation ? buildValidationPositions(lastValidation) : null;
-  renderBoard($('#board'), { onCellClick: handleBoardClick, validation });
-  renderRack($('#rack'), { onSlotClick: handleRackClick });
+  renderBoard($('#board'), {
+    onCellClick: handleBoardClick,
+    onCellDrop: handleCellDrop,
+    validation,
+  });
+  renderRack($('#rack'), {
+    onSlotClick: handleRackClick,
+    onRecallDrop: handleRackRecall,
+    onRackReorder: handleRackReorder,
+  });
   $('#score-keith').textContent = `Keith: ${ui.server.scores.keith}`;
   $('#score-sonia').textContent = `Sonia: ${ui.server.scores.sonia}`;
   $('#bag-count').textContent = `bag: ${ui.server.bag.length}`;
   const myTurn = ui.server.currentTurn === ui.server.you;
-  $('#turn-indicator').textContent = myTurn ? 'Your turn' : `${ui.server.currentTurn}'s turn`;
+  const opponent = ui.server.currentTurn;
+  const opponentName = opponent ? opponent[0].toUpperCase() + opponent.slice(1) : '';
+  $('#turn-indicator').textContent = myTurn ? 'Your turn' : `${opponentName}'s turn`;
   $('#btn-submit').disabled = !myTurn || !lastValidation?.valid;
   if (lastValidation) {
     if (lastValidation.valid) {
@@ -62,19 +76,97 @@ function handleRackClick(idx, _letter) {
   $('#status').textContent = `Selected rack tile ${idx} — click a board cell to place.`;
 }
 
-function handleBoardClick(r, c) {
-  if (selectedRackIdx === null) return;
-  if (ui.server.board[r][c] !== null) return;
-  if (ui.tentative.some(t => t.r === r && t.c === c)) return;
-  const letter = ui.rackOrder[selectedRackIdx];
-  ui.tentative.push({ r, c, letter, fromRackIdx: selectedRackIdx, blank: letter === '_' });
+async function placeFromRack(r, c, idx) {
+  if (ui.tentative.some(t => t.fromRackIdx === idx)) return;
+  let letter = ui.rackOrder[idx];
+  if (letter == null) return;
+  let blank = false;
+  if (letter === '_') {
+    const chosen = await pickBlankLetter();
+    if (chosen == null) return;
+    blank = true;
+    letter = chosen;
+    // Re-check the destination after the async wait — server state or
+    // tentative list may have changed while the picker was open.
+    if (ui.server.board[r][c] !== null) return;
+    if (ui.tentative.some(t => t.r === r && t.c === c)) return;
+  }
+  ui.tentative.push({ r, c, letter, fromRackIdx: idx, blank });
   selectedRackIdx = null;
   saveTentative();
+  lastValidation = null;
+  play('click');
   refresh();
   scheduleValidate((result) => { lastValidation = result; refresh(); });
 }
 
+async function handleBoardClick(r, c) {
+  // Click a tentative tile to recall it back to the rack.
+  const tentIdx = ui.tentative.findIndex(t => t.r === r && t.c === c);
+  if (tentIdx !== -1) {
+    ui.tentative.splice(tentIdx, 1);
+    saveTentative();
+    lastValidation = null;
+    play('swoosh');
+    refresh();
+    if (ui.tentative.length) {
+      scheduleValidate((result) => { lastValidation = result; refresh(); });
+    }
+    return;
+  }
+  if (selectedRackIdx === null) return;
+  if (ui.server.board[r][c] !== null) return;
+  await placeFromRack(r, c, selectedRackIdx);
+}
+
+async function handleCellDrop(r, c, payload) {
+  if (ui.server.board[r][c] !== null) return;
+  if (ui.tentative.some(t => t.r === r && t.c === c)) return;
+
+  if (payload.startsWith('rack:')) {
+    const idx = Number(payload.slice(5));
+    if (Number.isNaN(idx)) return;
+    await placeFromRack(r, c, idx);
+    return;
+  }
+  if (payload.startsWith('cell:')) {
+    const [, fromR, fromC] = payload.split(':').map(Number);
+    const t = ui.tentative.find(x => x.r === fromR && x.c === fromC);
+    if (!t) return;
+    t.r = r;
+    t.c = c;
+    selectedRackIdx = null;
+    saveTentative();
+    lastValidation = null;
+    play('click');
+    refresh();
+    scheduleValidate((result) => { lastValidation = result; refresh(); });
+  }
+}
+
+function handleRackReorder(fromIdx, toIdx) {
+  const a = ui.rackOrder.slice();
+  [a[fromIdx], a[toIdx]] = [a[toIdx], a[fromIdx]];
+  ui.rackOrder = a;
+  play('click');
+  refresh();
+}
+
+function handleRackRecall(r, c) {
+  const idx = ui.tentative.findIndex(t => t.r === r && t.c === c);
+  if (idx === -1) return;
+  ui.tentative.splice(idx, 1);
+  saveTentative();
+  lastValidation = null;
+  play('swoosh');
+  refresh();
+  if (ui.tentative.length) {
+    scheduleValidate((result) => { lastValidation = result; refresh(); });
+  }
+}
+
 function recall() {
+  if (ui.tentative.length) play('swoosh');
   clearTentative();
   lastValidation = null;
   refresh();
@@ -98,6 +190,8 @@ async function submitMove() {
     $('#status').textContent = `Server rejected: ${body.error || r.status}`;
     return;
   }
+  const score = lastValidation?.score ?? 0;
+  playForScore(score);
   clearTentative();
   lastValidation = null;
   await fetchState();
@@ -107,7 +201,13 @@ async function submitMove() {
 }
 
 async function passTurn() {
-  if (!confirm('Pass your turn?')) return;
+  const ok = await confirmAction({
+    title: 'Pass your turn?',
+    body: 'You will skip without scoring. Two passes in a row by both players ends the game.',
+    confirmText: 'Pass turn',
+    cancelText: 'Keep playing',
+  });
+  if (!ok) return;
   const r = await fetch('/api/pass', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ clientNonce: nonce() })
@@ -121,9 +221,9 @@ async function passTurn() {
 }
 
 async function swapTiles() {
-  const which = prompt('Type the rack letters to swap (e.g. ABC):');
-  if (!which) return;
-  const tiles = which.toUpperCase().split('').filter(Boolean);
+  const disabledIdx = new Set(ui.tentative.map(t => t.fromRackIdx));
+  const tiles = await pickSwapTiles({ rackOrder: ui.rackOrder, disabledIdx });
+  if (!tiles || tiles.length === 0) return;
   const r = await fetch('/api/swap', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ tiles, clientNonce: nonce() })
@@ -139,7 +239,14 @@ async function swapTiles() {
 }
 
 async function resign() {
-  if (!confirm('Resign and lose this game?')) return;
+  const ok = await confirmAction({
+    title: 'Resign this game?',
+    body: 'Your opponent wins. This cannot be undone.',
+    confirmText: 'Resign',
+    cancelText: 'Keep playing',
+    danger: true,
+  });
+  if (!ok) return;
   const r = await fetch('/api/resign', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ clientNonce: nonce() })
@@ -167,11 +274,57 @@ async function maybeOfferNewGame() {
   };
 }
 
+function parsePayload(e) {
+  try { return JSON.parse(e.data); } catch { return {}; }
+}
+
+// Returns a function that, when called after fetchState, plays the
+// "your turn" chime if the turn just flipped to the local player.
+function captureTurnTransition() {
+  const wasMyTurn = ui.server?.currentTurn === ui.server?.you;
+  return () => {
+    const isMyTurn = ui.server?.currentTurn === ui.server?.you;
+    const active = ui.server?.status !== 'ended';
+    if (active && isMyTurn && !wasMyTurn) play('your-turn');
+  };
+}
+
 function startSSE() {
   const es = new EventSource('/api/events');
-  es.addEventListener('move', async () => { await fetchState(); ui.rackOrder = ui.server.racks[ui.server.you].slice(); refresh(); });
-  es.addEventListener('pass', async () => { await fetchState(); refresh(); });
-  es.addEventListener('swap', async () => { await fetchState(); ui.rackOrder = ui.server.racks[ui.server.you].slice(); refresh(); });
+  es.addEventListener('move', async (e) => {
+    const p = parsePayload(e);
+    const checkTurn = captureTurnTransition();
+    await fetchState();
+    ui.rackOrder = ui.server.racks[ui.server.you].slice();
+    refresh();
+    // Only react to the opponent's move — your own callout/cheer fired in submitMove.
+    if (p.by && p.by !== ui.server.you) {
+      showMoveCallout(p);
+      playForScore(p.score ?? 0);
+      checkTurn();
+    }
+  });
+  es.addEventListener('pass', async (e) => {
+    const p = parsePayload(e);
+    const checkTurn = captureTurnTransition();
+    await fetchState();
+    refresh();
+    if (p.by && p.by !== ui.server.you) {
+      showPassCallout(p);
+      checkTurn();
+    }
+  });
+  es.addEventListener('swap', async (e) => {
+    const p = parsePayload(e);
+    const checkTurn = captureTurnTransition();
+    await fetchState();
+    ui.rackOrder = ui.server.racks[ui.server.you].slice();
+    refresh();
+    if (p.by && p.by !== ui.server.you) {
+      showSwapCallout(p);
+      checkTurn();
+    }
+  });
   es.addEventListener('resign', async () => { await fetchState(); refresh(); });
   es.addEventListener('new-game', () => location.reload());
   es.onerror = () => { /* browser auto-reconnects */ };
@@ -195,13 +348,62 @@ async function init() {
   refresh();
 
   $('#btn-recall').addEventListener('click', recall);
-  $('#btn-shuffle').addEventListener('click', () => { shuffleRack(); refresh(); });
+  $('#btn-shuffle').addEventListener('click', () => { play('swoosh'); shuffleRack(); refresh(); });
   $('#btn-submit').addEventListener('click', submitMove);
   $('#btn-pass').addEventListener('click', passTurn);
   $('#btn-swap').addEventListener('click', swapTiles);
   $('#btn-resign').addEventListener('click', resign);
+
+  setupMuteToggle();
+  setupThemeToggle();
+  // Browsers gate Audio.play() until the user interacts. Prime the cache on
+  // the first pointer/keyboard event so the SSE-driven applause for the
+  // opponent's move actually plays.
+  const primer = () => {
+    primeAudio();
+    document.removeEventListener('pointerdown', primer);
+    document.removeEventListener('keydown', primer);
+  };
+  document.addEventListener('pointerdown', primer);
+  document.addEventListener('keydown', primer);
+
   await maybeOfferNewGame();
   startSSE();
+}
+
+function setupMuteToggle() {
+  const btn = document.createElement('button');
+  btn.id = 'btn-mute';
+  btn.type = 'button';
+  btn.title = 'Toggle sound';
+  btn.setAttribute('aria-label', isMuted() ? 'Unmute sound' : 'Mute sound');
+  const sync = () => {
+    btn.textContent = isMuted() ? '🔇' : '🔊';
+    btn.setAttribute('aria-label', isMuted() ? 'Unmute sound' : 'Mute sound');
+  };
+  sync();
+  btn.addEventListener('click', () => { toggleMuted(); sync(); if (!isMuted()) play('click'); });
+  document.body.appendChild(btn);
+}
+
+function setupThemeToggle() {
+  const btn = document.createElement('button');
+  btn.id = 'btn-theme';
+  btn.type = 'button';
+  const sync = () => {
+    const t = getTheme();
+    btn.title = `Theme: ${t} (click to cycle)`;
+    btn.setAttribute('aria-label', `Cycle tile theme — current: ${t}`);
+    btn.textContent = t[0].toUpperCase();
+  };
+  sync();
+  btn.addEventListener('click', () => {
+    cycleTheme();
+    sync();
+    refresh();
+    play('click');
+  });
+  document.body.appendChild(btn);
 }
 
 init();
