@@ -187,7 +187,7 @@ export function applyMove(state, move) {
       playerRack.splice(idx, 1);
     }
     // Refill rack from front of bag
-    while (playerRack.length < 7 && next.bag.length > 0) {
+    while (playerRack.length < RACK_SIZE && next.bag.length > 0) {
       playerRack.push(next.bag.shift());
     }
     next.scores[move.playerId] = (next.scores[move.playerId] ?? 0) + (move.scoreDelta ?? 0);
