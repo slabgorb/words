@@ -22,6 +22,8 @@ node_modules/
 # Game runtime
 game.db
 game.db-journal
+game.db-shm
+game.db-wal
 # Dictionary (downloaded, not committed)
 data/enable2k.txt
 # Identity signing secret
