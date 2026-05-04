@@ -1,0 +1,21 @@
+# Cloudflared config for the `words` tunnel.
+# Copy to ~/.cloudflared/words-config.yml after running:
+#
+#   cloudflared tunnel login          # if you haven't authenticated cloudflared on this machine
+#   cloudflared tunnel create words   # creates a UUID + credentials JSON in ~/.cloudflared/
+#   cloudflared tunnel route dns --overwrite-dns <UUID> words.slabgorb.com
+#
+# Replace <UUID> below with the value cloudflared printed.
+
+tunnel: <UUID>
+credentials-file: /Users/<you>/.cloudflared/<UUID>.json
+
+ingress:
+  - hostname: words.slabgorb.com
+    service: http://localhost:3000
+    originRequest:
+      connectTimeout: 30s
+      noHappyEyeballs: true
+      noTLSVerify: false
+      disableChunkedEncoding: false
+  - service: http_status:404

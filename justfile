@@ -32,6 +32,7 @@ test:
 
 # Bring up both services (server + tunnel) under launchd
 up: up-server up-tunnel
+    @sleep 2
     @echo ""
     @just status
 
@@ -90,14 +91,21 @@ logs-tunnel:
 
 # --- Install / uninstall ---
 
-# Confirm both LaunchAgent plists are in place (creates parent dirs)
+# Materialize LaunchAgent plists from infra/launchd templates into ~/Library/LaunchAgents
+# Substitutes __HOME__ and __PROJECT_DIR__. Idempotent — overwrites installed copies.
 install:
     @mkdir -p {{ home_directory() }}/Library/LaunchAgents {{ home_directory() }}/Library/Logs
-    @test -f {{ server_plist }} || (echo "missing: {{ server_plist }} — re-create from version control" && exit 1)
-    @test -f {{ tunnel_plist }} || (echo "missing: {{ tunnel_plist }} — re-create from version control" && exit 1)
+    @test -f {{ root }}/infra/launchd/{{ server_label }}.plist || (echo "missing template: infra/launchd/{{ server_label }}.plist" && exit 1)
+    @test -f {{ root }}/infra/launchd/{{ tunnel_label }}.plist || (echo "missing template: infra/launchd/{{ tunnel_label }}.plist" && exit 1)
+    @sed -e 's|__HOME__|{{ home_directory() }}|g' -e 's|__PROJECT_DIR__|{{ root }}|g' \
+        {{ root }}/infra/launchd/{{ server_label }}.plist > {{ server_plist }}
+    @sed -e 's|__HOME__|{{ home_directory() }}|g' -e 's|__PROJECT_DIR__|{{ root }}|g' \
+        {{ root }}/infra/launchd/{{ tunnel_label }}.plist > {{ tunnel_plist }}
     @plutil -lint {{ server_plist }} > /dev/null
     @plutil -lint {{ tunnel_plist }} > /dev/null
-    @echo "both plists present and valid"
+    @echo "installed: {{ server_plist }}"
+    @echo "installed: {{ tunnel_plist }}"
+    @echo "next: cp infra/cloudflared/words-config.yml.example ~/.cloudflared/words-config.yml (one-time, see infra/README.md)"
 
 # Stop both services and remove their LaunchAgent plists
 uninstall: down
