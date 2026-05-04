@@ -36,13 +36,36 @@ function refresh() {
     onRecallDrop: handleRackRecall,
     onRackReorder: handleRackReorder,
   });
-  $('#score-keith').textContent = `Keith: ${ui.server.scores.keith}`;
-  $('#score-sonia').textContent = `Sonia: ${ui.server.scores.sonia}`;
-  $('#bag-count').textContent = `bag: ${ui.server.bag.length}`;
-  const myTurn = ui.server.currentTurn === ui.server.you;
-  const opponent = ui.server.currentTurn;
-  const opponentName = opponent ? opponent[0].toUpperCase() + opponent.slice(1) : '';
-  $('#turn-indicator').textContent = myTurn ? 'Your turn' : `${opponentName}'s turn`;
+  const scores = ui.server.scores;
+  const current = ui.server.currentTurn;
+  const ended = ui.server.status === 'ended';
+
+  const keithEl = $('#score-keith');
+  const soniaEl = $('#score-sonia');
+  keithEl.textContent = `Keith ${scores.keith}`;
+  soniaEl.textContent = `Sonia ${scores.sonia}`;
+  keithEl.classList.toggle('active', !ended && current === 'keith');
+  soniaEl.classList.toggle('active', !ended && current === 'sonia');
+
+  const pill = $('#turn-pill');
+  if (ended) {
+    pill.textContent = 'Game over';
+    pill.dataset.state = 'ended';
+  } else {
+    const me = ui.server.you;
+    const myTurn = current === me;
+    pill.textContent = myTurn
+      ? 'Your turn'
+      : `${current[0].toUpperCase() + current.slice(1)}’s turn`;
+    pill.dataset.state = 'active';
+  }
+  pill.setAttribute('role', 'status');
+  pill.setAttribute('aria-live', 'polite');
+
+  $('#bag-count').textContent = `bag ${ui.server.bag.length}`;
+  const rackLeft = ui.server.racks?.[ui.server.you]?.length ?? 0;
+  $('#rack-remaining').textContent = `${rackLeft} in rack`;
+  const myTurn = current === ui.server.you;
   $('#btn-submit').disabled = !myTurn || !lastValidation?.valid;
   if (lastValidation) {
     if (lastValidation.valid) {

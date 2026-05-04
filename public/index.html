@@ -19,10 +19,15 @@
 
   <main id="game" hidden>
     <header id="topbar">
-      <div id="score-keith"></div>
-      <div id="bag-count"></div>
-      <div id="turn-indicator"></div>
-      <div id="score-sonia"></div>
+      <div class="topbar-row">
+        <div id="score-keith" class="score"></div>
+        <div id="turn-pill" class="turn-pill"></div>
+        <div id="score-sonia" class="score score-right"></div>
+      </div>
+      <div class="topbar-sub">
+        <span id="bag-count"></span>
+        <span id="rack-remaining"></span>
+      </div>
     </header>
     <section id="board"></section>
     <section id="rack"></section>
