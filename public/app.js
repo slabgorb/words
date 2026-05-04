@@ -1,6 +1,7 @@
 import { ui, fetchState, loadTentative, saveTentative, clearTentative } from './state.js';
 import { renderBoard } from './board.js';
 import { renderRack, shuffleRack } from './rack.js';
+import { scheduleValidate } from './validator.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -17,15 +18,42 @@ async function chooseIdentity(id) {
 }
 
 let selectedRackIdx = null;
+let lastValidation = null;
 
 function refresh() {
-  renderBoard($('#board'), { onCellClick: handleBoardClick });
+  const validation = lastValidation ? buildValidationPositions(lastValidation) : null;
+  renderBoard($('#board'), { onCellClick: handleBoardClick, validation });
   renderRack($('#rack'), { onSlotClick: handleRackClick });
   $('#score-keith').textContent = `Keith: ${ui.server.scores.keith}`;
   $('#score-sonia').textContent = `Sonia: ${ui.server.scores.sonia}`;
   $('#bag-count').textContent = `bag: ${ui.server.bag.length}`;
   const myTurn = ui.server.currentTurn === ui.server.you;
   $('#turn-indicator').textContent = myTurn ? 'Your turn' : `${ui.server.currentTurn}'s turn`;
+  $('#btn-submit').disabled = !myTurn || !lastValidation?.valid;
+  if (lastValidation) {
+    if (lastValidation.valid) {
+      $('#status').textContent = `Words: ${lastValidation.words.map(w => w.word).join(', ')} — +${lastValidation.score}`;
+    } else if (lastValidation.reason) {
+      $('#status').textContent = `Invalid: ${lastValidation.reason}`;
+    } else {
+      const bad = lastValidation.words.filter(w => !w.ok).map(w => w.word).join(', ');
+      $('#status').textContent = `Not in dictionary: ${bad}`;
+    }
+  } else {
+    $('#status').textContent = ui.tentative.length ? '...' : '';
+  }
+}
+
+function buildValidationPositions(v) {
+  // Mark tentative cells as valid/invalid based on whether all words involving them are ok.
+  const validPositions = new Set();
+  const invalidPositions = new Set();
+  for (const t of ui.tentative) {
+    const k = `${t.r},${t.c}`;
+    if (v.valid) validPositions.add(k);
+    else invalidPositions.add(k);
+  }
+  return { validPositions, invalidPositions };
 }
 
 function handleRackClick(idx, _letter) {
@@ -42,10 +70,12 @@ function handleBoardClick(r, c) {
   selectedRackIdx = null;
   saveTentative();
   refresh();
+  scheduleValidate((result) => { lastValidation = result; refresh(); });
 }
 
 function recall() {
   clearTentative();
+  lastValidation = null;
   refresh();
 }
 
