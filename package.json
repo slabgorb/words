@@ -1,0 +1,17 @@
+{
+  "name": "words",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server/server.js",
+    "test": "node --test test/",
+    "fetch-dict": "node bin/fetch-dictionary.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.0"
+  }
+}

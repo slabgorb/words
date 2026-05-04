@@ -17,3 +17,10 @@ tui-pid
 tmux.conf
 # Brainstorming visual companion sessions
 .superpowers/
+# Node
+node_modules/
+# Game runtime
+game.db
+game.db-journal
+# Dictionary (downloaded, not committed)
+data/enable2k.txt
