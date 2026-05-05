@@ -47,7 +47,7 @@ export function buildRoutes({ db, dict, isProd, devUser }) {
 
   r.post('/games', requireIdentity, (req, res) => {
     const { otherUserId } = req.body ?? {};
-    if (typeof otherUserId !== 'number') return res.status(400).json({ error: 'bad-request' });
+    if (!Number.isInteger(otherUserId)) return res.status(400).json({ error: 'bad-request' });
     if (otherUserId === req.user.id) return res.status(400).json({ error: 'self-pairing' });
     const other = getUserById(db, otherUserId);
     if (!other) return res.status(404).json({ error: 'unknown-user' });
@@ -230,7 +230,7 @@ export function buildRoutes({ db, dict, isProd, devUser }) {
     const state = toEngineState(game);
     const nextEs = applyEndGameAdjustment(state, 'resigned', req.side);
     const next = fromEngineState(nextEs);
-    persistMove(db, game.id, next, { side: req.side, kind: 'pass', scoreDelta: 0, clientNonce });
+    persistMove(db, game.id, next, { side: req.side, kind: 'resign', scoreDelta: 0, clientNonce });
     broadcast(game.id, { type: 'resign', payload: { by: req.side } });
     res.json({ ok: true, ended: 'resigned' });
   });

@@ -262,7 +262,7 @@ async function confirmNewGame() {
     return;
   }
   const body = await r.json();
-  if (body.started) location.reload();
+  if (body.started) location.href = `/game/${body.newGameId}`;
   else {
     $('#status').textContent = `Waiting for ${body.waitingFor} to confirm...`;
     $('#status').classList.add('show');
@@ -370,7 +370,10 @@ function startSSE() {
     }
   });
   es.addEventListener('resign', async () => { await fetchState(); refresh(); });
-  es.addEventListener('new-game', () => location.reload());
+  es.addEventListener('new-game', (e) => {
+    const p = parsePayload(e);
+    location.href = p.newGameId ? `/game/${p.newGameId}` : '/';
+  });
   es.onerror = () => { /* browser auto-reconnects */ };
 }
 
