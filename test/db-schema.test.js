@@ -30,13 +30,20 @@ test('one_active_per_pair_type partial unique index exists', () => {
   assert.match(idx.sql, /WHERE\s+status\s*=\s*'active'/i);
 });
 
-test('moves table has game_id and side columns; client_nonce unique per game', () => {
+test('turn_log table exists with expected columns', () => {
   const db = openDb(':memory:');
-  const cols = db.prepare("PRAGMA table_info(moves)").all().map(c => c.name);
-  for (const expected of ['id', 'game_id', 'side', 'kind', 'placement',
-    'words_formed', 'score_delta', 'client_nonce', 'created_at']) {
-    assert.ok(cols.includes(expected), `moves missing ${expected}`);
+  const cols = db.prepare("PRAGMA table_info(turn_log)").all().map(c => c.name);
+  for (const expected of ['id', 'game_id', 'turn_number', 'side', 'kind', 'summary', 'created_at']) {
+    assert.ok(cols.includes(expected), `turn_log missing ${expected}`);
   }
-  const idx = db.prepare("SELECT sql FROM sqlite_master WHERE type='index' AND name='moves_nonce_per_game'").get();
-  assert.ok(idx, 'moves_nonce_per_game index missing');
+  const idx = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='turn_log_by_game'").get();
+  assert.ok(idx, 'turn_log_by_game index missing');
+});
+
+test('legacy moves table is dropped', () => {
+  const db = openDb(':memory:');
+  const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='moves'").get();
+  assert.equal(row, undefined, 'moves table should not exist after migration');
+  const idx = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='moves_nonce_per_game'").get();
+  assert.equal(idx, undefined, 'moves_nonce_per_game index should be dropped');
 });
