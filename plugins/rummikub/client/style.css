@@ -2,8 +2,21 @@
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
-  background: url('assets/board-canvas.png') 0 0 / 2000px auto fixed repeat, #6c7484;
+  background: #3a4150;
   color: #f0e8d4;
+  position: relative;
+}
+/* Blurred + darkened texture on its own fixed layer beneath body content.
+   inset: -24px lets the blur edge bleed past the viewport so the soft
+   feathering doesn't reveal the underlying solid color at the borders. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -24px;
+  z-index: -1;
+  background: url('assets/board-canvas.png') 0 0 / 2000px auto repeat, #6c7484;
+  filter: blur(6px) brightness(0.62);
+  pointer-events: none;
 }
 header { display: flex; gap: 1rem; align-items: baseline; padding: 0.5rem 1rem; background: rgba(0, 0, 0, 0.35); border-bottom: 1px solid rgba(0, 0, 0, 0.45); color: #f0e8d4; backdrop-filter: blur(2px); }
 header .back { color: #d4cba8; text-decoration: none; }
