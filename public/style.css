@@ -924,3 +924,37 @@ body.dragging .cell.drop-target {
 .lockout h1 { font-size: 1.5rem; margin-bottom: 1rem; }
 .lockout p { line-height: 1.5; margin-bottom: 0.75rem; }
 .lockout a { color: #3b82f6; text-decoration: underline; }
+
+#home { max-width: 60rem; margin: 0 auto; padding: 1.5rem; }
+#home header h1 { font-family: 'Source Serif 4', serif; font-weight: 500; }
+.tiles {
+  display: grid; gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+}
+.tile {
+  position: relative; padding: 1rem 1rem 0.75rem;
+  border-radius: 0.5rem; background: #fff;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid var(--accent, #3b82f6);
+  display: flex; flex-direction: column; gap: 0.25rem;
+  cursor: default;
+}
+.tile-active { cursor: pointer; }
+.tile-active:hover { background: #f9fafb; }
+.tile-name { font-family: 'Source Serif 4', serif; font-size: 1.1rem; font-weight: 500; }
+.tile-badge { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+.tile-badge[data-state="you"] { color: #16a34a; }
+.tile-badge[data-state="them"] { color: #6b7280; }
+.tile-score { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: #374151; }
+.tile-time { font-size: 0.75rem; color: #9ca3af; }
+.tile-start {
+  margin-top: 0.5rem; padding: 0.4rem 0.75rem; font-family: inherit;
+  border: 1px solid #d1d5db; border-radius: 0.375rem; background: #fff; cursor: pointer;
+}
+.tile-start:hover { background: #f3f4f6; }
+@media (prefers-color-scheme: dark) {
+  .tile { background: #1f2937; border-color: #374151; }
+  .tile-active:hover { background: #111827; }
+  .tile-score { color: #d1d5db; }
+  .tile-start { background: #1f2937; color: #f3f4f6; border-color: #374151; }
+}
