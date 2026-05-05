@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exceedsThreshold, DRAG_THRESHOLD_PX } from '../public/drag.js';
+import { exceedsThreshold, DRAG_THRESHOLD_PX } from '../plugins/words/client/drag.js';
 
 test('drag threshold defaults to 6 px', () => {
   assert.equal(DRAG_THRESHOLD_PX, 6);
@@ -26,7 +26,7 @@ test('exceedsThreshold: handles negative deltas', () => {
   assert.equal(exceedsThreshold(10, 10, 0, 0), true); // ~14.14 px
 });
 
-import { resolveTarget } from '../public/drag.js';
+import { resolveTarget } from '../plugins/words/client/drag.js';
 
 function makeElement({ id, dropTarget = null, parent = null }) {
   const el = {

@@ -36,7 +36,6 @@ mountPluginClients(app, { db, registry });
 
 const PUBLIC = resolve(PROJECT_ROOT, 'public');
 app.get('/', (_req, res) => res.sendFile(resolve(PUBLIC, 'home.html')));
-app.get('/game/:id(\\d+)', (_req, res) => res.sendFile(resolve(PUBLIC, 'index.html')));
 app.get('/lockout', (_req, res) => res.sendFile(resolve(PUBLIC, 'lockout.html')));
 app.use(express.static(PUBLIC));
 
