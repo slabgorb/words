@@ -6,7 +6,7 @@
 // re-renders.
 
 const THEMES = {
-  ivory:  { textures: ['assets/tile-cream.png?v=3'] },
+  ivory:  { textures: ['assets/tile-cream.png?v=4'] },
   marble: { textures: [
     'assets/marble-1.png?v=2','assets/marble-2.png?v=2','assets/marble-3.png?v=2',
     'assets/marble-4.png?v=2','assets/marble-5.png?v=2','assets/marble-6.png?v=2',

@@ -40,7 +40,7 @@
   --valid: #2f7a4a;
   --gold: #c8932e;
 
-  --tile-texture: url('assets/tile-cream.png?v=3');
+  --tile-texture: url('assets/tile-cream.png?v=4');
 }
 
 * { box-sizing: border-box; }
