@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS games (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   player_a_id     INTEGER NOT NULL REFERENCES users(id),
   player_b_id     INTEGER NOT NULL REFERENCES users(id),
-  status          TEXT NOT NULL,
-  current_turn    TEXT NOT NULL,
+  status          TEXT NOT NULL CHECK (status IN ('active', 'ended')),
+  current_turn    TEXT NOT NULL CHECK (current_turn IN ('a', 'b')),
   bag             TEXT NOT NULL,
   board           TEXT NOT NULL,
   rack_a          TEXT NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS games (
   score_b         INTEGER NOT NULL DEFAULT 0,
   consecutive_scoreless_turns INTEGER NOT NULL DEFAULT 0,
   ended_reason    TEXT,
-  winner_side     TEXT,
+  winner_side     TEXT CHECK (winner_side IN ('a', 'b', 'draw') OR winner_side IS NULL),
   created_at      INTEGER NOT NULL,
   updated_at      INTEGER NOT NULL,
   CHECK (player_a_id < player_b_id)
@@ -36,8 +36,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS one_active_per_pair
 CREATE TABLE IF NOT EXISTS moves (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   game_id       INTEGER NOT NULL REFERENCES games(id),
-  side          TEXT NOT NULL,
-  kind          TEXT NOT NULL,
+  side          TEXT NOT NULL CHECK (side IN ('a', 'b')),
+  kind          TEXT NOT NULL CHECK (kind IN ('play', 'pass', 'swap', 'resign')),
   placement     TEXT,
   words_formed  TEXT,
   score_delta   INTEGER NOT NULL DEFAULT 0,
@@ -58,8 +58,8 @@ export function shuffle(arr) {
   return a;
 }
 
-export function emptyBoardJSON() {
-  return JSON.stringify(Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null)));
+export function emptyBoard() {
+  return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
 }
 
 export function freshGameDeal() {
