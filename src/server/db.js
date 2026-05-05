@@ -2,7 +2,8 @@ import Database from 'better-sqlite3';
 import { TILE_BAG, BOARD_SIZE } from './board.js';
 import { migrateLegacy } from './migrate.js';
 
-const SCHEMA = `
+// Tables that must exist before the legacy migration runs.
+const SCHEMA_PRE = `
 CREATE TABLE IF NOT EXISTS users (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -33,7 +34,10 @@ CREATE TABLE IF NOT EXISTS games (
 
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_per_pair
   ON games(player_a_id, player_b_id) WHERE status = 'active';
+`;
 
+// Tables/indexes that reference game_id — only safe after migrateLegacy rewrites moves.
+const SCHEMA_POST = `
 CREATE TABLE IF NOT EXISTS moves (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   game_id       INTEGER NOT NULL REFERENCES games(id),
@@ -74,7 +78,8 @@ export function openDb(filePath = 'game.db') {
   const db = new Database(filePath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-  db.exec(SCHEMA);
+  db.exec(SCHEMA_PRE);
   migrateLegacy(db);
+  db.exec(SCHEMA_POST);
   return db;
 }
