@@ -6,21 +6,21 @@
 // re-renders.
 
 const THEMES = {
-  ivory:  { textures: ['/assets/tile-cream.png?v=2'] },
+  ivory:  { textures: ['assets/tile-cream.png?v=2'] },
   marble: { textures: [
-    '/assets/marble-1.png?v=2','/assets/marble-2.png?v=2','/assets/marble-3.png?v=2',
-    '/assets/marble-4.png?v=2','/assets/marble-5.png?v=2','/assets/marble-6.png?v=2',
-    '/assets/marble-7.png?v=2','/assets/marble-8.png?v=2','/assets/marble-9.png?v=2',
+    'assets/marble-1.png?v=2','assets/marble-2.png?v=2','assets/marble-3.png?v=2',
+    'assets/marble-4.png?v=2','assets/marble-5.png?v=2','assets/marble-6.png?v=2',
+    'assets/marble-7.png?v=2','assets/marble-8.png?v=2','assets/marble-9.png?v=2',
   ] },
   jade: { textures: [
-    '/assets/jade-1.png?v=2','/assets/jade-2.png?v=2','/assets/jade-3.png?v=2',
-    '/assets/jade-4.png?v=2','/assets/jade-5.png?v=2','/assets/jade-6.png?v=2',
-    '/assets/jade-7.png?v=2','/assets/jade-8.png?v=2','/assets/jade-9.png?v=2',
+    'assets/jade-1.png?v=2','assets/jade-2.png?v=2','assets/jade-3.png?v=2',
+    'assets/jade-4.png?v=2','assets/jade-5.png?v=2','assets/jade-6.png?v=2',
+    'assets/jade-7.png?v=2','assets/jade-8.png?v=2','assets/jade-9.png?v=2',
   ] },
   wood:   { textures: [
-    '/assets/wood-1.png?v=2','/assets/wood-2.png?v=2','/assets/wood-3.png?v=2',
-    '/assets/wood-4.png?v=2','/assets/wood-5.png?v=2','/assets/wood-6.png?v=2',
-    '/assets/wood-7.png?v=2','/assets/wood-8.png?v=2','/assets/wood-9.png?v=2',
+    'assets/wood-1.png?v=2','assets/wood-2.png?v=2','assets/wood-3.png?v=2',
+    'assets/wood-4.png?v=2','assets/wood-5.png?v=2','assets/wood-6.png?v=2',
+    'assets/wood-7.png?v=2','assets/wood-8.png?v=2','assets/wood-9.png?v=2',
   ] },
 };
 
