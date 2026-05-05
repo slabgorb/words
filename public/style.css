@@ -93,7 +93,7 @@ main {
 
 /* ----- topbar ----- */
 #topbar {
-  padding: 10px 4px 14px;
+  padding: 10px 92px 14px 4px; /* right padding reserves space for floating mute/theme circles */
   margin-bottom: 14px;
   font-family: var(--type-serif);
   border-bottom: 1px solid rgba(42,33,24,0.18);
@@ -105,9 +105,10 @@ main {
   gap: 10px;
 }
 .score {
-  font-size: 16px;
+  font-size: clamp(11px, 3.6vw, 16px);
   font-weight: 500;
   color: var(--page-muted);
+  white-space: nowrap;
 }
 .score.score-right { text-align: right; }
 .score.active { color: var(--page-ink); font-weight: 600; }
@@ -141,18 +142,19 @@ main {
   padding: 0 4px;
 }
 
-/* Reserve room for the floating mute/theme circles at narrow widths */
 @media (max-width: 480px) {
-  #topbar { padding-right: 92px; }
   #rack   { margin-top: 36px; }
+  /* Drop the WORD/LETTER text labels — symbol alone reads at small cell sizes */
+  .premium-kind { display: none; }
+  .premium-sym  { font-size: 14px; }
 }
 
 /* ----- board frame ----- */
 #board {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(15, 1fr);
-  grid-template-rows: repeat(15, 1fr);
+  grid-template-columns: repeat(15, minmax(0, 1fr));
+  grid-template-rows: repeat(15, minmax(0, 1fr));
   gap: 0;
   aspect-ratio: 1 / 1;
   padding: 14px;
@@ -216,6 +218,8 @@ main {
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--grid-line);
   z-index: 1;
+  min-width: 0;
+  overflow: hidden;
   transition: box-shadow 80ms ease;
 }
 
@@ -303,7 +307,7 @@ main {
 .tile-letter {
   position: relative;
   z-index: 1;
-  font-size: clamp(14px, 2.4vw, 22px);
+  font-size: clamp(11px, 2.4vw, 22px);
   font-weight: 500;
   line-height: 1;
   margin-top: -1px;
