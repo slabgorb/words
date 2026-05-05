@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rummikub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <a class="back" href="/">← Lobby</a>
+    <div class="scores">
+      <span class="me">You: <span id="my-score">0</span></span>
+      <span class="opp">Opponent: <span id="opp-score">0</span></span>
+    </div>
+    <div class="meta">
+      <span id="turn-indicator"></span>
+      <span class="pool">Pool: <span id="pool-count">0</span></span>
+      <span class="opp-rack">Opp: <span id="opp-rack-count">0</span> tiles</span>
+    </div>
+  </header>
+  <main>
+    <section id="meld-indicator" class="hidden">
+      Initial meld: <span id="meld-points">0</span> / 30 pts
+    </section>
+    <section id="table" aria-label="Table"></section>
+    <section id="rack" aria-label="Your rack"></section>
+    <section id="controls">
+      <button id="btn-sort">Sort</button>
+      <button id="btn-reset" disabled>Reset turn</button>
+      <button id="btn-draw">Draw tile</button>
+      <button id="btn-end" disabled>End turn</button>
+      <button id="btn-resign">Resign</button>
+    </section>
+    <section id="end-screen" class="hidden">
+      <h2 id="end-headline"></h2>
+      <p id="end-summary"></p>
+      <button id="btn-new">New game</button>
+    </section>
+  </main>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
