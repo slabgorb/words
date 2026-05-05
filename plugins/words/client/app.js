@@ -261,7 +261,7 @@ async function confirmNewGame() {
     return;
   }
   const body = await r.json();
-  if (body.gameId) location.href = `/game/${body.gameId}`;
+  if (body.id) location.href = `/play/${body.gameType ?? 'words'}/${body.id}/`;
 }
 
 async function swapTiles() {
@@ -365,10 +365,6 @@ function startSSE() {
     }
   });
   es.addEventListener('resign', async () => { await fetchState(); refresh(); });
-  es.addEventListener('new-game', (e) => {
-    const p = parsePayload(e);
-    location.href = p.newGameId ? `/game/${p.newGameId}` : '/';
-  });
   es.onerror = () => { /* browser auto-reconnects */ };
 }
 

@@ -6,7 +6,12 @@ export const ui = {
 };
 
 export function initGameId() {
-  const m = location.pathname.match(/^\/game\/(\d+)/);
+  if (typeof window !== 'undefined' && window.__GAME__?.gameId) {
+    ui.gameId = window.__GAME__.gameId;
+    return;
+  }
+  // Legacy fallback (only if served the old way; should not happen in production)
+  const m = location.pathname.match(/^\/play\/words\/(\d+)/) || location.pathname.match(/^\/game\/(\d+)/);
   ui.gameId = m ? Number(m[1]) : null;
   if (!ui.gameId) location.href = '/';
 }
