@@ -226,6 +226,61 @@ export function pickSwapTiles({ rackOrder, disabledIdx }) {
   });
 }
 
+/**
+ * Show the mobile "more actions" sheet.
+ * Resolves to 'pass' | 'swap' | 'resign' | null (cancelled).
+ */
+export function pickMoreActions() {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'picker-backdrop';
+    const panel = document.createElement('div');
+    panel.className = 'picker-panel confirm-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+
+    const title = document.createElement('div');
+    title.className = 'picker-title';
+    title.textContent = 'More actions';
+    panel.appendChild(title);
+
+    const actions = [
+      { id: 'pass', label: 'Pass turn' },
+      { id: 'swap', label: 'Swap tiles…' },
+      { id: 'resign', label: 'Resign', danger: true },
+    ];
+    const list = document.createElement('div');
+    list.style.display = 'flex';
+    list.style.flexDirection = 'column';
+    list.style.gap = '8px';
+    list.style.margin = '8px 0 12px';
+    for (const a of actions) {
+      const btn = document.createElement('button');
+      btn.className = 'picker-confirm' + (a.danger ? ' picker-danger' : '');
+      btn.style.width = '100%';
+      btn.textContent = a.label;
+      btn.addEventListener('click', () => { close(a.id); });
+      list.appendChild(btn);
+    }
+    panel.appendChild(list);
+
+    const cancel = document.createElement('button');
+    cancel.className = 'picker-cancel';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => close(null));
+    panel.appendChild(cancel);
+
+    backdrop.appendChild(panel);
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(null); });
+    document.body.appendChild(backdrop);
+
+    function close(result) {
+      backdrop.remove();
+      resolve(result);
+    }
+  });
+}
+
 // In-aesthetic confirmation modal. Resolves true if confirmed, false otherwise.
 // `danger: true` styles the confirm button as a destructive action.
 export function confirmAction({ title, body, confirmText = 'Confirm', cancelText = 'Cancel', danger = false }) {

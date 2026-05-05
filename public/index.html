@@ -34,11 +34,16 @@
     <div id="status" role="status" aria-live="polite"></div>
     <section id="controls">
       <button id="btn-submit" disabled>Submit move</button>
-      <button id="btn-recall">Recall tiles</button>
-      <button id="btn-shuffle">Shuffle rack</button>
-      <button id="btn-pass">Pass</button>
-      <button id="btn-swap">Swap…</button>
-      <button id="btn-resign">Resign</button>
+      <div class="controls-row">
+        <button id="btn-recall">Recall tiles</button>
+        <button id="btn-shuffle">Shuffle rack</button>
+        <button id="btn-more" aria-label="More actions" aria-haspopup="dialog" aria-expanded="false">⋯</button>
+      </div>
+      <div class="controls-desk">
+        <button id="btn-pass">Pass</button>
+        <button id="btn-swap">Swap…</button>
+        <button id="btn-resign">Resign</button>
+      </div>
     </section>
   </main>
 

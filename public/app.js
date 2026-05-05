@@ -2,7 +2,7 @@ import { ui, fetchState, loadTentative, saveTentative, clearTentative } from './
 import { renderBoard } from './board.js';
 import { renderRack, shuffleRack } from './rack.js';
 import { scheduleValidate } from './validator.js';
-import { pickBlankLetter, pickSwapTiles, confirmAction } from './picker.js';
+import { pickBlankLetter, pickSwapTiles, confirmAction, pickMoreActions } from './picker.js';
 import { play, playForScore, primeAudio, isMuted, toggleMuted } from './sounds.js';
 import { cycleTheme, getTheme } from './themes.js';
 import { showMoveCallout, showPassCallout, showSwapCallout } from './callout.js';
@@ -393,6 +393,15 @@ async function init() {
   $('#btn-pass').addEventListener('click', passTurn);
   $('#btn-swap').addEventListener('click', swapTiles);
   $('#btn-resign').addEventListener('click', resign);
+  $('#btn-more').addEventListener('click', async () => {
+    const btn = $('#btn-more');
+    btn.setAttribute('aria-expanded', 'true');
+    const choice = await pickMoreActions();
+    btn.setAttribute('aria-expanded', 'false');
+    if (choice === 'pass') passTurn();
+    else if (choice === 'swap') swapTiles();
+    else if (choice === 'resign') resign();
+  });
 
   setupMuteToggle();
   setupThemeToggle();

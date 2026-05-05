@@ -417,13 +417,35 @@ main {
 /* ----- controls ----- */
 #controls {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   margin-top: 14px;
-  flex-wrap: wrap;
 }
-#controls button {
+#controls #btn-submit {
   font-family: var(--type-serif);
   font-size: 14px;
+  width: 100%;
+  padding: 10px 14px;
+  background: #2a2118;
+  color: var(--tile-bg-mid);
+  border: 1px solid #2a2118;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 #1a140c, inset 0 1px 0 rgba(255,255,255,0.10);
+  transition: transform 80ms ease, background 120ms ease;
+}
+#controls #btn-submit:hover:not(:disabled) { background: #3a2a1c; transform: translateY(-1px); }
+#controls #btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#controls .controls-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+#controls .controls-row button {
+  font-family: var(--type-serif);
+  font-size: 14px;
+  flex: 1;
   background: var(--tile-bg-mid);
   color: var(--tile-ink);
   border: 1px solid var(--tile-edge);
@@ -431,26 +453,48 @@ main {
   border-radius: 4px;
   cursor: pointer;
   box-shadow: 0 1px 0 var(--tile-edge), inset 0 1px 0 rgba(255,255,255,0.7);
-  transition: transform 80ms ease, box-shadow 120ms ease, background 120ms ease;
+  transition: transform 80ms ease, background 120ms ease;
 }
-#controls button:hover:not(:disabled) {
+#controls .controls-row button:hover:not(:disabled) {
   background: var(--tile-bg-hi);
   transform: translateY(-1px);
-  box-shadow: 0 2px 0 var(--tile-edge), inset 0 1px 0 rgba(255,255,255,0.7);
 }
-#controls button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: inset 0 1px 2px var(--tile-shadow);
+#controls #btn-more {
+  flex: 0 0 44px;
+  min-width: 44px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  padding: 8px 0;
 }
-#controls button:disabled { opacity: 0.4; cursor: not-allowed; }
-#controls #btn-submit {
-  background: #2a2118;
-  color: var(--tile-bg-mid);
-  border-color: #2a2118;
-  box-shadow: 0 1px 0 #1a140c, inset 0 1px 0 rgba(255,255,255,0.10);
-}
-#controls #btn-submit:hover:not(:disabled) {
-  background: #3a2a1c;
+
+/* Mobile: hide the desktop row, show only ⋯ */
+#controls .controls-desk { display: none; }
+
+/* Desktop: hide ⋯, show all six buttons in flat layout */
+@media (min-width: 600px) {
+  #controls #btn-more { display: none; }
+  #controls .controls-desk {
+    display: flex;
+    gap: 8px;
+  }
+  #controls .controls-desk button {
+    font-family: var(--type-serif);
+    font-size: 14px;
+    flex: 1;
+    background: var(--tile-bg-mid);
+    color: var(--tile-ink);
+    border: 1px solid var(--tile-edge);
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 1px 0 var(--tile-edge), inset 0 1px 0 rgba(255,255,255,0.7);
+    transition: transform 80ms ease, background 120ms ease;
+  }
+  #controls .controls-desk button:hover:not(:disabled) {
+    background: var(--tile-bg-hi);
+    transform: translateY(-1px);
+  }
 }
 
 /* ----- per-theme board palettes -----
