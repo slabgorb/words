@@ -39,7 +39,7 @@
   --valid: #2f7a4a;
   --gold: #c8932e;
 
-  --tile-texture: url('/assets/tile-cream.png?v=2');
+  --tile-texture: url('assets/tile-cream.png?v=2');
 }
 
 * { box-sizing: border-box; }
@@ -557,14 +557,14 @@ body[data-theme="wood"] #topbar {
 /* Photo-textured cell surfaces. Frame stays gradient on both. */
 body[data-theme="wood"] #board {
   background:
-    url('/assets/board-wood.jpg') center/cover,
+    url('assets/board-wood.jpg') center/cover,
     linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
   background-clip: content-box, padding-box;
   background-origin: content-box, padding-box;
 }
 body[data-theme="ivory"] #board {
   background:
-    url('/assets/board-ivory.jpg') center/cover,
+    url('assets/board-ivory.jpg') center/cover,
     linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
   background-clip: content-box, padding-box;
   background-origin: content-box, padding-box;
