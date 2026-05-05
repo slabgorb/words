@@ -332,6 +332,23 @@ export function mountRoutes(app, { db, registry, sse }) {
     if (out.http === 200) sse.broadcast(req.game.id, { type: 'update' });
     res.status(out.http).json(out.body);
   });
+
+  // Mount each plugin's auxiliary routes
+  for (const plugin of Object.values(registry)) {
+    if (!plugin.auxRoutes) continue;
+    for (const [name, route] of Object.entries(plugin.auxRoutes)) {
+      const path = `/api/games/:gameId/${name}`;
+      const method = route.method.toLowerCase();
+      if (typeof app[method] !== 'function') {
+        throw new Error(`plugin(${plugin.id}).auxRoutes['${name}']: unsupported method ${route.method}`);
+      }
+      // Wrap handler so it only runs for matching game_type
+      app[method](path, (req, res, next) => {
+        if (req.game.gameType !== plugin.id) return next();
+        return route.handler(req, res, next);
+      });
+    }
+  }
 }
 
 function parseAction(req) {
