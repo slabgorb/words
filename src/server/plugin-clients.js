@@ -59,5 +59,10 @@ function serveIndex(clientDir, req, res) {
   } else {
     injected = inject + html;
   }
+  // Per-game HTML carries an injected window.__GAME__ context (game id,
+  // user id, urls). Caching it would let a stale gameId surface in a
+  // browser tab the user revisits, and any future client-asset path
+  // change would persist for cached tabs until manual hard-reload.
+  res.set('Cache-Control', 'no-store');
   res.type('html').send(injected);
 }
