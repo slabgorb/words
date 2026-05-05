@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { TILE_BAG, BOARD_SIZE } from './board.js';
+import { migrateLegacy } from './migrate.js';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -74,5 +75,6 @@ export function openDb(filePath = 'game.db') {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  migrateLegacy(db);
   return db;
 }
