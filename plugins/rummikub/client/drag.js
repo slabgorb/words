@@ -1,4 +1,4 @@
-import { moveTileTo } from './turn.js';
+import { moveTileTo, getTentative } from './turn.js';
 
 export function attachDrag(rootEl, onAfterMove) {
   let dragging = null;
@@ -29,7 +29,13 @@ export function attachDrag(rootEl, onAfterMove) {
     else if (dropEl.dataset.newSet) target = { kind: 'new-set' };
     else if (dropEl.dataset.setIdx) target = { kind: 'set', setIdx: Number(dropEl.dataset.setIdx) };
 
-    if (target) moveTileTo(dragging.tileId, target);
+    if (target) {
+      moveTileTo(dragging.tileId, target);
+      if (target.kind === 'set' || target.kind === 'new-set') {
+        const tile = findTileInTentative(dragging.tileId);
+        if (tile?.kind === 'joker') promptJokerRepresentation(tile);
+      }
+    }
 
     dragging.ghost.remove();
     document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
@@ -37,6 +43,26 @@ export function attachDrag(rootEl, onAfterMove) {
     dragging = null;
     onAfterMove?.();
   });
+}
+
+function findTileInTentative(tileId) {
+  const tent = getTentative();
+  if (!tent) return null;
+  for (const set of tent.table) {
+    const found = set.find(t => t.id === tileId);
+    if (found) return found;
+  }
+  return null;
+}
+
+function promptJokerRepresentation(tile) {
+  const color = prompt('Joker represents which color? (red/blue/orange/black)', tile.representsColor ?? '');
+  if (!color) return;
+  const valStr = prompt('Joker represents which value? (1-13)', tile.representsValue ?? '');
+  const value = Number(valStr);
+  if (!Number.isInteger(value) || value < 1 || value > 13) return;
+  tile.representsColor = color;
+  tile.representsValue = value;
 }
 
 function makeGhost(srcEl, ev) {

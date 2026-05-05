@@ -20,6 +20,10 @@ export function moveTileTo(tileId, target) {
   if (!tile) tile = removeFromTable(tentative.table, tileId);
   if (!tile) return;
   if (target.kind === 'rack') {
+    if (tile.kind === 'joker') {
+      delete tile.representsColor;
+      delete tile.representsValue;
+    }
     tentative.rack.push(tile);
   } else if (target.kind === 'set') {
     const set = tentative.table[target.setIdx];
