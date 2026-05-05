@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
 import { loadDictionary } from './dictionary.js';
 import { buildRoutes, mountRoutes } from './routes.js';
+import { mountPluginClients } from './plugin-clients.js';
 import { plugins } from '../plugins/index.js';
 import { buildRegistry } from './plugins.js';
 import { broadcast } from './sse.js';
@@ -31,6 +32,7 @@ app.use('/api', buildRoutes({ db, dict, isProd, devUser }));
 
 const registry = buildRegistry(plugins);
 mountRoutes(app, { db, registry, sse: { broadcast } });
+mountPluginClients(app, { db, registry });
 
 const PUBLIC = resolve(PROJECT_ROOT, 'public');
 app.get('/', (_req, res) => res.sendFile(resolve(PUBLIC, 'home.html')));
