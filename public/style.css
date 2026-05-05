@@ -565,6 +565,15 @@ body[data-theme="wood"] #topbar {
   border-bottom-color: rgba(239, 230, 211, 0.18);
 }
 
+/* Etched grid lines on the wood surface — dark TL + light BR per cell
+   reads as a groove pressed into the wood. Solid black lines created an
+   optical-vibration moiré against the texture. */
+body[data-theme="wood"] .cell {
+  box-shadow:
+    inset 1px 1px 0 rgba(0, 0, 0, 0.22),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.10);
+}
+
 /* ----- jade theme: cream ink on tiles ----- */
 body[data-theme="jade"] .cell .tile,
 body[data-theme="jade"] .rack-slot.tile,
