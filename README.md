@@ -1,13 +1,11 @@
-# Words
+# Gamebox
 
-A self-hosted Words With Friends clone for friends and family. One running
-instance hosts multiple concurrent games, with at most one active game per
-unordered pair of players. Authentication is delegated to Cloudflare Access
-at the perimeter; the app reads the authenticated email from the request
-header.
+A self-hosted plugin host for two-player turn-based games. Currently
+ships Words (a Words-with-Friends clone) and Rummikub. Adding a new game
+is a folder + one registry line.
 
-Not a SaaS, not multi-tenant, no notifications, no spectators. The whole
-thing fits in one SQLite file and ~2.5k lines of vanilla JS.
+Not a SaaS. Not multi-tenant. Personal-use only — runs on a small Tailscale
+network for a small curated roster of users.
 
 ## Quick start
 
