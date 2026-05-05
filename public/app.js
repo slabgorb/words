@@ -27,25 +27,25 @@ function refresh() {
   });
   const scores = ui.server.scores;
   const current = ui.server.currentTurn;
-  const ended = ui.server.status === ‘ended’;
+  const ended = ui.server.status === 'ended';
 
-  const aFriendly = ui.server.you === ‘a’ ? ui.server.yourFriendlyName : ui.server.opponent.friendlyName;
-  const bFriendly = ui.server.you === ‘b’ ? ui.server.yourFriendlyName : ui.server.opponent.friendlyName;
-  const aEl = $(‘#score-a’);
-  const bEl = $(‘#score-b’);
+  const aFriendly = ui.server.you === 'a' ? ui.server.yourFriendlyName : ui.server.opponent.friendlyName;
+  const bFriendly = ui.server.you === 'b' ? ui.server.yourFriendlyName : ui.server.opponent.friendlyName;
+  const aEl = $('#score-a');
+  const bEl = $('#score-b');
   aEl.textContent = `${aFriendly} ${scores.a}`;
   bEl.textContent = `${bFriendly} ${scores.b}`;
-  aEl.classList.toggle(‘active’, !ended && current === ‘a’);
-  bEl.classList.toggle(‘active’, !ended && current === ‘b’);
+  aEl.classList.toggle('active', !ended && current === 'a');
+  bEl.classList.toggle('active', !ended && current === 'b');
 
-  const pill = $(‘#turn-pill’);
+  const pill = $('#turn-pill');
   if (ended) {
-    pill.textContent = ‘Game over’;
-    pill.dataset.state = ‘ended’;
+    pill.textContent = 'Game over';
+    pill.dataset.state = 'ended';
   } else {
     const isMyTurn = current === ui.server.you;
-    pill.textContent = isMyTurn ? ‘Your turn’ : `${ui.server.opponent.friendlyName}’s turn`;
-    pill.dataset.state = ‘active’;
+    pill.textContent = isMyTurn ? 'Your turn' : `${ui.server.opponent.friendlyName}'s turn`;
+    pill.dataset.state = 'active';
   }
   pill.setAttribute('role', 'status');
   pill.setAttribute('aria-live', 'polite');
