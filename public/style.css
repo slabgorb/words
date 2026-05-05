@@ -565,6 +565,13 @@ body[data-theme="wood"] #topbar {
   border-bottom-color: rgba(239, 230, 211, 0.18);
 }
 
+/* Suppress the global synthetic grain pseudo on themes that already have a
+   photo texture — leaving it on creates visible vertical banding. */
+body[data-theme="wood"] #board::before,
+body[data-theme="ivory"] #board::before {
+  content: none;
+}
+
 /* Photo-textured cell surfaces. Frame stays gradient on both. */
 body[data-theme="wood"] #board {
   background:
