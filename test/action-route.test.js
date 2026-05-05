@@ -171,3 +171,28 @@ test('ending action writes synthetic game-ended row after the action row', async
     assert.equal(turnEvents[1].event.payload.summary.kind, 'game-ended');
   } finally { server.close(); }
 });
+
+test('GET /api/games/:id/history returns entries oldest-first', async () => {
+  const { app } = setupApp();
+  const server = await startServer(app);
+  try {
+    await call(server, 'POST', '/api/games/1/action', { type: 'inc' }, { 'x-test-user-id': '1' });
+    await call(server, 'POST', '/api/games/1/action', { type: 'inc' }, { 'x-test-user-id': '2' });
+    const r = await call(server, 'GET', '/api/games/1/history', null, { 'x-test-user-id': '1' });
+    assert.equal(r.status, 200);
+    assert.ok(Array.isArray(r.body.entries));
+    assert.equal(r.body.entries.length, 2);
+    assert.equal(r.body.entries[0].turnNumber, 1);
+    assert.equal(r.body.entries[1].turnNumber, 2);
+    assert.equal(r.body.entries[0].summary.kind, 'inc');
+  } finally { server.close(); }
+});
+
+test('GET /api/games/:id/history rejects non-participants', async () => {
+  const { app } = setupApp();
+  const server = await startServer(app);
+  try {
+    const r = await call(server, 'GET', '/api/games/1/history', null, { 'x-test-user-id': '99' });
+    assert.equal(r.status, 403);
+  } finally { server.close(); }
+});

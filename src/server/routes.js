@@ -151,6 +151,11 @@ export function mountRoutes(app, { db, registry, sse }) {
     });
   });
 
+  app.get('/api/games/:gameId/history', requireIdentity, (req, res) => {
+    const entries = listTurnEntries(db, req.game.id);
+    res.json({ entries });
+  });
+
   app.get('/api/games/:gameId/events', requireIdentity, (req, res) => {
     subscribe(req.game.id, req, res);
   });
