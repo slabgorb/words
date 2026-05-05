@@ -3,7 +3,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
 import { loadDictionary } from './dictionary.js';
-import { buildRoutes } from './routes.js';
+import { buildRoutes, mountRoutes } from './routes.js';
+import { plugins } from '../plugins/index.js';
+import { buildRegistry } from './plugins.js';
+import { broadcast } from './sse.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..', '..');
@@ -25,6 +28,9 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(express.json());
 app.use('/api', buildRoutes({ db, dict, isProd, devUser }));
+
+const registry = buildRegistry(plugins);
+mountRoutes(app, { db, registry, sse: { broadcast } });
 
 const PUBLIC = resolve(PROJECT_ROOT, 'public');
 app.get('/', (_req, res) => res.sendFile(resolve(PUBLIC, 'home.html')));

@@ -3,13 +3,15 @@ import { attachIdentity, requireIdentity } from './identity.js';
 import { listUsers, getUserById } from './users.js';
 import {
   createWordsGame, listGamesForUser, sideForUser, getGameById,
-  persistMove, resetGameForPair
+  persistMove, resetGameForPair, endGame
 } from './games.js';
 import {
   validatePlacement, extractWords, scoreMove, applyMove,
   detectGameEnd, applyEndGameAdjustment
 } from './engine.js';
 import { broadcast, subscribe } from './sse.js';
+import { writeGameState } from './state.js';
+import { getPlugin } from './plugins.js';
 
 const pendingNewGame = new Map(); // gameId -> Set<userId>  (module-level, shared across all app instances)
 
@@ -257,4 +259,84 @@ export function buildRoutes({ db, dict, isProd, devUser }) {
   });
 
   return r;
+}
+
+export function mountRoutes(app, { db, registry, sse }) {
+  // Game-scoped middleware: load + check membership
+  app.param('gameId', (req, res, next, gameId) => {
+    const id = Number(gameId);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'bad game id' });
+    const game = getGameById(db, id);
+    if (!game) return res.status(404).json({ error: 'game not found' });
+    if (req.user.id !== game.playerAId && req.user.id !== game.playerBId) {
+      return res.status(403).json({ error: 'not a participant' });
+    }
+    req.game = game;
+    next();
+  });
+
+  app.get('/api/games', (_req, res) => res.status(501).end());      // Task 15
+  app.post('/api/games', (_req, res) => res.status(501).end());     // Task 15
+  app.get('/api/games/:gameId', (_req, res) => res.status(501).end()); // Task 7
+
+  app.post('/api/games/:gameId/action', (req, res) => {
+    const { action } = parseAction(req);
+    if (!action) return res.status(400).json({ error: 'missing action' });
+
+    let plugin;
+    try { plugin = getPlugin(registry, req.game.gameType); }
+    catch { return res.status(500).json({ error: 'plugin unavailable' }); }
+
+    // Turn ownership check (only if state declares activeUserId)
+    const activeUserId = req.game.state.activeUserId;
+    if (typeof activeUserId === 'number' && activeUserId !== req.user.id) {
+      return res.status(422).json({ error: 'not your turn' });
+    }
+
+    const txn = db.transaction(() => {
+      const result = plugin.applyAction({
+        state: req.game.state,
+        action,
+        actorId: req.user.id,
+        rng: makeRng(req.game.id),
+      });
+      if (result.error) return { http: 422, body: { error: result.error } };
+
+      const newState = result.state;
+      writeGameState(db, req.game.id, newState);
+
+      if (result.ended) {
+        endGame(db, req.game.id, {
+          endedReason: newState.endedReason ?? 'plugin',
+          winnerSide: newState.winnerSide ?? null,
+          finalState: newState,
+        });
+      }
+
+      const view = plugin.publicView({ state: newState, viewerId: req.user.id });
+      return { http: 200, body: { state: view, ended: !!result.ended, scoreDelta: result.scoreDelta ?? null } };
+    });
+
+    const out = txn();
+    if (out.http === 200) sse.broadcast(req.game.id, { type: 'update' });
+    res.status(out.http).json(out.body);
+  });
+}
+
+function parseAction(req) {
+  if (!req.body || typeof req.body !== 'object') return { action: null };
+  const { type, payload } = req.body;
+  if (typeof type !== 'string' || type.length === 0) return { action: null };
+  return { action: { type, payload: payload ?? {} } };
+}
+
+function makeRng(seed) {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
