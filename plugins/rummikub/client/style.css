@@ -12,16 +12,42 @@ body {
   display: flex;
   flex-direction: column;
 }
-/* Blurred + darkened texture on its own fixed layer beneath body content.
-   inset: -24px lets the blur edge bleed past the viewport so the soft
-   feathering doesn't reveal the underlying solid color at the borders. */
+/* CSS-only baize. Stack of:
+   1. A diagonal fine-line pattern (warp fibers) at +35°.
+   2. A second diagonal at -35° (cross-fibers, lower opacity) gives a
+      soft cloth-like noise without a tile image.
+   3. Vertical micro-stripes for thread density.
+   4. A radial vignette on the deep-green base.
+   The original jersey asset stays in assets/board-canvas.png — swap the
+   first declaration back to the url() form to revert. */
 body::before {
   content: '';
   position: fixed;
-  inset: -24px;
+  inset: 0;
   z-index: -1;
-  background: url('assets/board-canvas.png') 0 0 / 2000px auto repeat, #6c7484;
-  filter: brightness(0.62);
+  background:
+    repeating-linear-gradient(
+      35deg,
+      rgba(0, 0, 0, 0.10) 0 1px,
+      rgba(255, 255, 255, 0.02) 1px 2px,
+      transparent 2px 5px
+    ),
+    repeating-linear-gradient(
+      -35deg,
+      rgba(0, 0, 0, 0.06) 0 1px,
+      transparent 1px 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.04) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(
+      ellipse at 50% 40%,
+      #2c7a4e 0%,
+      #1b4d33 70%,
+      #0f3322 110%
+    );
   pointer-events: none;
 }
 header { display: flex; gap: 1rem; align-items: baseline; padding: 0.5rem 1rem; background: rgba(0, 0, 0, 0.35); border-bottom: 1px solid rgba(0, 0, 0, 0.45); color: #f0e8d4; backdrop-filter: blur(2px); }
