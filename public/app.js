@@ -67,17 +67,29 @@ function refresh() {
   $('#rack-remaining').textContent = `${rackLeft} in rack`;
   const myTurn = current === ui.server.you;
   $('#btn-submit').disabled = !myTurn || !lastValidation?.valid;
+  const statusEl = $('#status');
+  statusEl.classList.remove('show', 'valid', 'invalid');
+  let statusText = '';
+  let statusClass = null;
   if (lastValidation) {
     if (lastValidation.valid) {
-      $('#status').textContent = `Words: ${lastValidation.words.map(w => w.word).join(', ')} — +${lastValidation.score}`;
+      statusText = `Words: ${lastValidation.words.map(w => w.word).join(', ')} — +${lastValidation.score}`;
+      statusClass = 'valid';
     } else if (lastValidation.reason) {
-      $('#status').textContent = `Invalid: ${lastValidation.reason}`;
+      statusText = `Invalid: ${lastValidation.reason}`;
+      statusClass = 'invalid';
     } else {
       const bad = lastValidation.words.filter(w => !w.ok).map(w => w.word).join(', ');
-      $('#status').textContent = `Not in dictionary: ${bad}`;
+      statusText = `Not in dictionary: ${bad}`;
+      statusClass = 'invalid';
     }
-  } else {
-    $('#status').textContent = ui.tentative.length ? '...' : '';
+  } else if (ui.tentative.length) {
+    statusText = '…';
+  }
+  statusEl.textContent = statusText;
+  if (statusText) {
+    statusEl.classList.add('show');
+    if (statusClass) statusEl.classList.add(statusClass);
   }
   maybeOfferNewGame();
 }
@@ -97,6 +109,7 @@ function buildValidationPositions(v) {
 function handleRackClick(idx, _letter) {
   selectedRackIdx = idx;
   $('#status').textContent = `Selected rack tile ${idx} — click a board cell to place.`;
+  $('#status').classList.add('show');
 }
 
 async function placeFromRack(r, c, idx) {
@@ -211,6 +224,7 @@ async function submitMove() {
   if (!r.ok) {
     const body = await r.json().catch(() => ({}));
     $('#status').textContent = `Server rejected: ${body.error || r.status}`;
+    $('#status').classList.add('show');
     return;
   }
   const score = lastValidation?.score ?? 0;
@@ -238,6 +252,7 @@ async function passTurn() {
   if (!r.ok) {
     const b = await r.json().catch(() => ({}));
     $('#status').textContent = `Pass failed: ${b.error || r.status}`;
+    $('#status').classList.add('show');
     return;
   }
   await fetchState(); refresh();
@@ -254,6 +269,7 @@ async function swapTiles() {
   if (!r.ok) {
     const b = await r.json().catch(() => ({}));
     $('#status').textContent = `Swap failed: ${b.error || r.status}`;
+    $('#status').classList.add('show');
     return;
   }
   await fetchState();
@@ -281,6 +297,7 @@ async function maybeOfferNewGame() {
   if (ui.server.status !== 'ended') return;
   const winner = ui.server.winner ?? 'tie';
   $('#status').textContent = `Game ended (${ui.server.endedReason}) — winner: ${winner}. Click "Pass" to confirm a new game (both players must click).`;
+  $('#status').classList.add('show');
   // Repurpose the pass button while game is ended → New Game confirm
   const btn = $('#btn-pass');
   btn.textContent = 'Confirm new game';
@@ -292,7 +309,7 @@ async function maybeOfferNewGame() {
     if (r.ok) {
       const body = await r.json();
       if (body.started) location.reload();
-      else $('#status').textContent = `Waiting for ${body.waitingFor} to confirm...`;
+      else { $('#status').textContent = `Waiting for ${body.waitingFor} to confirm...`; $('#status').classList.add('show'); }
     }
   };
 }

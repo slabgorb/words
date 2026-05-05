@@ -809,9 +809,36 @@ body[data-theme="jade"] .rack-slot.tile.blank .tile-letter {
 
 /* ----- status ----- */
 #status {
-  margin-top: 12px;
-  min-height: 22px;
+  margin: 12px 0 0;
+  padding: 8px 12px;
   font-family: var(--type-serif);
+  font-size: 14px;
   font-style: italic;
   color: var(--page-muted);
+  background: rgba(196, 122, 74, 0.10);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 4px 4px 0;
+  display: none;
+  transition: opacity 120ms ease;
 }
+#status.show { display: block; }
+#status.valid {
+  color: var(--page-ink);
+  background: rgba(47, 122, 74, 0.10);
+  border-left-color: var(--valid);
+  font-style: normal;
+  font-weight: 500;
+}
+#status.invalid {
+  color: var(--page-ink);
+  background: rgba(179, 56, 42, 0.10);
+  border-left-color: var(--invalid);
+  font-style: normal;
+}
+
+body[data-theme="wood"] #status {
+  background: rgba(232, 162, 99, 0.18);
+  color: var(--page-ink);
+}
+body[data-theme="wood"] #status.valid { background: rgba(120, 200, 140, 0.18); }
+body[data-theme="wood"] #status.invalid { background: rgba(232, 80, 60, 0.22); }
