@@ -2,7 +2,7 @@
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
-  background: url('assets/board-felt.png') center/cover fixed, #1f5d4a;
+  background: url('assets/board-canvas.png') center/cover fixed, #3d6c84;
   color: #f0e8d4;
 }
 header { display: flex; gap: 1rem; align-items: baseline; padding: 0.5rem 1rem; background: rgba(0, 0, 0, 0.35); border-bottom: 1px solid rgba(0, 0, 0, 0.45); color: #f0e8d4; backdrop-filter: blur(2px); }
