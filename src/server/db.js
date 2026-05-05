@@ -62,14 +62,17 @@ export function migrateLegacyState(db) {
     'consecutive_scoreless_turns'
   ];
   const presentLegacy = legacyCols.filter(c => cols.includes(c));
-  if (presentLegacy.length === 0) return; // already migrated
+  if (presentLegacy.length === 0) return; // columns already dropped
 
-  // Pack each row's legacy data into state JSON
+  // Pack each row's legacy data into state JSON using the plugin shape
+  // (sides + activeUserId), so applyAction works without a second pass.
   const rows = db.prepare(`SELECT * FROM games`).all();
   const updateState = db.prepare(`UPDATE games SET state = ? WHERE id = ?`);
 
   const update = db.transaction((rows) => {
     for (const row of rows) {
+      const turn = row.current_turn ?? 'a';
+      const activeUserId = turn === 'a' ? row.player_a_id : row.player_b_id;
       const state = {
         bag: row.bag ? JSON.parse(row.bag) : [],
         board: row.board ? JSON.parse(row.board) : [],
@@ -78,9 +81,12 @@ export function migrateLegacyState(db) {
           b: row.rack_b ? JSON.parse(row.rack_b) : [],
         },
         scores: { a: row.score_a ?? 0, b: row.score_b ?? 0 },
-        activeSide: row.current_turn ?? 'a',
+        sides: { a: row.player_a_id, b: row.player_b_id },
+        activeUserId,
         consecutiveScorelessTurns: row.consecutive_scoreless_turns ?? 0,
         initialMoveDone: (row.score_a ?? 0) > 0 || (row.score_b ?? 0) > 0,
+        endedReason: null,
+        winnerSide: null,
       };
       updateState.run(JSON.stringify(state), row.id);
     }
@@ -91,6 +97,36 @@ export function migrateLegacyState(db) {
   for (const col of presentLegacy) {
     db.exec(`ALTER TABLE games DROP COLUMN ${col}`);
   }
+}
+
+// Patch any rows whose state JSON was written by an earlier (broken) version
+// of migrateLegacyState — they have `activeSide` but no `sides`/`activeUserId`,
+// so the Words plugin refuses to act on them.
+export function migrateStateShape(db) {
+  const rows = db.prepare(`
+    SELECT id, player_a_id, player_b_id, state FROM games
+    WHERE json_extract(state, '$.sides') IS NULL
+       OR json_extract(state, '$.activeUserId') IS NULL
+  `).all();
+  if (rows.length === 0) return;
+
+  const updateState = db.prepare(`UPDATE games SET state = ? WHERE id = ?`);
+  const update = db.transaction((rows) => {
+    for (const row of rows) {
+      const state = JSON.parse(row.state);
+      // Empty state from default '{}' on never-played rows — leave alone;
+      // applyAction will reject and the row will be replaced naturally.
+      if (!state.bag && !state.board) continue;
+
+      const aSide = state.activeSide ?? 'a';
+      state.sides = state.sides ?? { a: row.player_a_id, b: row.player_b_id };
+      state.activeUserId = state.activeUserId
+        ?? (aSide === 'a' ? row.player_a_id : row.player_b_id);
+      delete state.activeSide;
+      updateState.run(JSON.stringify(state), row.id);
+    }
+  });
+  update(rows);
 }
 
 export function openDb(filePath = 'game.db') {
@@ -121,6 +157,8 @@ export function openDb(filePath = 'game.db') {
 
   // Migrate legacy Words columns into state JSON
   migrateLegacyState(db);
+  // Patch any rows that were migrated under an earlier broken shape.
+  migrateStateShape(db);
 
   return db;
 }

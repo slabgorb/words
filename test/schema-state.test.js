@@ -86,7 +86,9 @@ test('legacy Words columns are migrated into state JSON and then dropped', () =>
   assert.deepEqual(state.board, [[null]]);
   assert.deepEqual(state.racks, { a: ['X', 'Y'], b: ['P', 'Q'] });
   assert.deepEqual(state.scores, { a: 12, b: 7 });
-  assert.equal(state.activeSide, 'b');
+  assert.deepEqual(state.sides, { a: 1, b: 2 });
+  assert.equal(state.activeUserId, 2, 'current_turn=b → activeUserId = player_b_id');
+  assert.equal('activeSide' in state, false, 'legacy activeSide field should not survive');
   assert.equal(state.consecutiveScorelessTurns, 1);
 });
 
