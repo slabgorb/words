@@ -1,5 +1,4 @@
 import Database from 'better-sqlite3';
-import { TILE_BAG, BOARD_SIZE } from './board.js';
 import { migrateLegacy } from './migrate.js';
 
 // Tables that must exist before the legacy migration runs.
@@ -54,24 +53,80 @@ CREATE UNIQUE INDEX IF NOT EXISTS moves_nonce_per_game
   ON moves(game_id, client_nonce) WHERE client_nonce IS NOT NULL;
 `;
 
-export function shuffle(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+export function migrateLegacyState(db) {
+  const cols = db.prepare("PRAGMA table_info(games)").all().map(c => c.name);
+
+  const legacyCols = [
+    'bag', 'board', 'rack_a', 'rack_b',
+    'score_a', 'score_b', 'current_turn',
+    'consecutive_scoreless_turns'
+  ];
+  const presentLegacy = legacyCols.filter(c => cols.includes(c));
+  if (presentLegacy.length === 0) return; // columns already dropped
+
+  // Pack each row's legacy data into state JSON using the plugin shape
+  // (sides + activeUserId), so applyAction works without a second pass.
+  const rows = db.prepare(`SELECT * FROM games`).all();
+  const updateState = db.prepare(`UPDATE games SET state = ? WHERE id = ?`);
+
+  const update = db.transaction((rows) => {
+    for (const row of rows) {
+      const turn = row.current_turn ?? 'a';
+      const activeUserId = turn === 'a' ? row.player_a_id : row.player_b_id;
+      const state = {
+        bag: row.bag ? JSON.parse(row.bag) : [],
+        board: row.board ? JSON.parse(row.board) : [],
+        racks: {
+          a: row.rack_a ? JSON.parse(row.rack_a) : [],
+          b: row.rack_b ? JSON.parse(row.rack_b) : [],
+        },
+        scores: { a: row.score_a ?? 0, b: row.score_b ?? 0 },
+        sides: { a: row.player_a_id, b: row.player_b_id },
+        activeUserId,
+        consecutiveScorelessTurns: row.consecutive_scoreless_turns ?? 0,
+        initialMoveDone: (row.score_a ?? 0) > 0 || (row.score_b ?? 0) > 0,
+        endedReason: null,
+        winnerSide: null,
+      };
+      updateState.run(JSON.stringify(state), row.id);
+    }
+  });
+  update(rows);
+
+  // Drop the legacy columns. SQLite supports ALTER TABLE … DROP COLUMN since 3.35.
+  for (const col of presentLegacy) {
+    db.exec(`ALTER TABLE games DROP COLUMN ${col}`);
   }
-  return a;
 }
 
-export function emptyBoard() {
-  return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
-}
+// Patch any rows whose state JSON was written by an earlier (broken) version
+// of migrateLegacyState — they have `activeSide` but no `sides`/`activeUserId`,
+// so the Words plugin refuses to act on them.
+export function migrateStateShape(db) {
+  const rows = db.prepare(`
+    SELECT id, player_a_id, player_b_id, state FROM games
+    WHERE json_extract(state, '$.sides') IS NULL
+       OR json_extract(state, '$.activeUserId') IS NULL
+  `).all();
+  if (rows.length === 0) return;
 
-export function freshGameDeal() {
-  const bag = shuffle(TILE_BAG);
-  const rackA = bag.splice(0, 7);
-  const rackB = bag.splice(0, 7);
-  return { bag, rackA, rackB };
+  const updateState = db.prepare(`UPDATE games SET state = ? WHERE id = ?`);
+  const update = db.transaction((rows) => {
+    for (const row of rows) {
+      const state = JSON.parse(row.state);
+      // Empty state from default '{}' on never-played rows — leave alone;
+      // applyAction will reject and the row will be replaced naturally.
+      if (!state.bag && !state.board) continue;
+
+      const aSide = state.activeSide ?? 'a';
+      state.sides = state.sides ?? { a: row.player_a_id, b: row.player_b_id };
+      state.activeUserId = state.activeUserId
+        ?? (aSide === 'a' ? row.player_a_id : row.player_b_id);
+      delete state.activeSide;
+      updateState.run(JSON.stringify(state), row.id);
+    }
+  });
+  update(rows);
 }
 
 export function openDb(filePath = 'game.db') {
@@ -81,5 +136,29 @@ export function openDb(filePath = 'game.db') {
   db.exec(SCHEMA_PRE);
   migrateLegacy(db);
   db.exec(SCHEMA_POST);
+
+  // --- Plugin host schema delta ---
+  const gameCols = db.prepare("PRAGMA table_info(games)").all().map(c => c.name);
+
+  if (!gameCols.includes('game_type')) {
+    db.exec("ALTER TABLE games ADD COLUMN game_type TEXT NOT NULL DEFAULT 'words'");
+  }
+
+  if (!gameCols.includes('state')) {
+    db.exec("ALTER TABLE games ADD COLUMN state TEXT NOT NULL DEFAULT '{}'");
+  }
+
+  db.exec("DROP INDEX IF EXISTS one_active_per_pair");
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS one_active_per_pair_type
+    ON games (player_a_id, player_b_id, game_type)
+    WHERE status = 'active'
+  `);
+
+  // Migrate legacy Words columns into state JSON
+  migrateLegacyState(db);
+  // Patch any rows that were migrated under an earlier broken shape.
+  migrateStateShape(db);
+
   return db;
 }

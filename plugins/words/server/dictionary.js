@@ -3,7 +3,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PATH = resolve(__dirname, '..', '..', 'data', 'enable2k.txt');
+const DEFAULT_PATH = resolve(__dirname, '..', '..', '..', 'data', 'enable2k.txt');
 
 export function loadDictionary(path = DEFAULT_PATH) {
   if (!existsSync(path)) {

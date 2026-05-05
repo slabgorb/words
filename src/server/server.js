@@ -2,8 +2,12 @@ import express from 'express';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
-import { loadDictionary } from './dictionary.js';
-import { buildRoutes } from './routes.js';
+import { mountRoutes } from './routes.js';
+import { mountPluginClients } from './plugin-clients.js';
+import { plugins } from '../plugins/index.js';
+import { buildRegistry } from './plugins.js';
+import { attachIdentity } from './identity.js';
+import { broadcast } from './sse.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..', '..');
@@ -13,8 +17,6 @@ const dbPath = process.env.DB_PATH ?? resolve(PROJECT_ROOT, 'game.db');
 const isProd = process.env.NODE_ENV === 'production';
 const devUser = process.env.DEV_USER || null;
 
-const dict = loadDictionary();
-console.log(`[startup] dictionary loaded (${dict.size} words)`);
 const db = openDb(dbPath);
 console.log(`[startup] database opened at ${dbPath}`);
 if (!isProd && devUser) {
@@ -24,11 +26,16 @@ if (!isProd && devUser) {
 const app = express();
 app.set('trust proxy', 1);
 app.use(express.json());
-app.use('/api', buildRoutes({ db, dict, isProd, devUser }));
+app.use(attachIdentity({ db, isProd, devUser }));
+
+const registry = buildRegistry(plugins);
+mountRoutes(app, { db, registry, sse: { broadcast } });
+mountPluginClients(app, { db, registry });
 
 const PUBLIC = resolve(PROJECT_ROOT, 'public');
-app.get('/', (_req, res) => res.sendFile(resolve(PUBLIC, 'home.html')));
-app.get('/game/:id(\\d+)', (_req, res) => res.sendFile(resolve(PUBLIC, 'index.html')));
+const LOBBY = resolve(PUBLIC, 'lobby');
+app.use('/lobby', express.static(LOBBY));
+app.get('/', (_req, res) => res.sendFile(resolve(LOBBY, 'lobby.html')));
 app.get('/lockout', (_req, res) => res.sendFile(resolve(PUBLIC, 'lockout.html')));
 app.use(express.static(PUBLIC));
 

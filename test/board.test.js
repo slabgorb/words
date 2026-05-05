@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LETTER_VALUE, TILE_BAG, BOARD_PREMIUMS, BOARD_SIZE } from '../src/server/board.js';
+import { LETTER_VALUE, TILE_BAG, BOARD_PREMIUMS, BOARD_SIZE } from '../plugins/words/server/board.js';
 
 test('board is 15x15', () => {
   assert.equal(BOARD_SIZE, 15);

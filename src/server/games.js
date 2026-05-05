@@ -1,20 +1,26 @@
-import { freshGameDeal, emptyBoard } from './db.js';
-
 function rowToGame(row) {
   if (!row) return null;
+  const state = JSON.parse(row.state);
+  // Map activeUserId → 'a'/'b' for backwards-compat consumers (lobby, /me, SSE clients)
+  const currentTurn =
+    state.sides?.a === state.activeUserId ? 'a' :
+    state.sides?.b === state.activeUserId ? 'b' :
+    state.activeSide ?? null;  // fallback for not-yet-migrated rows
   return {
     id: row.id,
     playerAId: row.player_a_id,
     playerBId: row.player_b_id,
     status: row.status,
-    currentTurn: row.current_turn,
-    bag: JSON.parse(row.bag),
-    board: JSON.parse(row.board),
-    rackA: JSON.parse(row.rack_a),
-    rackB: JSON.parse(row.rack_b),
-    scoreA: row.score_a,
-    scoreB: row.score_b,
-    consecutiveScorelessTurns: row.consecutive_scoreless_turns,
+    gameType: row.game_type,
+    state,
+    currentTurn,
+    bag: state.bag,
+    board: state.board,
+    rackA: state.racks?.a,
+    rackB: state.racks?.b,
+    scoreA: state.scores?.a,
+    scoreB: state.scores?.b,
+    consecutiveScorelessTurns: state.consecutiveScorelessTurns,
     endedReason: row.ended_reason,
     winnerSide: row.winner_side,
     createdAt: row.created_at,
@@ -28,20 +34,15 @@ export function sideForUser(game, userId) {
   return null;
 }
 
-export function createGame(db, userId1, userId2) {
-  if (userId1 === userId2) throw new Error('cannot start a game with self');
-  const aId = Math.min(userId1, userId2);
-  const bId = Math.max(userId1, userId2);
-  const { bag, rackA, rackB } = freshGameDeal();
-  const startSide = Math.random() < 0.5 ? 'a' : 'b';
+export function createGame(db, { playerAId, playerBId, gameType, initialState }) {
+  if (playerAId === playerBId) throw new Error('cannot start a game with self');
+  const aId = Math.min(playerAId, playerBId);
+  const bId = Math.max(playerAId, playerBId);
   const now = Date.now();
   const info = db.prepare(`
-    INSERT INTO games (player_a_id, player_b_id, status, current_turn, bag, board,
-      rack_a, rack_b, score_a, score_b, consecutive_scoreless_turns,
-      ended_reason, winner_side, created_at, updated_at)
-    VALUES (?, ?, 'active', ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, ?, ?)
-  `).run(aId, bId, startSide, JSON.stringify(bag), JSON.stringify(emptyBoard()),
-         JSON.stringify(rackA), JSON.stringify(rackB), now, now);
+    INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', ?, ?, ?, ?)
+  `).run(aId, bId, gameType, JSON.stringify(initialState), now, now);
   return getGameById(db, info.lastInsertRowid);
 }
 
@@ -63,52 +64,19 @@ export function findActiveGameForPair(db, userId1, userId2) {
   ).get(aId, bId));
 }
 
-export function persistMove(db, gameId, nextState, moveRecord) {
+export function endGame(db, id, { endedReason, winnerSide, finalState }) {
   const tx = db.transaction(() => {
-    if (moveRecord.clientNonce) {
-      const existing = db.prepare(
-        'SELECT id FROM moves WHERE game_id = ? AND client_nonce = ?'
-      ).get(gameId, moveRecord.clientNonce);
-      if (existing) return { moveId: existing.id, idempotent: true };
-    }
     db.prepare(`UPDATE games SET
-      status = ?, current_turn = ?, bag = ?, board = ?,
-      rack_a = ?, rack_b = ?, score_a = ?, score_b = ?,
-      consecutive_scoreless_turns = ?, ended_reason = ?, winner_side = ?,
+      status = 'ended', state = ?,
+      ended_reason = ?, winner_side = ?,
       updated_at = ? WHERE id = ?`).run(
-      nextState.status ?? (nextState.endedReason ? 'ended' : 'active'),
-      nextState.currentTurn,
-      JSON.stringify(nextState.bag),
-      JSON.stringify(nextState.board),
-      JSON.stringify(nextState.rackA),
-      JSON.stringify(nextState.rackB),
-      nextState.scoreA,
-      nextState.scoreB,
-      nextState.consecutiveScorelessTurns,
-      nextState.endedReason ?? null,
-      nextState.winnerSide ?? null,
+      JSON.stringify(finalState),
+      endedReason ?? null,
+      winnerSide ?? null,
       Date.now(),
-      gameId
+      id
     );
-    const info = db.prepare(`INSERT INTO moves
-      (game_id, side, kind, placement, words_formed, score_delta, client_nonce, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      gameId,
-      moveRecord.side,
-      moveRecord.kind,
-      moveRecord.placement ? JSON.stringify(moveRecord.placement) : null,
-      moveRecord.wordsFormed ? JSON.stringify(moveRecord.wordsFormed) : null,
-      moveRecord.scoreDelta ?? 0,
-      moveRecord.clientNonce ?? null,
-      Date.now()
-    );
-    return { moveId: info.lastInsertRowid, idempotent: false };
   });
-  return tx();
-}
-
-export function resetGameForPair(db, prevGameId) {
-  const prev = getGameById(db, prevGameId);
-  if (!prev) throw new Error('game not found');
-  return createGame(db, prev.playerAId, prev.playerBId);
+  tx();
+  return getGameById(db, id);
 }

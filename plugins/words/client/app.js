@@ -196,17 +196,13 @@ function recall() {
   refresh();
 }
 
-function nonce() {
-  return crypto.randomUUID();
-}
-
 async function submitMove() {
   if (!lastValidation?.valid) return;
-  const r = await fetch(gameUrl('move'), {
+  const r = await fetch(window.__GAME__?.actionUrl ?? gameUrl('action'), {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      placement: ui.tentative.map(t => ({ r: t.r, c: t.c, letter: t.letter, blank: !!t.blank })),
-      clientNonce: nonce()
+      type: 'move',
+      payload: { placement: ui.tentative.map(t => ({ r: t.r, c: t.c, letter: t.letter, blank: !!t.blank })) }
     })
   });
   if (!r.ok) {
@@ -237,9 +233,9 @@ async function passTurn() {
     cancelText: 'Keep playing',
   });
   if (!ok) return;
-  const r = await fetch(gameUrl('pass'), {
+  const r = await fetch(window.__GAME__?.actionUrl ?? gameUrl('action'), {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ clientNonce: nonce() })
+    body: JSON.stringify({ type: 'pass' })
   });
   if (!r.ok) {
     const b = await r.json().catch(() => ({}));
@@ -251,9 +247,12 @@ async function passTurn() {
 }
 
 async function confirmNewGame() {
-  const r = await fetch(gameUrl('new-game'), {
+  // Derive opponentId from the current game state
+  const opponentSide = ui.server.you === 'a' ? 'b' : 'a';
+  const opponentId = ui.server.sides?.[opponentSide] ?? null;
+  const r = await fetch('/api/games', {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({})
+    body: JSON.stringify({ opponentId, gameType: 'words' })
   });
   if (!r.ok) {
     const b = await r.json().catch(() => ({}));
@@ -262,20 +261,16 @@ async function confirmNewGame() {
     return;
   }
   const body = await r.json();
-  if (body.started) location.href = `/game/${body.newGameId}`;
-  else {
-    $('#status').textContent = `Waiting for ${body.waitingFor} to confirm...`;
-    $('#status').classList.add('show');
-  }
+  if (body.id) location.href = `/play/${body.gameType ?? 'words'}/${body.id}/`;
 }
 
 async function swapTiles() {
   const disabledIdx = new Set(ui.tentative.map(t => t.fromRackIdx));
   const tiles = await pickSwapTiles({ rackOrder: ui.rackOrder, disabledIdx });
   if (!tiles || tiles.length === 0) return;
-  const r = await fetch(gameUrl('swap'), {
+  const r = await fetch(window.__GAME__?.actionUrl ?? gameUrl('action'), {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ tiles, clientNonce: nonce() })
+    body: JSON.stringify({ type: 'swap', payload: { tiles } })
   });
   if (!r.ok) {
     const b = await r.json().catch(() => ({}));
@@ -297,9 +292,9 @@ async function resign() {
     danger: true,
   });
   if (!ok) return;
-  const r = await fetch(gameUrl('resign'), {
+  const r = await fetch(window.__GAME__?.actionUrl ?? gameUrl('action'), {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ clientNonce: nonce() })
+    body: JSON.stringify({ type: 'resign' })
   });
   if (r.ok) { await fetchState(); refresh(); }
 }
@@ -370,10 +365,6 @@ function startSSE() {
     }
   });
   es.addEventListener('resign', async () => { await fetchState(); refresh(); });
-  es.addEventListener('new-game', (e) => {
-    const p = parsePayload(e);
-    location.href = p.newGameId ? `/game/${p.newGameId}` : '/';
-  });
   es.onerror = () => { /* browser auto-reconnects */ };
 }
 

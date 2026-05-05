@@ -15,6 +15,8 @@ export function scheduleValidate(callback) {
       });
       if (myInflight !== inflight) return; // stale response
       const body = await r.json();
+      // Normalize points→score for backwards compat with app.js consumer
+      if (body.points !== undefined && body.score === undefined) body.score = body.points;
       callback(body);
     } catch (e) {
       console.error('validate failed', e);
