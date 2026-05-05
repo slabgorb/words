@@ -1,3 +1,6 @@
+import { renderRack, toggleSortMode } from './rack.js';
+import { renderTable } from './table.js';
+
 const ctx = window.__GAME__;
 let state = null;
 
@@ -31,11 +34,10 @@ function render() {
     meldEl.classList.add('hidden');
   }
 
-  // Render table and rack as text for now (Tasks 11-12 give them real DOM)
   const tableEl = document.getElementById('table');
-  tableEl.textContent = JSON.stringify(state.table);
+  renderTable(tableEl, state.table);
   const rackEl = document.getElementById('rack');
-  rackEl.textContent = JSON.stringify(state.racks[mySide] ?? []);
+  renderRack(rackEl, state.racks[mySide] ?? []);
 
   // End-game screen
   if (state.endedReason) {
@@ -56,3 +58,8 @@ function openSSE() {
 
 fetchState();
 openSSE();
+
+document.getElementById('btn-sort').addEventListener('click', () => {
+  toggleSortMode();
+  render();
+});
