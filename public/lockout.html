@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Words — not on the roster</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="lockout">
+    <h1>You're not on the roster yet.</h1>
+    <p>Hi <span id="who"></span> — Keith hasn't added you to the roster yet.
+       Drop him a line and he'll set you up.</p>
+    <p><a id="mailto" href="mailto:slabgorb@gmail.com">Email Keith</a></p>
+  </main>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const email = params.get('email') || 'friend';
+    document.getElementById('who').textContent = email;
+    document.getElementById('mailto').href = `mailto:slabgorb@gmail.com?subject=Words access for ${encodeURIComponent(email)}`;
+  </script>
+</body>
+</html>
