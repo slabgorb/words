@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyRummikubAction } from '../plugins/rummikub/server/actions.js';
 import { rummikubPublicView } from '../plugins/rummikub/server/view.js';
+import { setValue } from '../plugins/rummikub/server/sets.js';
 
 function det(seed = 0) {
   let s = seed;
@@ -130,4 +131,81 @@ test('publicView includes table, scores, sides, activeUserId, end fields', () =>
   assert.equal(view.activeUserId, 1);
   assert.equal(view.endedReason, null);
   assert.equal(view.winnerSide, null);
+});
+
+test('commit-turn returns summary with meldPoints, tilesPlayed, openedInitialMeld', () => {
+  // Build a state where the actor has an initial-meld-eligible group on rack.
+  // Three 10s of distinct colors sum to 30 — meets the 30-point initial threshold.
+  const tiles = [
+    { id: 't1', kind: 'numbered', value: 10, color: 'red' },
+    { id: 't2', kind: 'numbered', value: 10, color: 'blue' },
+    { id: 't3', kind: 'numbered', value: 10, color: 'black' },
+    { id: 't4', kind: 'numbered', value: 1, color: 'red' },
+  ];
+  const state = {
+    sides: { a: 1, b: 2 },
+    activeUserId: 1,
+    racks: { a: tiles, b: [] },
+    table: [],
+    initialMeldComplete: { a: false, b: false },
+    pool: [],
+    consecutiveDraws: 0,
+    scores: { a: 0, b: 0 },
+    endedReason: null,
+    winnerSide: null,
+  };
+  const proposed = {
+    rack: [tiles[3]],
+    table: [[tiles[0], tiles[1], tiles[2]]],
+  };
+  const result = applyRummikubAction({
+    state,
+    action: { type: 'commit-turn', payload: proposed },
+    actorId: 1,
+    rng: () => 0.5,
+  });
+  assert.equal(result.error, undefined, `unexpected: ${result.error}`);
+  assert.equal(result.summary.kind, 'commit-turn');
+  assert.equal(result.summary.meldPoints, 30);
+  assert.equal(result.summary.tilesPlayed, 3);
+  assert.equal(result.summary.openedInitialMeld, true);
+});
+
+test('draw-tile returns summary { kind: draw-tile }', () => {
+  const state = {
+    sides: { a: 1, b: 2 },
+    activeUserId: 1,
+    racks: { a: [], b: [] },
+    table: [],
+    initialMeldComplete: { a: false, b: false },
+    pool: [{ id: 'p1', kind: 'numbered', value: 7, color: 'red' }],
+    consecutiveDraws: 0,
+    scores: { a: 0, b: 0 },
+    endedReason: null,
+    winnerSide: null,
+  };
+  const result = applyRummikubAction({
+    state, action: { type: 'draw-tile', payload: {} }, actorId: 1, rng: () => 0.0,
+  });
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.summary, { kind: 'draw-tile' });
+});
+
+test('resign returns summary { kind: resign }', () => {
+  const state = {
+    sides: { a: 1, b: 2 },
+    activeUserId: 1,
+    racks: { a: [], b: [] },
+    table: [],
+    initialMeldComplete: { a: false, b: false },
+    pool: [],
+    consecutiveDraws: 0,
+    scores: { a: 0, b: 0 },
+    endedReason: null,
+    winnerSide: null,
+  };
+  const result = applyRummikubAction({
+    state, action: { type: 'resign', payload: {} }, actorId: 1, rng: () => 0,
+  });
+  assert.deepEqual(result.summary, { kind: 'resign' });
 });

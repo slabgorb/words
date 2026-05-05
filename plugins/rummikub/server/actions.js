@@ -1,4 +1,5 @@
 import { validateEndState } from './validate.js';
+import { withInferredJokers, setValue } from './sets.js';
 import { computeFinalScores } from './scoring.js';
 
 export function applyRummikubAction({ state, action, actorId, rng }) {
@@ -30,10 +31,28 @@ function doCommitTurn(state, payload, actorSide, oppSide, oppUserId) {
   );
   if (!validation.valid) return { error: validation.reason };
 
+  const startKeys = new Set(state.table.map(s => s.map(t => t.id).sort().join(',')));
+  let meldPoints = 0;
+  for (const set of proposedTable) {
+    const key = set.map(t => t.id).sort().join(',');
+    if (!startKeys.has(key)) meldPoints += setValue(set);
+  }
+  const tilesPlayed = state.racks[actorSide].length - proposedRack.length;
+  const openedInitialMeld =
+    !state.initialMeldComplete[actorSide] && proposedRack !== state.racks[actorSide];
+  const summary = {
+    kind: 'commit-turn',
+    meldPoints,
+    tilesPlayed,
+    openedInitialMeld,
+  };
+
+  const persistedTable = proposedTable.map(set => withInferredJokers(set));
+
   const next = {
     ...state,
     racks: { ...state.racks, [actorSide]: proposedRack },
-    table: proposedTable,
+    table: persistedTable,
     initialMeldComplete: { ...state.initialMeldComplete, [actorSide]: true },
     activeUserId: oppUserId,
     consecutiveDraws: 0,
@@ -50,10 +69,11 @@ function doCommitTurn(state, payload, actorSide, oppSide, oppUserId) {
       },
       ended: true,
       scoreDelta: final.scoreDeltas,
+      summary,
     };
   }
 
-  return { state: next, ended: false };
+  return { state: next, ended: false, summary };
 }
 
 function doDrawTile(state, actorSide, oppUserId, rng) {
@@ -68,6 +88,7 @@ function doDrawTile(state, actorSide, oppUserId, rng) {
       },
       ended: true,
       scoreDelta: final.scoreDeltas,
+      summary: { kind: 'draw-tile' },
     };
   }
   const idx = Math.floor(rng() * state.pool.length);
@@ -83,6 +104,7 @@ function doDrawTile(state, actorSide, oppUserId, rng) {
       consecutiveDraws: state.consecutiveDraws + 1,
     },
     ended: false,
+    summary: { kind: 'draw-tile' },
   };
 }
 
@@ -91,6 +113,7 @@ function doResign(state, actorSide) {
   return {
     state: { ...state, endedReason: 'resign', winnerSide: winner },
     ended: true,
+    summary: { kind: 'resign' },
   };
 }
 
