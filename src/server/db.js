@@ -81,5 +81,24 @@ export function openDb(filePath = 'game.db') {
   db.exec(SCHEMA_PRE);
   migrateLegacy(db);
   db.exec(SCHEMA_POST);
+
+  // --- Plugin host schema delta ---
+  const gameCols = db.prepare("PRAGMA table_info(games)").all().map(c => c.name);
+
+  if (!gameCols.includes('game_type')) {
+    db.exec("ALTER TABLE games ADD COLUMN game_type TEXT NOT NULL DEFAULT 'words'");
+  }
+
+  if (!gameCols.includes('state')) {
+    db.exec("ALTER TABLE games ADD COLUMN state TEXT NOT NULL DEFAULT '{}'");
+  }
+
+  db.exec("DROP INDEX IF EXISTS one_active_per_pair");
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS one_active_per_pair_type
+    ON games (player_a_id, player_b_id, game_type)
+    WHERE status = 'active'
+  `);
+
   return db;
 }

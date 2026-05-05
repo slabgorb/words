@@ -14,14 +14,14 @@ test('openDb creates games table with pair canonicalization check', () => {
   for (const expected of ['id', 'player_a_id', 'player_b_id', 'status',
     'current_turn', 'bag', 'board', 'rack_a', 'rack_b', 'score_a', 'score_b',
     'consecutive_scoreless_turns', 'ended_reason', 'winner_side',
-    'created_at', 'updated_at']) {
+    'created_at', 'updated_at', 'game_type', 'state']) {
     assert.ok(cols.includes(expected), `games missing column ${expected}`);
   }
 });
 
-test('one_active_per_pair partial unique index exists', () => {
+test('one_active_per_pair_type partial unique index exists', () => {
   const db = openDb(':memory:');
-  const idx = db.prepare("SELECT name, sql FROM sqlite_master WHERE type='index' AND name='one_active_per_pair'").get();
+  const idx = db.prepare("SELECT name, sql FROM sqlite_master WHERE type='index' AND name='one_active_per_pair_type'").get();
   assert.ok(idx, 'index missing');
   assert.match(idx.sql, /WHERE\s+status\s*=\s*'active'/i);
 });
