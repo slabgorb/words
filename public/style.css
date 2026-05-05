@@ -199,8 +199,8 @@ main {
    We override #board's bg with a layered fill. */
 #board {
   background:
-    radial-gradient(circle at 50% 30%, var(--board-hi) 0%, var(--board-mid) 60%, var(--board-lo) 100%),
-    url('/assets/board-wood.jpg') center/100% 100% no-repeat;
+    url('/assets/board-wood.jpg') center/cover,
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
   background-clip: content-box, padding-box;
   background-origin: content-box, padding-box;
   box-shadow:
