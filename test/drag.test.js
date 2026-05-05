@@ -33,6 +33,7 @@ function makeElement({ id, dropTarget = null, parent = null }) {
     id,
     dataset: dropTarget ? { dropTarget } : {},
     parent,
+    parentElement: parent,
   };
   // Mimic .closest by walking the parent chain.
   el.closest = (sel) => {
@@ -69,4 +70,18 @@ test('resolveTarget returns null if no ancestor is a target', () => {
   const child = makeElement({ id: 'child' });
   const result = resolveTarget(0, 0, () => child);
   assert.equal(result, null);
+});
+
+test('resolveTarget walks up the parent chain when accepts rejects', () => {
+  const outer = makeElement({ id: 'outer', dropTarget: 'rack' });
+  const inner = makeElement({ id: 'inner', dropTarget: 'rack-slot', parent: outer });
+  // Make .closest find inner first, then need to walk up to outer.
+  const child = makeElement({ id: 'child', parent: inner });
+  // accepts: only outer is acceptable.
+  const result = resolveTarget(
+    0, 0,
+    () => child,
+    (el) => el.id === 'outer',
+  );
+  assert.equal(result.id, 'outer');
 });

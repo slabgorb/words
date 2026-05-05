@@ -17,10 +17,17 @@ export function exceedsThreshold(x0, y0, x1, y1) {
  * @param {(x:number,y:number) => Element|null} elementFromPoint – usually `document.elementFromPoint`
  * @returns {Element|null} The nearest ancestor (inclusive) carrying `data-drop-target`, or null.
  */
-export function resolveTarget(x, y, elementFromPoint) {
-  const hit = elementFromPoint(x, y);
+export function resolveTarget(x, y, elementFromPoint, accepts = () => true) {
+  let hit = elementFromPoint(x, y);
   if (!hit) return null;
-  return hit.closest ? hit.closest('[data-drop-target]') : null;
+  while (hit) {
+    const candidate = hit.closest ? hit.closest('[data-drop-target]') : null;
+    if (!candidate) return null;
+    if (accepts(candidate)) return candidate;
+    // Reject -- try the candidate's parent.
+    hit = candidate.parentElement;
+  }
+  return null;
 }
 
 const sources = new WeakMap(); // element -> { payload(), onTap?, onDragStart?, onDragEnd? }
@@ -90,10 +97,16 @@ function onPointerUp(e) {
     active = null;
     return;
   }
-  const targetEl = resolveTarget(e.clientX, e.clientY, document.elementFromPoint.bind(document));
+  const targetEl = resolveTarget(
+    e.clientX, e.clientY,
+    document.elementFromPoint.bind(document),
+    (el) => {
+      const o = targets.get(el);
+      return o && (!o.accepts || o.accepts(active.payload));
+    },
+  );
   const targetOpts = targetEl ? targets.get(targetEl) : null;
-  const accepts = targetOpts && (targetOpts.accepts ? targetOpts.accepts(active.payload) : true);
-  if (accepts) {
+  if (targetOpts) {
     tick(12);
     const payload = active.payload;
     snapToTarget(targetEl, () => {
@@ -162,18 +175,18 @@ function positionGhost(x, y) {
 }
 
 function updateHoverTarget(x, y) {
-  const targetEl = resolveTarget(x, y, document.elementFromPoint.bind(document));
+  const targetEl = resolveTarget(
+    x, y,
+    document.elementFromPoint.bind(document),
+    (el) => {
+      const o = targets.get(el);
+      return o && (!o.accepts || o.accepts(active.payload));
+    },
+  );
   if (active.hoverTarget === targetEl) return;
   if (active.hoverTarget) active.hoverTarget.classList.remove('drop-target');
   active.hoverTarget = targetEl;
-  if (targetEl) {
-    const opts = targets.get(targetEl);
-    if (opts && (!opts.accepts || opts.accepts(active.payload))) {
-      targetEl.classList.add('drop-target');
-    } else {
-      active.hoverTarget = null;
-    }
-  }
+  if (targetEl) targetEl.classList.add('drop-target');
 }
 
 function highlightAllTargets(on) {
