@@ -9,12 +9,14 @@ export function scheduleValidate(callback) {
     if (ui.tentative.length === 0) { callback(null); return; }
     const myInflight = ++inflight;
     try {
-      const r = await fetch('/api/validate', {
+      const r = await fetch(`/api/games/${ui.gameId}/validate`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ placement: ui.tentative.map(t => ({ r: t.r, c: t.c, letter: t.letter, blank: !!t.blank })) })
       });
       if (myInflight !== inflight) return; // stale response
       const body = await r.json();
+      // Normalize points→score for backwards compat with app.js consumer
+      if (body.points !== undefined && body.score === undefined) body.score = body.points;
       callback(body);
     } catch (e) {
       console.error('validate failed', e);

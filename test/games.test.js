@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { openDb } from '../src/server/db.js';
 import { createUser } from '../src/server/users.js';
 import {
-  createWordsGame, getGameById, listGamesForUser, persistMove, resetGameForPair, sideForUser,
+  createWordsGame, getGameById, listGamesForUser, resetGameForPair, sideForUser,
   findActiveGameForPair
 } from '../src/server/games.js';
 import { TILE_BAG } from '../plugins/words/server/board.js';
@@ -56,16 +56,6 @@ test('listGamesForUser returns games where user is a or b', () => {
   assert.equal(xs[0].id, g.id);
 });
 
-test('persistMove updates game and inserts moves row', () => {
-  const { db, a, b } = withTwoUsers();
-  const g = createWordsGame(db, a.id, b.id);
-  const next = { ...g, scoreA: 12, currentTurn: 'b' };
-  const r = persistMove(db, g.id, next, { side: 'a', kind: 'play', placement: [], wordsFormed: ['HI'], scoreDelta: 12, clientNonce: 'n1' });
-  assert.equal(r.idempotent, false);
-  const replay = persistMove(db, g.id, next, { side: 'a', kind: 'play', placement: [], wordsFormed: ['HI'], scoreDelta: 12, clientNonce: 'n1' });
-  assert.equal(replay.idempotent, true);
-  assert.equal(replay.moveId, r.moveId);
-});
 
 test('resetGameForPair marks current ended game and creates a fresh active game for the same pair', () => {
   const { db, a, b } = withTwoUsers();
