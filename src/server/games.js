@@ -1,5 +1,3 @@
-import { freshGameDeal, emptyBoard } from './db.js';
-
 function rowToGame(row) {
   if (!row) return null;
   const state = JSON.parse(row.state);
@@ -36,23 +34,6 @@ export function sideForUser(game, userId) {
   return null;
 }
 
-export function initialWordsState({ playerAId, playerBId } = {}) {
-  const { bag, rackA, rackB } = freshGameDeal();
-  const startSide = Math.random() < 0.5 ? 'a' : 'b';
-  return {
-    bag,
-    board: emptyBoard(),
-    racks: { a: rackA, b: rackB },
-    scores: { a: 0, b: 0 },
-    sides: { a: playerAId, b: playerBId },
-    activeUserId: startSide === 'a' ? playerAId : playerBId,
-    consecutiveScorelessTurns: 0,
-    initialMoveDone: false,
-    endedReason: null,
-    winnerSide: null,
-  };
-}
-
 export function createGame(db, { playerAId, playerBId, gameType, initialState }) {
   if (playerAId === playerBId) throw new Error('cannot start a game with self');
   const aId = Math.min(playerAId, playerBId);
@@ -63,17 +44,6 @@ export function createGame(db, { playerAId, playerBId, gameType, initialState })
     VALUES (?, ?, 'active', ?, ?, ?, ?)
   `).run(aId, bId, gameType, JSON.stringify(initialState), now, now);
   return getGameById(db, info.lastInsertRowid);
-}
-
-export function createWordsGame(db, userId1, userId2) {
-  const aId = Math.min(userId1, userId2);
-  const bId = Math.max(userId1, userId2);
-  return createGame(db, {
-    playerAId: aId,
-    playerBId: bId,
-    gameType: 'words',
-    initialState: initialWordsState({ playerAId: aId, playerBId: bId }),
-  });
 }
 
 export function getGameById(db, id) {
@@ -92,12 +62,6 @@ export function findActiveGameForPair(db, userId1, userId2) {
   return rowToGame(db.prepare(
     "SELECT * FROM games WHERE player_a_id = ? AND player_b_id = ? AND status = 'active'"
   ).get(aId, bId));
-}
-
-export function resetGameForPair(db, prevGameId) {
-  const prev = getGameById(db, prevGameId);
-  if (!prev) throw new Error('game not found');
-  return createWordsGame(db, prev.playerAId, prev.playerBId);
 }
 
 export function endGame(db, id, { endedReason, winnerSide, finalState }) {

@@ -28,6 +28,7 @@ async function setup() {
     const id = Number(req.header('x-test-user-id'));
     if (!id) return res.status(401).end();
     req.user = { id };
+    req.authEmail = `${id}@test`;
     next();
   });
   mountRoutes(app, { db, registry: { stub }, sse: { broadcast: () => {} } });

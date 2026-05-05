@@ -1,5 +1,4 @@
 import Database from 'better-sqlite3';
-import { TILE_BAG, BOARD_SIZE } from '../../plugins/words/server/board.js';
 import { migrateLegacy } from './migrate.js';
 
 // Tables that must exist before the legacy migration runs.
@@ -53,26 +52,6 @@ CREATE TABLE IF NOT EXISTS moves (
 CREATE UNIQUE INDEX IF NOT EXISTS moves_nonce_per_game
   ON moves(game_id, client_nonce) WHERE client_nonce IS NOT NULL;
 `;
-
-export function shuffle(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-export function emptyBoard() {
-  return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
-}
-
-export function freshGameDeal() {
-  const bag = shuffle(TILE_BAG);
-  const rackA = bag.splice(0, 7);
-  const rackB = bag.splice(0, 7);
-  return { bag, rackA, rackB };
-}
 
 export function migrateLegacyState(db) {
   const cols = db.prepare("PRAGMA table_info(games)").all().map(c => c.name);

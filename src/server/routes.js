@@ -1,19 +1,27 @@
-import { Router } from 'express';
-import { attachIdentity, requireIdentity } from './identity.js';
+import { requireIdentity } from './identity.js';
 import { listUsers, getUserById } from './users.js';
-import {
-  createWordsGame, listGamesForUser, sideForUser, getGameById,
-  endGame
-} from './games.js';
-import { broadcast, subscribe } from './sse.js';
+import { listGamesForUser, sideForUser, getGameById, endGame } from './games.js';
+import { subscribe } from './sse.js';
 import { writeGameState } from './state.js';
 import { getPlugin } from './plugins.js';
 
-export function buildRoutes({ db, dict, isProd, devUser }) {
-  const r = Router();
-  r.use(attachIdentity({ db, isProd, devUser }));
+export function mountRoutes(app, { db, registry, sse }) {
+  // Game-scoped middleware: validate id, load game, check membership.
+  app.param('gameId', (req, res, next, gameId) => {
+    if (!req.user) return res.status(401).json({ error: 'unauthenticated' });
+    const id = Number(gameId);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'bad game id' });
+    const game = getGameById(db, id);
+    if (!game) return res.status(404).json({ error: 'game not found' });
+    if (req.user.id !== game.playerAId && req.user.id !== game.playerBId) {
+      return res.status(403).json({ error: 'not a participant' });
+    }
+    req.game = game;
+    next();
+  });
 
-  r.get('/me', requireIdentity, (req, res) => {
+  // -- Identity-scoped, no game id --
+  app.get('/api/me', requireIdentity, (req, res) => {
     const games = listGamesForUser(db, req.user.id).map(g => {
       const otherId = g.playerAId === req.user.id ? g.playerBId : g.playerAId;
       const other = getUserById(db, otherId);
@@ -37,74 +45,18 @@ export function buildRoutes({ db, dict, isProd, devUser }) {
     });
   });
 
-  r.get('/users', requireIdentity, (_req, res) => {
+  app.get('/api/users', requireIdentity, (_req, res) => {
     res.json(listUsers(db).map(u => ({ id: u.id, friendlyName: u.friendlyName, color: u.color })));
   });
 
-  // -- Per-game authorization --
-  function loadGameForUser(req, res, next) {
-    const gameId = Number(req.params.id);
-    if (!Number.isInteger(gameId)) return res.status(400).json({ error: 'bad-game-id' });
-    const game = getGameById(db, gameId);
-    if (!game) return res.status(404).json({ error: 'game-not-found' });
-    const side = sideForUser(game, req.user.id);
-    if (!side) return res.status(403).json({ error: 'not-a-participant' });
-    req.game = game;
-    req.side = side;
-    next();
-  }
-
-  r.get('/games/:id/state', requireIdentity, loadGameForUser, (req, res) => {
-    const g = req.game;
-    const otherId = g.playerAId === req.user.id ? g.playerBId : g.playerAId;
-    const other = getUserById(db, otherId);
-    res.json({
-      gameId: g.id,
-      you: req.side,
-      opponent: { friendlyName: other.friendlyName, color: other.color },
-      yourFriendlyName: req.user.friendlyName,
-      yourColor: req.user.color,
-      status: g.status,
-      currentTurn: g.currentTurn,
-      board: g.board,
-      bag: g.bag,
-      racks: { a: g.rackA, b: g.rackB },
-      scores: { a: g.scoreA, b: g.scoreB },
-      consecutiveScorelessTurns: g.consecutiveScorelessTurns,
-      endedReason: g.endedReason,
-      winner: g.winnerSide,
-      sides: g.state?.sides ?? null,
-    });
-  });
-
-  r.get('/games/:id/events', requireIdentity, loadGameForUser, (req, res) => {
-    subscribe(req.game.id, req, res);
-  });
-
-  return r;
-}
-
-export function mountRoutes(app, { db, registry, sse }) {
-  // Game-scoped middleware: load + check membership
-  app.param('gameId', (req, res, next, gameId) => {
-    const id = Number(gameId);
-    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'bad game id' });
-    const game = getGameById(db, id);
-    if (!game) return res.status(404).json({ error: 'game not found' });
-    if (req.user.id !== game.playerAId && req.user.id !== game.playerBId) {
-      return res.status(403).json({ error: 'not a participant' });
-    }
-    req.game = game;
-    next();
-  });
-
-  app.get('/api/plugins', (req, res) => {
+  app.get('/api/plugins', requireIdentity, (_req, res) => {
     res.json({
       plugins: Object.values(registry).map(p => ({ id: p.id, displayName: p.displayName })),
     });
   });
 
-  app.get('/api/games', (req, res) => {
+  // -- Generic game listing & creation --
+  app.get('/api/games', requireIdentity, (req, res) => {
     const rows = db.prepare(`
       SELECT id, player_a_id AS playerAId, player_b_id AS playerBId,
              game_type AS gameType, status, updated_at AS updatedAt
@@ -115,7 +67,7 @@ export function mountRoutes(app, { db, registry, sse }) {
     res.json({ games: rows });
   });
 
-  app.post('/api/games', (req, res) => {
+  app.post('/api/games', requireIdentity, (req, res) => {
     const { opponentId, gameType } = req.body ?? {};
     if (!Number.isInteger(opponentId) || opponentId === req.user.id) {
       return res.status(400).json({ error: 'invalid opponentId' });
@@ -156,7 +108,9 @@ export function mountRoutes(app, { db, registry, sse }) {
       throw err;
     }
   });
-  app.get('/api/games/:gameId', (req, res) => {
+
+  // -- Per-game routes (use :gameId) --
+  app.get('/api/games/:gameId', requireIdentity, (req, res) => {
     const plugin = getPlugin(registry, req.game.gameType);
     const view = plugin.publicView({ state: req.game.state, viewerId: req.user.id });
     res.json({
@@ -169,7 +123,38 @@ export function mountRoutes(app, { db, registry, sse }) {
     });
   });
 
-  app.post('/api/games/:gameId/action', (req, res) => {
+  // Legacy Words-shape state endpoint — used by the existing Words client.
+  // Returns full game state including both racks; new clients should use
+  // GET /api/games/:gameId (which goes through publicView).
+  app.get('/api/games/:gameId/state', requireIdentity, (req, res) => {
+    const g = req.game;
+    const side = sideForUser(g, req.user.id);
+    const otherId = g.playerAId === req.user.id ? g.playerBId : g.playerAId;
+    const other = getUserById(db, otherId);
+    res.json({
+      gameId: g.id,
+      you: side,
+      opponent: { friendlyName: other.friendlyName, color: other.color },
+      yourFriendlyName: req.user.friendlyName,
+      yourColor: req.user.color,
+      status: g.status,
+      currentTurn: g.currentTurn,
+      board: g.board,
+      bag: g.bag,
+      racks: { a: g.rackA, b: g.rackB },
+      scores: { a: g.scoreA, b: g.scoreB },
+      consecutiveScorelessTurns: g.consecutiveScorelessTurns,
+      endedReason: g.endedReason,
+      winner: g.winnerSide,
+      sides: g.state?.sides ?? null,
+    });
+  });
+
+  app.get('/api/games/:gameId/events', requireIdentity, (req, res) => {
+    subscribe(req.game.id, req, res);
+  });
+
+  app.post('/api/games/:gameId/action', requireIdentity, (req, res) => {
     const { action } = parseAction(req);
     if (!action) return res.status(400).json({ error: 'missing action' });
     if (req.game.status !== 'active') {
@@ -225,7 +210,7 @@ export function mountRoutes(app, { db, registry, sse }) {
         throw new Error(`plugin(${plugin.id}).auxRoutes['${name}']: unsupported method ${route.method}`);
       }
       // Wrap handler so it only runs for matching game_type
-      app[method](path, (req, res, next) => {
+      app[method](path, requireIdentity, (req, res, next) => {
         if (req.game.gameType !== plugin.id) return next();
         return route.handler(req, res, next);
       });

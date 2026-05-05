@@ -3,21 +3,15 @@ import assert from 'node:assert/strict';
 import express from 'express';
 import { openDb } from '../src/server/db.js';
 import { createUser } from '../src/server/users.js';
-import { createWordsGame, getGameById } from '../src/server/games.js';
-import { buildRoutes, mountRoutes } from '../src/server/routes.js';
+import { createGame, getGameById } from '../src/server/games.js';
+import { mountRoutes } from '../src/server/routes.js';
 import { attachIdentity } from '../src/server/identity.js';
-import { loadDictionary } from '../plugins/words/server/dictionary.js';
 import wordsPlugin from '../plugins/words/plugin.js';
 
 function buildApp(db, devUser) {
-  const dict = loadDictionary();
   const app = express();
   app.use(express.json());
-  // Identity at the app level — needed by both buildRoutes and mountRoutes.
   app.use(attachIdentity({ db, isProd: false, devUser }));
-  // Legacy routes (state, events, me, users, games POST)
-  app.use('/api', buildRoutes({ db, dict, isProd: false, devUser }));
-  // Generic action route + aux routes (validate, etc.)
   const registry = { words: wordsPlugin };
   const sse = { broadcast: () => {} };
   mountRoutes(app, { db, registry, sse });
@@ -27,12 +21,19 @@ function buildApp(db, devUser) {
 async function listen(app) { return new Promise(r => { const s = app.listen(0, () => r(s)); }); }
 function urlOf(s) { return `http://localhost:${s.address().port}`; }
 
+function makeWordsGame(db, p1, p2) {
+  const lo = Math.min(p1, p2), hi = Math.max(p1, p2);
+  const participants = [{ userId: lo, side: 'a' }, { userId: hi, side: 'b' }];
+  const initialState = wordsPlugin.initialState({ participants, rng: Math.random });
+  return createGame(db, { playerAId: lo, playerBId: hi, gameType: 'words', initialState });
+}
+
 function setup() {
   const db = openDb(':memory:');
   const a = createUser(db, { email: 'a@x.com', friendlyName: 'Alice' });
   const b = createUser(db, { email: 'b@x.com', friendlyName: 'Bob' });
   const c = createUser(db, { email: 'c@x.com', friendlyName: 'Charlie' });
-  const g = createWordsGame(db, a.id, b.id);
+  const g = makeWordsGame(db, a.id, b.id);
   return { db, a, b, c, g };
 }
 

@@ -3,17 +3,14 @@ import assert from 'node:assert/strict';
 import express from 'express';
 import { openDb } from '../src/server/db.js';
 import { createUser } from '../src/server/users.js';
-import { buildRoutes, mountRoutes } from '../src/server/routes.js';
+import { mountRoutes } from '../src/server/routes.js';
 import { attachIdentity } from '../src/server/identity.js';
-import { loadDictionary } from '../plugins/words/server/dictionary.js';
 import wordsPlugin from '../plugins/words/plugin.js';
 
 function buildApp(db, devUser = null) {
-  const dict = loadDictionary();
   const app = express();
   app.use(express.json());
   app.use(attachIdentity({ db, isProd: false, devUser }));
-  app.use('/api', buildRoutes({ db, dict, isProd: false, devUser }));
   const registry = { words: wordsPlugin };
   const sse = { broadcast: () => {} };
   mountRoutes(app, { db, registry, sse });

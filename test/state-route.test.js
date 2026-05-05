@@ -36,6 +36,7 @@ async function setupApp() {
     const id = Number(req.header('x-test-user-id'));
     if (!id) return res.status(401).end();
     req.user = { id };
+    req.authEmail = `${id}@test`;
     next();
   });
 
