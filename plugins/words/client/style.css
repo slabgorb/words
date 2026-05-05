@@ -4,6 +4,7 @@
 ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=JetBrains+Mono:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Montserrat:wght@400;500;600&family=Fredoka:wght@400;500;600&family=Raleway:wght@400;500;600&family=Henny+Penny&display=swap');
 
 :root {
   --type-serif: 'Source Serif 4', 'Iowan Old Style', Cambria, Georgia, serif;
@@ -807,6 +808,26 @@ body[data-theme="jade"] .rack-slot.tile.blank .tile-letter {
 #btn-mute:hover, #btn-theme:hover, #btn-font:hover {
   transform: translateY(-1px);
   background: var(--tile-bg-hi);
+}
+
+/* ----- per-font display overrides -----
+   Driven by body[data-font]; swaps `--type-serif` so headings, controls,
+   and tile faces switch together. The sans body and JetBrains Mono points
+   are unaffected. */
+body[data-font="baskerville"] {
+  --type-serif: 'Libre Baskerville', 'Iowan Old Style', Georgia, serif;
+}
+body[data-font="montserrat"] {
+  --type-serif: 'Montserrat', 'Helvetica Neue', system-ui, sans-serif;
+}
+body[data-font="fredoka"] {
+  --type-serif: 'Fredoka', 'Avenir Next', system-ui, sans-serif;
+}
+body[data-font="raleway"] {
+  --type-serif: 'Raleway', 'Helvetica Neue', system-ui, sans-serif;
+}
+body[data-font="henny"] {
+  --type-serif: 'Henny Penny', 'Iowan Old Style', Georgia, serif;
 }
 
 /* ----- opponent move callouts ----- */
