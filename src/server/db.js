@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { TILE_BAG, BOARD_SIZE } from './board.js';
+import { TILE_BAG, BOARD_SIZE } from '../../plugins/words/server/board.js';
 import { migrateLegacy } from './migrate.js';
 
 // Tables that must exist before the legacy migration runs.

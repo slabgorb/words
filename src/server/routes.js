@@ -8,7 +8,7 @@ import {
 import {
   validatePlacement, extractWords, scoreMove, applyMove,
   detectGameEnd, applyEndGameAdjustment
-} from './engine.js';
+} from '../../plugins/words/server/engine.js';
 import { broadcast, subscribe } from './sse.js';
 import { writeGameState } from './state.js';
 import { getPlugin } from './plugins.js';

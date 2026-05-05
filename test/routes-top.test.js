@@ -4,7 +4,7 @@ import express from 'express';
 import { openDb } from '../src/server/db.js';
 import { createUser } from '../src/server/users.js';
 import { buildRoutes } from '../src/server/routes.js';
-import { loadDictionary } from '../src/server/dictionary.js';
+import { loadDictionary } from '../plugins/words/server/dictionary.js';
 
 function buildApp(db, devUser = null) {
   const dict = loadDictionary();

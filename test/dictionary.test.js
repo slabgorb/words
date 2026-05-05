@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadDictionary } from '../src/server/dictionary.js';
+import { loadDictionary } from '../plugins/words/server/dictionary.js';
 
 test('dictionary loads and contains common words', () => {
   const dict = loadDictionary();

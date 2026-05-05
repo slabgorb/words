@@ -2,7 +2,7 @@ import express from 'express';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
-import { loadDictionary } from './dictionary.js';
+import { loadDictionary } from '../../plugins/words/server/dictionary.js';
 import { buildRoutes, mountRoutes } from './routes.js';
 import { mountPluginClients } from './plugin-clients.js';
 import { plugins } from '../plugins/index.js';

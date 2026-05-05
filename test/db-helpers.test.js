@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyBoard, freshGameDeal } from '../src/server/db.js';
-import { BOARD_SIZE } from '../src/server/board.js';
+import { BOARD_SIZE } from '../plugins/words/server/board.js';
 
 test('emptyBoard returns a 15x15 array of nulls', () => {
   const b = emptyBoard();

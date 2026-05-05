@@ -6,7 +6,7 @@ import {
   createWordsGame, getGameById, listGamesForUser, persistMove, resetGameForPair, sideForUser,
   findActiveGameForPair
 } from '../src/server/games.js';
-import { TILE_BAG } from '../src/server/board.js';
+import { TILE_BAG } from '../plugins/words/server/board.js';
 
 function withTwoUsers() {
   const db = openDb(':memory:');

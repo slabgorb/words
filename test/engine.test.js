@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOARD_SIZE } from '../src/server/board.js';
-import { validatePlacement, extractWords, scoreMove, applyMove, detectGameEnd, applyEndGameAdjustment } from '../src/server/engine.js';
+import { BOARD_SIZE } from '../plugins/words/server/board.js';
+import { validatePlacement, extractWords, scoreMove, applyMove, detectGameEnd, applyEndGameAdjustment } from '../plugins/words/server/engine.js';
 
 function emptyBoard() {
   return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
