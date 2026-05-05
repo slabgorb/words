@@ -2,13 +2,13 @@
 // overlapping triggers don't cut each other off.
 
 const SRC = {
-  click: '/sounds/click.mp3',
-  swoosh: '/sounds/swoosh.mp3',
-  'cheer-20': '/sounds/cheer-20.mp3',
-  'cheer-30': '/sounds/cheer-30.mp3',
-  'cheer-50': '/sounds/cheer-50.mp3',
-  'cheer-100': '/sounds/cheer-100.mp3',
-  'your-turn': '/sounds/your-turn.mp3',
+  click: 'sounds/click.mp3',
+  swoosh: 'sounds/swoosh.mp3',
+  'cheer-20': 'sounds/cheer-20.mp3',
+  'cheer-30': 'sounds/cheer-30.mp3',
+  'cheer-50': 'sounds/cheer-50.mp3',
+  'cheer-100': 'sounds/cheer-100.mp3',
+  'your-turn': 'sounds/your-turn.mp3',
 };
 
 const VOLUME = {
