@@ -21,7 +21,7 @@ body::before {
   inset: -24px;
   z-index: -1;
   background: url('assets/board-canvas.png') 0 0 / 2000px auto repeat, #6c7484;
-  filter: blur(3px) brightness(0.62);
+  filter: brightness(0.62);
   pointer-events: none;
 }
 header { display: flex; gap: 1rem; align-items: baseline; padding: 0.5rem 1rem; background: rgba(0, 0, 0, 0.35); border-bottom: 1px solid rgba(0, 0, 0, 0.45); color: #f0e8d4; backdrop-filter: blur(2px); }
