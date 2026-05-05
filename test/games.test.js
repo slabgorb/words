@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { openDb } from '../src/server/db.js';
 import { createUser } from '../src/server/users.js';
 import {
-  createGame, getGameById, listGamesForUser, persistMove, resetGameForPair, sideForUser,
+  createWordsGame, getGameById, listGamesForUser, persistMove, resetGameForPair, sideForUser,
   findActiveGameForPair
 } from '../src/server/games.js';
 import { TILE_BAG } from '../src/server/board.js';
@@ -15,9 +15,9 @@ function withTwoUsers() {
   return { db, a, b };
 }
 
-test('createGame canonicalizes pair (a < b regardless of arg order)', () => {
+test('createWordsGame canonicalizes pair (a < b regardless of arg order)', () => {
   const { db, a, b } = withTwoUsers();
-  const g = createGame(db, b.id, a.id);
+  const g = createWordsGame(db, b.id, a.id);
   assert.equal(g.playerAId, Math.min(a.id, b.id));
   assert.equal(g.playerBId, Math.max(a.id, b.id));
   assert.equal(g.status, 'active');
@@ -29,20 +29,20 @@ test('createGame canonicalizes pair (a < b regardless of arg order)', () => {
   assert.equal(g.rackA.length + g.rackB.length + g.bag.length, TILE_BAG.length);
 });
 
-test('createGame rejects duplicate active pair', () => {
+test('createWordsGame rejects duplicate active pair', () => {
   const { db, a, b } = withTwoUsers();
-  createGame(db, a.id, b.id);
-  assert.throws(() => createGame(db, a.id, b.id), /one[_ ]active[_ ]per[_ ]pair|UNIQUE/i);
+  createWordsGame(db, a.id, b.id);
+  assert.throws(() => createWordsGame(db, a.id, b.id), /one[_ ]active[_ ]per[_ ]pair|UNIQUE/i);
 });
 
-test('createGame rejects self-pairing', () => {
+test('createWordsGame rejects self-pairing', () => {
   const { db, a } = withTwoUsers();
-  assert.throws(() => createGame(db, a.id, a.id), /self/i);
+  assert.throws(() => createWordsGame(db, a.id, a.id), /self/i);
 });
 
 test('sideForUser returns a or b correctly', () => {
   const { db, a, b } = withTwoUsers();
-  const g = createGame(db, a.id, b.id);
+  const g = createWordsGame(db, a.id, b.id);
   assert.equal(sideForUser(g, a.id), 'a');
   assert.equal(sideForUser(g, b.id), 'b');
   assert.equal(sideForUser(g, 999), null);
@@ -50,7 +50,7 @@ test('sideForUser returns a or b correctly', () => {
 
 test('listGamesForUser returns games where user is a or b', () => {
   const { db, a, b } = withTwoUsers();
-  const g = createGame(db, a.id, b.id);
+  const g = createWordsGame(db, a.id, b.id);
   const xs = listGamesForUser(db, a.id);
   assert.equal(xs.length, 1);
   assert.equal(xs[0].id, g.id);
@@ -58,7 +58,7 @@ test('listGamesForUser returns games where user is a or b', () => {
 
 test('persistMove updates game and inserts moves row', () => {
   const { db, a, b } = withTwoUsers();
-  const g = createGame(db, a.id, b.id);
+  const g = createWordsGame(db, a.id, b.id);
   const next = { ...g, scoreA: 12, currentTurn: 'b' };
   const r = persistMove(db, g.id, next, { side: 'a', kind: 'play', placement: [], wordsFormed: ['HI'], scoreDelta: 12, clientNonce: 'n1' });
   assert.equal(r.idempotent, false);
@@ -69,7 +69,7 @@ test('persistMove updates game and inserts moves row', () => {
 
 test('resetGameForPair marks current ended game and creates a fresh active game for the same pair', () => {
   const { db, a, b } = withTwoUsers();
-  const g = createGame(db, a.id, b.id);
+  const g = createWordsGame(db, a.id, b.id);
   // Simulate ended state
   db.prepare("UPDATE games SET status='ended', ended_reason='resigned' WHERE id = ?").run(g.id);
   const fresh = resetGameForPair(db, g.id);
@@ -80,7 +80,7 @@ test('resetGameForPair marks current ended game and creates a fresh active game 
 
 test('findActiveGameForPair returns the active game regardless of arg order', () => {
   const { db, a, b } = withTwoUsers();
-  const g = createGame(db, a.id, b.id);
+  const g = createWordsGame(db, a.id, b.id);
   assert.equal(findActiveGameForPair(db, a.id, b.id).id, g.id);
   assert.equal(findActiveGameForPair(db, b.id, a.id).id, g.id);
 });
@@ -92,7 +92,7 @@ test('findActiveGameForPair returns null when no active game exists', () => {
 
 test('findActiveGameForPair ignores ended games', () => {
   const { db, a, b } = withTwoUsers();
-  const g = createGame(db, a.id, b.id);
+  const g = createWordsGame(db, a.id, b.id);
   db.prepare("UPDATE games SET status='ended' WHERE id = ?").run(g.id);
   assert.equal(findActiveGameForPair(db, a.id, b.id), null);
 });

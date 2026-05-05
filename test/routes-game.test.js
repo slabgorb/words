@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import express from 'express';
 import { openDb } from '../src/server/db.js';
 import { createUser } from '../src/server/users.js';
-import { createGame, getGameById } from '../src/server/games.js';
+import { createWordsGame, getGameById } from '../src/server/games.js';
 import { buildRoutes } from '../src/server/routes.js';
 import { loadDictionary } from '../src/server/dictionary.js';
 
@@ -22,7 +22,7 @@ function setup() {
   const a = createUser(db, { email: 'a@x.com', friendlyName: 'Alice' });
   const b = createUser(db, { email: 'b@x.com', friendlyName: 'Bob' });
   const c = createUser(db, { email: 'c@x.com', friendlyName: 'Charlie' });
-  const g = createGame(db, a.id, b.id);
+  const g = createWordsGame(db, a.id, b.id);
   return { db, a, b, c, g };
 }
 
@@ -57,7 +57,9 @@ test('GET /api/games/:id/state returns 404 for missing game', async () => {
 test('POST /api/games/:id/pass advances the turn', async () => {
   const { db, g } = setup();
   // Force currentTurn = 'a' so Alice can pass.
-  db.prepare("UPDATE games SET current_turn='a' WHERE id=?").run(g.id);
+  const _stateA = JSON.parse(db.prepare('SELECT state FROM games WHERE id=?').get(g.id).state);
+  _stateA.activeSide = 'a';
+  db.prepare("UPDATE games SET state=? WHERE id=?").run(JSON.stringify(_stateA), g.id);
   const server = await listen(buildApp(db, 'a@x.com'));
   const r = await fetch(`${urlOf(server)}/api/games/${g.id}/pass`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -70,7 +72,9 @@ test('POST /api/games/:id/pass advances the turn', async () => {
 
 test('POST /api/games/:id/pass returns 409 when not your turn', async () => {
   const { db, g } = setup();
-  db.prepare("UPDATE games SET current_turn='b' WHERE id=?").run(g.id);
+  const _stateB = JSON.parse(db.prepare('SELECT state FROM games WHERE id=?').get(g.id).state);
+  _stateB.activeSide = 'b';
+  db.prepare("UPDATE games SET state=? WHERE id=?").run(JSON.stringify(_stateB), g.id);
   const server = await listen(buildApp(db, 'a@x.com'));
   const r = await fetch(`${urlOf(server)}/api/games/${g.id}/pass`, {
     method: 'POST', headers: { 'content-type': 'application/json' },

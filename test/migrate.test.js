@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { migrateLegacy } from '../src/server/migrate.js';
-import { openDb } from '../src/server/db.js';
+import { openDb, migrateLegacyState } from '../src/server/db.js';
 import { listUsers, getUserByEmail } from '../src/server/users.js';
 import { listGamesForUser } from '../src/server/games.js';
 
@@ -75,6 +75,8 @@ function installNewSchema(db) {
       ended_reason TEXT,
       winner_side TEXT CHECK (winner_side IN ('a', 'b', 'draw') OR winner_side IS NULL),
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+      game_type TEXT NOT NULL DEFAULT 'words',
+      state TEXT NOT NULL DEFAULT '{}',
       CHECK (player_a_id < player_b_id)
     );
     CREATE UNIQUE INDEX one_active_per_pair ON games(player_a_id, player_b_id) WHERE status='active';
@@ -95,6 +97,8 @@ test('migrateLegacy preserves the active game with mapped racks/scores', () => {
   const db = buildLegacyDb();
   installNewSchema(db);
   migrateLegacy(db);
+  // Pack legacy columns into state JSON (normally done by openDb after migrateLegacy).
+  migrateLegacyState(db);
   const keith = getUserByEmail(db, 'slabgorb@gmail.com');
   const games = listGamesForUser(db, keith.id);
   assert.equal(games.length, 1);

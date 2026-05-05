@@ -12,10 +12,14 @@ test('openDb creates games table with pair canonicalization check', () => {
   const db = openDb(':memory:');
   const cols = db.prepare("PRAGMA table_info(games)").all().map(c => c.name);
   for (const expected of ['id', 'player_a_id', 'player_b_id', 'status',
-    'current_turn', 'bag', 'board', 'rack_a', 'rack_b', 'score_a', 'score_b',
-    'consecutive_scoreless_turns', 'ended_reason', 'winner_side',
+    'ended_reason', 'winner_side',
     'created_at', 'updated_at', 'game_type', 'state']) {
     assert.ok(cols.includes(expected), `games missing column ${expected}`);
+  }
+  // Legacy columns (bag, board, rack_a, rack_b, etc.) must be dropped after migration
+  for (const dropped of ['current_turn', 'bag', 'board', 'rack_a', 'rack_b',
+    'score_a', 'score_b', 'consecutive_scoreless_turns']) {
+    assert.ok(!cols.includes(dropped), `games should not have legacy column ${dropped}`);
   }
 });
 

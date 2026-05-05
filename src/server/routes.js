@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { attachIdentity, requireIdentity } from './identity.js';
 import { listUsers, getUserById } from './users.js';
 import {
-  createGame, listGamesForUser, sideForUser, getGameById,
+  createWordsGame, listGamesForUser, sideForUser, getGameById,
   persistMove, resetGameForPair
 } from './games.js';
 import {
@@ -52,7 +52,7 @@ export function buildRoutes({ db, dict, isProd, devUser }) {
     const other = getUserById(db, otherUserId);
     if (!other) return res.status(404).json({ error: 'unknown-user' });
     try {
-      const g = createGame(db, req.user.id, otherUserId);
+      const g = createWordsGame(db, req.user.id, otherUserId);
       res.status(201).json({ gameId: g.id });
     } catch (e) {
       const msg = String(e?.message ?? '');
