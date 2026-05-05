@@ -238,6 +238,10 @@ async function submitMove() {
 }
 
 async function passTurn() {
+  if (ui.server.status === 'ended') {
+    await confirmNewGame();
+    return;
+  }
   const ok = await confirmAction({
     title: 'Pass your turn?',
     body: 'You will skip without scoring. Two passes in a row by both players ends the game.',
@@ -256,6 +260,25 @@ async function passTurn() {
     return;
   }
   await fetchState(); refresh();
+}
+
+async function confirmNewGame() {
+  const r = await fetch('/api/new-game', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({})
+  });
+  if (!r.ok) {
+    const b = await r.json().catch(() => ({}));
+    $('#status').textContent = `New game failed: ${b.error || r.status}`;
+    $('#status').classList.add('show');
+    return;
+  }
+  const body = await r.json();
+  if (body.started) location.reload();
+  else {
+    $('#status').textContent = `Waiting for ${body.waitingFor} to confirm...`;
+    $('#status').classList.add('show');
+  }
 }
 
 async function swapTiles() {
@@ -293,25 +316,16 @@ async function resign() {
   if (r.ok) { await fetchState(); refresh(); }
 }
 
-async function maybeOfferNewGame() {
-  if (ui.server.status !== 'ended') return;
-  const winner = ui.server.winner ?? 'tie';
-  $('#status').textContent = `Game ended (${ui.server.endedReason}) — winner: ${winner}. Click "Pass" to confirm a new game (both players must click).`;
-  $('#status').classList.add('show');
-  // Repurpose the pass button while game is ended → New Game confirm
+function maybeOfferNewGame() {
   const btn = $('#btn-pass');
+  if (ui.server.status !== 'ended') {
+    btn.textContent = 'Pass';
+    return;
+  }
+  const winner = ui.server.winner ?? 'tie';
+  $('#status').textContent = `Game ended (${ui.server.endedReason}) — winner: ${winner}. Click "Confirm new game" (both players must click).`;
+  $('#status').classList.add('show');
   btn.textContent = 'Confirm new game';
-  btn.onclick = async () => {
-    const r = await fetch('/api/new-game', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    if (r.ok) {
-      const body = await r.json();
-      if (body.started) location.reload();
-      else { $('#status').textContent = `Waiting for ${body.waitingFor} to confirm...`; $('#status').classList.add('show'); }
-    }
-  };
 }
 
 function parsePayload(e) {
@@ -416,7 +430,7 @@ async function init() {
   document.addEventListener('pointerdown', primer);
   document.addEventListener('keydown', primer);
 
-  await maybeOfferNewGame();
+  maybeOfferNewGame();
   startSSE();
 }
 
