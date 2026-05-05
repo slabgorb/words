@@ -55,9 +55,9 @@ function refresh() {
     const me = ui.server.you;
     const isMyTurn = current === me;
     pill.textContent = isMyTurn
-      ? ‘Your turn’
+      ? 'Your turn'
       : `${current[0].toUpperCase() + current.slice(1)}’s turn`;
-    pill.dataset.state = ‘active’;
+    pill.dataset.state = 'active';
   }
   pill.setAttribute('role', 'status');
   pill.setAttribute('aria-live', 'polite');
