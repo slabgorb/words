@@ -570,6 +570,20 @@ body[data-theme="ivory"] #board {
   background-clip: content-box, padding-box;
   background-origin: content-box, padding-box;
 }
+body[data-theme="marble"] #board {
+  background:
+    url('assets/board-marble.jpg') center/cover,
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  background-clip: content-box, padding-box;
+  background-origin: content-box, padding-box;
+}
+body[data-theme="jade"] #board {
+  background:
+    url('assets/board-jade.jpg') center/cover,
+    url('assets/frame-jade.jpg') center/cover;
+  background-clip: content-box, padding-box;
+  background-origin: content-box, padding-box;
+}
 
 /* Etched grid lines on the wood surface — dark TL + light BR per cell
    reads as a groove pressed into the wood. Wood theme only; on ivory the
