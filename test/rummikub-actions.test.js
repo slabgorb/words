@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyRummikubAction } from '../plugins/rummikub/server/actions.js';
+import { rummikubPublicView } from '../plugins/rummikub/server/view.js';
 
 function det(seed = 0) {
   let s = seed;
@@ -109,4 +110,24 @@ test('unknown action returns error', () => {
     state, action: { type: 'frobnicate', payload: {} }, actorId: 1, rng: det(5),
   });
   assert.match(result.error, /unknown action/i);
+});
+
+test('publicView hides opponent rack tiles, exposes count', () => {
+  const state = makeState();
+  const view = rummikubPublicView({ state, viewerId: 1 });
+  assert.equal(view.racks.a.length, 4);
+  assert.deepEqual(view.opponentRack, { count: 3 });
+  assert.equal(view.racks.b, undefined);
+  assert.deepEqual(view.pool, { count: 3 });
+});
+
+test('publicView includes table, scores, sides, activeUserId, end fields', () => {
+  const state = makeState();
+  const view = rummikubPublicView({ state, viewerId: 1 });
+  assert.deepEqual(view.table, []);
+  assert.deepEqual(view.scores, { a: 0, b: 0 });
+  assert.deepEqual(view.sides, { a: 1, b: 2 });
+  assert.equal(view.activeUserId, 1);
+  assert.equal(view.endedReason, null);
+  assert.equal(view.winnerSide, null);
 });
