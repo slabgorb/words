@@ -64,6 +64,18 @@ test('end-to-end: create Words game, fetch state, resign, list, restart', async 
     const after = await call(server, 'GET', `/api/games/${gameId}`, null, { 'x-test-user-id': '1' });
     assert.equal(after.body.status, 'ended');
 
+    // History was written for the resign + game-ended turn entries.
+    const hist = await call(server, 'GET', `/api/games/${gameId}/history`,
+      null, { 'x-test-user-id': '1' });
+    assert.equal(hist.status, 200);
+    assert.ok(Array.isArray(hist.body.entries));
+    assert.ok(hist.body.entries.length > 0, 'expected at least one history entry');
+    const kinds = hist.body.entries.map(e => e.summary.kind);
+    assert.ok(kinds.includes('resign'), `expected resign in ${JSON.stringify(kinds)}`);
+    assert.ok(kinds.includes('game-ended'), `expected game-ended in ${JSON.stringify(kinds)}`);
+    // Game-ended must follow the resign
+    assert.equal(kinds[kinds.length - 1], 'game-ended');
+
     // Listing only shows active games — should be empty
     const list = await call(server, 'GET', '/api/games', null, { 'x-test-user-id': '1' });
     assert.equal(list.body.games.length, 0);
