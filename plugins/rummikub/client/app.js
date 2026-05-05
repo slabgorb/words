@@ -2,14 +2,22 @@ import { renderRack, toggleSortMode } from './rack.js';
 import { renderTable } from './table.js';
 import { beginTurn, getTentative, getSnapshot, resetTurn, hasPendingChanges } from './turn.js';
 import { attachDrag } from './drag.js';
+import { initJokerPicker } from './joker-picker.js';
 import { validateEndState } from './validate.js';
 import { setValue } from './sets.js';
 import { cycleTheme, getThemeLabel } from './themes.js';
 import { cycleFont, getFontLabel } from './fonts.js';
+import { loadHistory, toggleDrawer, closeDrawer, appendEntry } from './history.js';
 
 const ctx = window.__GAME__;
 let state = null;
 let turnInProgress = false;
+
+function historyNames() {
+  const myUserId = ctx.userId;
+  const mySide = state?.sides?.a === myUserId ? 'a' : 'b';
+  return mySide === 'a' ? { a: 'You', b: 'Opponent' } : { a: 'Opponent', b: 'You' };
+}
 
 function refreshEndButton() {
   const tent = getTentative();
@@ -117,11 +125,17 @@ function openSSE() {
   const es = new EventSource(ctx.sseUrl);
   es.addEventListener('update', () => fetchState());
   es.addEventListener('ended', () => fetchState());
+  es.addEventListener('turn', (e) => {
+    let entry;
+    try { entry = JSON.parse(e.data); } catch { return; }
+    appendEntry(entry, historyNames);
+  });
   es.onerror = () => {/* let browser auto-reconnect */};
 }
 
 fetchState();
 openSSE();
+initJokerPicker();
 attachDrag(document.body, render);
 
 document.getElementById('btn-sort').addEventListener('click', () => {
@@ -198,6 +212,12 @@ function setupFontToggle() {
 
 setupThemeToggle();
 setupFontToggle();
+
+document.getElementById('btn-history').addEventListener('click', () => {
+  toggleDrawer();
+  loadHistory(historyNames);
+});
+document.getElementById('btn-history-close').addEventListener('click', closeDrawer);
 
 document.getElementById('btn-new').addEventListener('click', async () => {
   const myUserId = ctx.userId;

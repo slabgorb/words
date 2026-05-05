@@ -84,8 +84,8 @@ main {
 #table .new-set { border: 1px dashed rgba(255, 255, 255, 0.35); min-height: 2.5rem; padding: 0.5rem; opacity: 0.7; color: #d4cba8; }
 #rack { display: flex; flex-wrap: wrap; gap: 4px; padding: 0.5rem; background: rgba(0, 0, 0, 0.22); border-radius: 8px; min-height: 3rem; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4), inset 0 1px 3px rgba(0, 0, 0, 0.3); }
 .tile {
-  width: 3rem;
-  height: 3.6rem;
+  width: 3.6rem;
+  height: 4.32rem;
   border: 1px solid #5a3f24;
   border-radius: 5px;
   background: url('assets/tile-wood.png') center/cover, #b07c3a;
@@ -96,6 +96,7 @@ main {
   font-size: 1.4em;
   user-select: none;
   cursor: grab;
+  position: relative;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 240, 200, 0.18);
   /* Incised look: dark recess shadow above/left, light rim highlight below/right.
      Combined with slightly dimmed ink, the digit reads as carved INTO the wood. */
@@ -112,6 +113,15 @@ main {
 .tile.joker { color: #f0c060; }
 .tile.joker .represents { font-size: 0.7em; opacity: 0.75; }
 .tile.dragging { opacity: 0.4; }
+.tile .suit {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  font-size: 0.55em;
+  line-height: 1;
+  opacity: 0.85;
+  pointer-events: none;
+}
 
 /* Jersey theme: cream tile face with darker incised numbers. */
 body[data-theme="jersey"] .tile {
@@ -125,11 +135,11 @@ body[data-theme="jersey"] .tile {
     0 1px 0 rgba(255, 250, 235, 0.65),
     1px 1px 0 rgba(255, 250, 235, 0.45);
 }
-body[data-theme="jersey"] .tile.color-red    { color: #a01818; }
+body[data-theme="jersey"] .tile.color-red    { color: #8a0a0a; }
 body[data-theme="jersey"] .tile.color-blue   { color: #1f3a78; }
-body[data-theme="jersey"] .tile.color-orange { color: #9a4a08; }
+body[data-theme="jersey"] .tile.color-orange { color: #a07a00; }
 body[data-theme="jersey"] .tile.color-black  { color: #1a120a; }
-body[data-theme="jersey"] .tile.joker        { color: #8a4a08; }
+body[data-theme="jersey"] .tile.joker        { color: #6a2a8a; }
 #controls { display: flex; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; }
 #controls button { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid rgba(0, 0, 0, 0.5); background: #f0e8d4; color: #2a1f12; cursor: pointer; font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 #controls button:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -161,10 +171,140 @@ body[data-theme="jersey"] .tile.joker        { color: #8a4a08; }
 #btn-font  { right: 58px; }
 #btn-theme:hover, #btn-font:hover { transform: translateY(-1px); background: #fff5e0; }
 
+/* ----- joker picker modal ----- */
+#joker-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  backdrop-filter: blur(2px);
+}
+#joker-picker.hidden { display: none; }
+#joker-picker .jp-card {
+  background: #f0e8d4;
+  color: #2a1f12;
+  padding: 1rem 1.25rem 1.1rem;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  max-width: 22rem;
+  width: 100%;
+}
+#joker-picker h3 { margin: 0 0 0.6rem; font-size: 1.1rem; font-weight: 600; }
+#joker-picker .jp-section { margin-bottom: 0.75rem; }
+#joker-picker .jp-label { font-size: 0.85em; opacity: 0.72; margin-bottom: 0.3rem; }
+#joker-picker .jp-colors { display: flex; gap: 0.5rem; }
+#joker-picker .jp-color {
+  flex: 1;
+  height: 2.5rem;
+  border-radius: 6px;
+  border: 2px solid rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+#joker-picker .jp-color.color-red    { background: #e8483a; }
+#joker-picker .jp-color.color-blue   { background: #4d8ee0; }
+#joker-picker .jp-color.color-orange { background: #f0a02a; }
+#joker-picker .jp-color.color-black  { background: #2a1f12; }
+#joker-picker .jp-color.selected {
+  border-color: #2a1f12;
+  box-shadow: 0 0 0 2px #f0e8d4, 0 0 0 4px #2a1f12;
+}
+#joker-picker .jp-values {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3rem;
+}
+#joker-picker .jp-value {
+  height: 2.2rem;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  background: #fff8e6;
+  color: #2a1f12;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1em;
+  padding: 0;
+  font-family: inherit;
+}
+#joker-picker .jp-value.selected {
+  background: #2a1f12;
+  color: #f0e8d4;
+  border-color: #2a1f12;
+}
+#joker-picker .jp-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.4rem; }
+#joker-picker .jp-actions button {
+  padding: 0.45rem 0.9rem;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  background: #fff8e6;
+  color: #2a1f12;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+}
+#joker-picker #jp-apply { background: #2a1f12; color: #f0e8d4; }
+#joker-picker #jp-apply:disabled { opacity: 0.4; cursor: not-allowed; }
+#joker-picker #jp-clear { margin-right: auto; }
+
 /* ----- per-font display overrides ----- */
 body[data-font="serif"]       { --type-display: 'Source Serif 4', 'Iowan Old Style', Cambria, Georgia, serif; }
 body[data-font="baskerville"] { --type-display: 'Libre Baskerville', 'Iowan Old Style', Georgia, serif; }
 body[data-font="montserrat"]  { --type-display: 'Montserrat', 'Helvetica Neue', system-ui, sans-serif; }
 body[data-font="fredoka"]     { --type-display: 'Fredoka', 'Avenir Next', system-ui, sans-serif; }
 body[data-font="raleway"]     { --type-display: 'Raleway', 'Helvetica Neue', system-ui, sans-serif; }
+
+.history-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(360px, 90vw);
+  background: var(--bg, #fff);
+  color: var(--ink, #111);
+  border-left: 1px solid rgba(0,0,0,0.15);
+  box-shadow: -8px 0 24px rgba(0,0,0,0.18);
+  transform: translateX(100%);
+  transition: transform 200ms ease-out;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+.history-drawer:not([hidden]).history-drawer--open {
+  transform: translateX(0);
+}
+.history-drawer[hidden] { display: none; }
+.history-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+.history-drawer__title { margin: 0; font-size: 1rem; }
+.history-drawer__close {
+  background: transparent;
+  border: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.history-list li {
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  font-size: 0.9rem;
+}
+.history-list li:first-child { background: rgba(255,235,0,0.18); }
 body[data-font="henny"]       { --type-display: 'Henny Penny', 'Iowan Old Style', Georgia, serif; }

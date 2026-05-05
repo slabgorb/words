@@ -31,13 +31,44 @@
       <button id="btn-draw">Draw tile</button>
       <button id="btn-end" disabled>End turn</button>
       <button id="btn-resign">Resign</button>
+      <button id="btn-history" type="button" aria-label="Open history" aria-expanded="false">History</button>
     </section>
     <section id="end-screen" class="hidden">
       <h2 id="end-headline"></h2>
       <p id="end-summary"></p>
       <button id="btn-new">New game</button>
     </section>
+    <div id="joker-picker" class="hidden" role="dialog" aria-modal="true" aria-label="Choose joker representation">
+      <div class="jp-card">
+        <h3>Joker represents…</h3>
+        <div class="jp-section">
+          <div class="jp-label">Color</div>
+          <div class="jp-colors" role="radiogroup" aria-label="Color">
+            <button type="button" class="jp-color color-red"    data-color="red"    aria-label="Red"></button>
+            <button type="button" class="jp-color color-blue"   data-color="blue"   aria-label="Blue"></button>
+            <button type="button" class="jp-color color-orange" data-color="orange" aria-label="Orange"></button>
+            <button type="button" class="jp-color color-black"  data-color="black"  aria-label="Black"></button>
+          </div>
+        </div>
+        <div class="jp-section">
+          <div class="jp-label">Value</div>
+          <div class="jp-values" role="radiogroup" aria-label="Value"></div>
+        </div>
+        <div class="jp-actions">
+          <button type="button" id="jp-clear">Auto-infer</button>
+          <button type="button" id="jp-cancel">Cancel</button>
+          <button type="button" id="jp-apply" disabled>Apply</button>
+        </div>
+      </div>
+    </div>
   </main>
+  <aside id="history-drawer" class="history-drawer" hidden>
+    <header class="history-drawer__header">
+      <h2 class="history-drawer__title">History</h2>
+      <button id="btn-history-close" type="button" class="history-drawer__close" aria-label="Close history">×</button>
+    </header>
+    <ol id="history-list" class="history-list" aria-live="polite"></ol>
+  </aside>
   <script src="app.js" type="module"></script>
 </body>
 </html>
