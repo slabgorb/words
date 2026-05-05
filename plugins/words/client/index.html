@@ -32,6 +32,7 @@
       <div class="controls-row">
         <button id="btn-recall">Recall tiles</button>
         <button id="btn-shuffle">Shuffle rack</button>
+        <button id="btn-history" type="button" aria-label="Open history" aria-expanded="false">History</button>
         <button id="btn-more" aria-label="More actions" aria-haspopup="dialog" aria-expanded="false">⋯</button>
       </div>
       <div class="controls-desk">
@@ -42,6 +43,13 @@
     </section>
   </main>
 
+  <aside id="history-drawer" class="history-drawer" hidden>
+    <header class="history-drawer__header">
+      <h2 class="history-drawer__title">History</h2>
+      <button id="btn-history-close" type="button" class="history-drawer__close" aria-label="Close history">×</button>
+    </header>
+    <ol id="history-list" class="history-list" aria-live="polite"></ol>
+  </aside>
   <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -7,12 +7,21 @@ import { play, playForScore, primeAudio, isMuted, toggleMuted } from './sounds.j
 import { cycleTheme, getTheme } from './themes.js';
 import { cycleFont, getFont, getFontLabel } from './fonts.js';
 import { showMoveCallout, showPassCallout, showSwapCallout } from './callout.js';
+import { loadHistory, toggleDrawer, closeDrawer, appendEntry } from './history.js';
 
 const $ = (sel) => document.querySelector(sel);
 
 
 let selectedRackIdx = null;
 let lastValidation = null;
+
+function historyNames() {
+  // ui.server.opponent.friendlyName always names the opponent regardless of side.
+  // Map by side: when user is 'a', side 'a' is the user, side 'b' is the opponent.
+  return ui.server.you === 'a'
+    ? { a: ui.server.yourFriendlyName, b: ui.server.opponent.friendlyName }
+    : { a: ui.server.opponent.friendlyName, b: ui.server.yourFriendlyName };
+}
 
 function refresh() {
   const validation = lastValidation ? buildValidationPositions(lastValidation) : null;
@@ -387,6 +396,12 @@ async function init() {
   $('#game').hidden = false;
   loadTentative();
   refresh();
+
+  document.getElementById('btn-history').addEventListener('click', () => {
+    toggleDrawer();
+    loadHistory(historyNames);
+  });
+  document.getElementById('btn-history-close').addEventListener('click', closeDrawer);
 
   $('#btn-recall').addEventListener('click', recall);
   $('#btn-shuffle').addEventListener('click', () => { play('swoosh'); shuffleRack(); refresh(); });
