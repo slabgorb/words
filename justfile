@@ -124,3 +124,17 @@ reset-game: down-server
     @rm -f {{ root }}/game.db {{ root }}/game.db-shm {{ root }}/game.db-wal
     @echo "game.db cleared"
     @just up-server
+
+# Roster management
+
+# Add a user to the roster.
+add-user EMAIL NAME:
+    node bin/add-user.js {{EMAIL}} "{{NAME}}"
+
+# List all roster users.
+list-users:
+    node bin/list-users.js
+
+# Rename a roster user.
+rename-user EMAIL NAME:
+    node bin/rename-user.js {{EMAIL}} "{{NAME}}"

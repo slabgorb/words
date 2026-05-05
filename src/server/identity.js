@@ -1,55 +1,23 @@
-import { createHmac, randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { getUserByEmail } from './users.js';
 
-// Load or create a stable signing secret. Persists in .secret next to game.db
-// so cookies survive restart. Two-player personal use; this is sufficient.
-export function loadOrCreateSecret(path = '.secret') {
-  if (existsSync(path)) return readFileSync(path, 'utf8').trim();
-  const s = randomBytes(32).toString('hex');
-  writeFileSync(path, s, { mode: 0o600 });
-  return s;
-}
+const HEADER = 'cf-access-authenticated-user-email';
 
-const VALID_IDS = new Set(['keith', 'sonia']);
-
-function sign(value, secret) {
-  const mac = createHmac('sha256', secret).update(value).digest('hex');
-  return `${value}.${mac}`;
-}
-function verify(signed, secret) {
-  if (typeof signed !== 'string') return null;
-  const dot = signed.lastIndexOf('.');
-  if (dot < 0) return null;
-  const value = signed.slice(0, dot);
-  const mac = signed.slice(dot + 1);
-  const expected = createHmac('sha256', secret).update(value).digest('hex');
-  if (mac !== expected) return null;
-  return value;
-}
-
-// Cookie name and helpers
-export const COOKIE = 'wf_id';
-
-export function setIdentityCookie(res, id, secret) {
-  if (!VALID_IDS.has(id)) throw new Error(`invalid identity ${id}`);
-  res.cookie(COOKIE, sign(id, secret), {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 365 * 24 * 60 * 60 * 1000
-  });
-}
-
-// Express middleware that attaches `req.playerId` from the signed cookie, or null.
-export function attachIdentity(secret) {
+// Reads identity from the CF Access header (or DEV_USER in dev).
+// Attaches req.user (or null) and req.authEmail (the email from the header,
+// even if not on the roster — used by the lockout path).
+export function attachIdentity({ db, isProd, devUser } = {}) {
   return (req, _res, next) => {
-    const cookie = req.cookies?.[COOKIE];
-    const value = verify(cookie, secret);
-    req.playerId = VALID_IDS.has(value) ? value : null;
+    const headerEmail = req.headers[HEADER];
+    let email = typeof headerEmail === 'string' ? headerEmail.trim() : null;
+    if (!email && !isProd && devUser) email = devUser;
+    req.authEmail = email;
+    req.user = email ? getUserByEmail(db, email) : null;
     next();
   };
 }
 
 export function requireIdentity(req, res, next) {
-  if (!req.playerId) return res.status(401).json({ error: 'identity-required' });
+  if (!req.authEmail) return res.status(401).json({ error: 'unauthenticated' });
+  if (!req.user) return res.status(403).json({ error: 'not-on-roster', email: req.authEmail });
   next();
 }

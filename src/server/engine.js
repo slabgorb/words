@@ -159,9 +159,9 @@ export function scoreMove(board, placement, mainWord, crossWords) {
   return total;
 }
 
-const PLAYER_IDS = ['keith', 'sonia'];
+const PLAYER_IDS = ['a', 'b'];
 
-function otherPlayer(id) { return id === 'keith' ? 'sonia' : 'keith'; }
+function otherPlayer(id) { return id === 'a' ? 'b' : 'a'; }
 
 // Returns a new state. Does NOT mutate the input.
 // move: { playerId, kind: 'play'|'pass'|'swap', placement?, scoreDelta?, swapTiles? }
@@ -169,7 +169,7 @@ export function applyMove(state, move) {
   const next = {
     board: state.board.map(row => row.slice()),
     bag: state.bag.slice(),
-    racks: { keith: state.racks.keith.slice(), sonia: state.racks.sonia.slice() },
+    racks: { a: state.racks.a.slice(), b: state.racks.b.slice() },
     scores: { ...state.scores },
     currentTurn: otherPlayer(state.currentTurn),
     consecutiveScorelessTurns: state.consecutiveScorelessTurns
@@ -224,7 +224,7 @@ const SIX_SCORELESS = 6;
 export function detectGameEnd(state) {
   if (state.consecutiveScorelessTurns >= SIX_SCORELESS) return 'six-scoreless';
   if (state.bag.length === 0) {
-    if (state.racks.keith.length === 0 || state.racks.sonia.length === 0) return 'rack-empty';
+    if (state.racks.a.length === 0 || state.racks.b.length === 0) return 'rack-empty';
   }
   return null;
 }
@@ -251,19 +251,19 @@ export function applyEndGameAdjustment(state, reason, resignedPlayer) {
   }
 
   if (reason === 'rack-empty') {
-    const outPlayer = state.racks.keith.length === 0 ? 'keith' : 'sonia';
+    const outPlayer = state.racks.a.length === 0 ? 'a' : 'b';
     const opp = otherPlayer(outPlayer);
     const oppRackValue = rackValue(state.racks[opp]);
     next.scores[outPlayer] += oppRackValue;
     next.scores[opp] -= oppRackValue;
   } else if (reason === 'six-scoreless') {
-    next.scores.keith -= rackValue(state.racks.keith);
-    next.scores.sonia -= rackValue(state.racks.sonia);
+    next.scores.a -= rackValue(state.racks.a);
+    next.scores.b -= rackValue(state.racks.b);
   }
 
   // Determine winner by score (ties → null)
-  if (next.scores.keith > next.scores.sonia) next.winner = 'keith';
-  else if (next.scores.sonia > next.scores.keith) next.winner = 'sonia';
+  if (next.scores.a > next.scores.b) next.winner = 'a';
+  else if (next.scores.b > next.scores.a) next.winner = 'b';
   else next.winner = null;
 
   return next;

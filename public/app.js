@@ -1,4 +1,4 @@
-import { ui, fetchState, loadTentative, saveTentative, clearTentative } from './state.js';
+import { ui, fetchState, loadTentative, saveTentative, clearTentative, initGameId, gameUrl } from './state.js';
 import { renderBoard } from './board.js';
 import { renderRack, shuffleRack } from './rack.js';
 import { scheduleValidate } from './validator.js';
@@ -9,17 +9,6 @@ import { showMoveCallout, showPassCallout, showSwapCallout } from './callout.js'
 
 const $ = (sel) => document.querySelector(sel);
 
-async function whoami() {
-  const r = await fetch('/api/whoami');
-  return (await r.json()).playerId;
-}
-
-async function chooseIdentity(id) {
-  await fetch('/api/whoami', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ playerId: id })
-  });
-}
 
 let selectedRackIdx = null;
 let lastValidation = null;
@@ -40,23 +29,22 @@ function refresh() {
   const current = ui.server.currentTurn;
   const ended = ui.server.status === 'ended';
 
-  const keithEl = $('#score-keith');
-  const soniaEl = $('#score-sonia');
-  keithEl.textContent = `Keith ${scores.keith}`;
-  soniaEl.textContent = `Sonia ${scores.sonia}`;
-  keithEl.classList.toggle('active', !ended && current === 'keith');
-  soniaEl.classList.toggle('active', !ended && current === 'sonia');
+  const aFriendly = ui.server.you === 'a' ? ui.server.yourFriendlyName : ui.server.opponent.friendlyName;
+  const bFriendly = ui.server.you === 'b' ? ui.server.yourFriendlyName : ui.server.opponent.friendlyName;
+  const aEl = $('#score-a');
+  const bEl = $('#score-b');
+  aEl.textContent = `${aFriendly} ${scores.a}`;
+  bEl.textContent = `${bFriendly} ${scores.b}`;
+  aEl.classList.toggle('active', !ended && current === 'a');
+  bEl.classList.toggle('active', !ended && current === 'b');
 
   const pill = $('#turn-pill');
   if (ended) {
     pill.textContent = 'Game over';
     pill.dataset.state = 'ended';
   } else {
-    const me = ui.server.you;
-    const isMyTurn = current === me;
-    pill.textContent = isMyTurn
-      ? 'Your turn'
-      : `${current[0].toUpperCase() + current.slice(1)}’s turn`;
+    const isMyTurn = current === ui.server.you;
+    pill.textContent = isMyTurn ? 'Your turn' : `${ui.server.opponent.friendlyName}'s turn`;
     pill.dataset.state = 'active';
   }
   pill.setAttribute('role', 'status');
@@ -214,7 +202,7 @@ function nonce() {
 
 async function submitMove() {
   if (!lastValidation?.valid) return;
-  const r = await fetch('/api/move', {
+  const r = await fetch(gameUrl('move'), {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       placement: ui.tentative.map(t => ({ r: t.r, c: t.c, letter: t.letter, blank: !!t.blank })),
@@ -249,7 +237,7 @@ async function passTurn() {
     cancelText: 'Keep playing',
   });
   if (!ok) return;
-  const r = await fetch('/api/pass', {
+  const r = await fetch(gameUrl('pass'), {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ clientNonce: nonce() })
   });
@@ -263,7 +251,7 @@ async function passTurn() {
 }
 
 async function confirmNewGame() {
-  const r = await fetch('/api/new-game', {
+  const r = await fetch(gameUrl('new-game'), {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({})
   });
@@ -274,7 +262,7 @@ async function confirmNewGame() {
     return;
   }
   const body = await r.json();
-  if (body.started) location.reload();
+  if (body.started) location.href = `/game/${body.newGameId}`;
   else {
     $('#status').textContent = `Waiting for ${body.waitingFor} to confirm...`;
     $('#status').classList.add('show');
@@ -285,7 +273,7 @@ async function swapTiles() {
   const disabledIdx = new Set(ui.tentative.map(t => t.fromRackIdx));
   const tiles = await pickSwapTiles({ rackOrder: ui.rackOrder, disabledIdx });
   if (!tiles || tiles.length === 0) return;
-  const r = await fetch('/api/swap', {
+  const r = await fetch(gameUrl('swap'), {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ tiles, clientNonce: nonce() })
   });
@@ -309,7 +297,7 @@ async function resign() {
     danger: true,
   });
   if (!ok) return;
-  const r = await fetch('/api/resign', {
+  const r = await fetch(gameUrl('resign'), {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ clientNonce: nonce() })
   });
@@ -322,8 +310,10 @@ function maybeOfferNewGame() {
     btn.textContent = 'Pass';
     return;
   }
-  const winner = ui.server.winner ?? 'tie';
-  $('#status').textContent = `Game ended (${ui.server.endedReason}) — winner: ${winner}. Click "Confirm new game" (both players must click).`;
+  let winnerName = 'tie';
+  if (ui.server.winner === ui.server.you) winnerName = ui.server.yourFriendlyName;
+  else if (ui.server.winner) winnerName = ui.server.opponent.friendlyName;
+  $('#status').textContent = `Game ended (${ui.server.endedReason}) — winner: ${winnerName}. Click "Confirm new game" (both players must click).`;
   $('#status').classList.add('show');
   btn.textContent = 'Confirm new game';
 }
@@ -344,7 +334,7 @@ function captureTurnTransition() {
 }
 
 function startSSE() {
-  const es = new EventSource('/api/events');
+  const es = new EventSource(gameUrl('events'));
   es.addEventListener('move', async (e) => {
     const p = parsePayload(e);
     const checkTurn = captureTurnTransition();
@@ -380,25 +370,19 @@ function startSSE() {
     }
   });
   es.addEventListener('resign', async () => { await fetchState(); refresh(); });
-  es.addEventListener('new-game', () => location.reload());
+  es.addEventListener('new-game', (e) => {
+    const p = parsePayload(e);
+    location.href = p.newGameId ? `/game/${p.newGameId}` : '/';
+  });
   es.onerror = () => { /* browser auto-reconnects */ };
 }
 
 async function init() {
-  const id = await whoami();
-  if (!id) {
-    $('#identity-picker').hidden = false;
-    $('#identity-picker').addEventListener('click', async (e) => {
-      const t = e.target;
-      if (!(t instanceof HTMLButtonElement)) return;
-      await chooseIdentity(t.dataset.id);
-      location.reload();
-    });
-    return;
-  }
+  initGameId();
+  const state = await fetchState();
+  if (!state) return; // fetchState already redirected (lockout / home)
   $('#game').hidden = false;
   loadTentative();
-  await fetchState();
   refresh();
 
   $('#btn-recall').addEventListener('click', recall);
