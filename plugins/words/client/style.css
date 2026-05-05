@@ -782,7 +782,7 @@ body[data-theme="jade"] .rack-slot.tile.blank .tile-letter {
 }
 
 /* ----- mute toggle ----- */
-#btn-mute, #btn-theme {
+#btn-mute, #btn-theme, #btn-font {
   position: fixed;
   top: 12px;
   width: 36px;
@@ -803,7 +803,8 @@ body[data-theme="jade"] .rack-slot.tile.blank .tile-letter {
 }
 #btn-mute { right: 14px; }
 #btn-theme { right: 58px; font-size: 14px; }
-#btn-mute:hover, #btn-theme:hover {
+#btn-font { right: 102px; font-size: 14px; }
+#btn-mute:hover, #btn-theme:hover, #btn-font:hover {
   transform: translateY(-1px);
   background: var(--tile-bg-hi);
 }
