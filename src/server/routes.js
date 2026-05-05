@@ -4,6 +4,7 @@ import { listGamesForUser, sideForUser, getGameById, endGame } from './games.js'
 import { subscribe } from './sse.js';
 import { writeGameState } from './state.js';
 import { getPlugin } from './plugins.js';
+import { appendTurnEntry, listTurnEntries } from './history.js';
 
 export function mountRoutes(app, { db, registry, sse }) {
   // Game-scoped middleware: validate id, load game, check membership.
@@ -183,20 +184,57 @@ export function mountRoutes(app, { db, registry, sse }) {
       const newState = result.state;
       writeGameState(db, req.game.id, newState);
 
+      const turnRows = [];
+      if (result.summary) {
+        const actorSide = newState.sides?.a === req.user.id ? 'a'
+                        : newState.sides?.b === req.user.id ? 'b'
+                        : (req.game.state.sides?.a === req.user.id ? 'a'
+                        : (req.game.playerAId === req.user.id ? 'a' : 'b'));
+        turnRows.push(appendTurnEntry(db, req.game.id, actorSide, result.summary.kind, result.summary));
+      }
+
       if (result.ended) {
         endGame(db, req.game.id, {
           endedReason: newState.endedReason ?? 'plugin',
           winnerSide: newState.winnerSide ?? null,
           finalState: newState,
         });
+        const actorSide = newState.sides?.a === req.user.id ? 'a'
+                        : newState.sides?.b === req.user.id ? 'b'
+                        : (req.game.state.sides?.a === req.user.id ? 'a'
+                        : (req.game.playerAId === req.user.id ? 'a' : 'b'));
+        const endedSummary = {
+          kind: 'game-ended',
+          reason: newState.endedReason ?? 'plugin',
+          winnerSide: newState.winnerSide ?? null,
+        };
+        turnRows.push(appendTurnEntry(db, req.game.id, actorSide, 'game-ended', endedSummary));
       }
 
       const view = plugin.publicView({ state: newState, viewerId: req.user.id });
-      return { http: 200, body: { state: view, ended: !!result.ended, scoreDelta: result.scoreDelta ?? null } };
+      return {
+        http: 200,
+        body: { state: view, ended: !!result.ended, scoreDelta: result.scoreDelta ?? null },
+        turnRows,
+      };
     });
 
     const out = txn();
-    if (out.http === 200) sse.broadcast(req.game.id, { type: 'update' });
+    if (out.http === 200) {
+      sse.broadcast(req.game.id, { type: 'update' });
+      for (const row of out.turnRows ?? []) {
+        sse.broadcast(req.game.id, {
+          type: 'turn',
+          payload: {
+            turnNumber: row.turnNumber,
+            side: row.side,
+            kind: row.kind,
+            summary: row.summary,
+            createdAt: row.createdAt,
+          },
+        });
+      }
+    }
     res.status(out.http).json(out.body);
   });
 

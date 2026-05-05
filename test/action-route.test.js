@@ -13,10 +13,19 @@ const stubPlugin = {
   initialState: () => ({ activeUserId: 1, count: 0 }),
   applyAction: ({ state, action, actorId }) => {
     if (action.type === 'inc') {
-      return { state: { ...state, count: state.count + 1, activeUserId: actorId === 1 ? 2 : 1 }, ended: false };
+      return {
+        state: { ...state, count: state.count + 1, activeUserId: actorId === 1 ? 2 : 1 },
+        ended: false,
+        summary: { kind: 'inc', count: state.count + 1 },
+      };
     }
     if (action.type === 'finish') {
-      return { state: { ...state, ended: true }, ended: true, scoreDelta: { a: 5, b: 0 } };
+      return {
+        state: { ...state, ended: true, endedReason: 'done', winnerSide: 'a' },
+        ended: true,
+        scoreDelta: { a: 5, b: 0 },
+        summary: { kind: 'finish' },
+      };
     }
     return { error: 'unknown action' };
   },
@@ -43,8 +52,9 @@ function setupApp() {
     next();
   });
 
-  mountRoutes(app, { db, registry: { stub: stubPlugin }, sse: { broadcast: () => {} } });
-  return { app, db };
+  const broadcasts = [];
+  mountRoutes(app, { db, registry: { stub: stubPlugin }, sse: { broadcast: (gameId, event) => broadcasts.push({ gameId, event }) } });
+  return { app, db, broadcasts };
 }
 
 async function startServer(app) {
@@ -116,5 +126,48 @@ test('ended game persists and returns ended flag', async () => {
     assert.equal(r.body.ended, true);
     const row = db.prepare("SELECT status FROM games WHERE id = 1").get();
     assert.equal(row.status, 'ended');
+  } finally { server.close(); }
+});
+
+test('action writes a turn_log row and broadcasts a turn event', async () => {
+  const { app, db, broadcasts } = setupApp();
+  const server = await startServer(app);
+  try {
+    const r = await call(server, 'POST', '/api/games/1/action', { type: 'inc' }, { 'x-test-user-id': '1' });
+    assert.equal(r.status, 200);
+    const rows = db.prepare("SELECT * FROM turn_log WHERE game_id = 1 ORDER BY id").all();
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].turn_number, 1);
+    assert.equal(rows[0].side, 'a');
+    assert.equal(rows[0].kind, 'inc');
+    assert.deepEqual(JSON.parse(rows[0].summary), { kind: 'inc', count: 1 });
+
+    const turnEvents = broadcasts.filter(b => b.event.type === 'turn');
+    assert.equal(turnEvents.length, 1);
+    assert.equal(turnEvents[0].event.payload.turnNumber, 1);
+    assert.equal(turnEvents[0].event.payload.side, 'a');
+    assert.deepEqual(turnEvents[0].event.payload.summary, { kind: 'inc', count: 1 });
+
+    const updateEvents = broadcasts.filter(b => b.event.type === 'update');
+    assert.equal(updateEvents.length, 1, 'update event still emitted');
+  } finally { server.close(); }
+});
+
+test('ending action writes synthetic game-ended row after the action row', async () => {
+  const { app, db, broadcasts } = setupApp();
+  const server = await startServer(app);
+  try {
+    await call(server, 'POST', '/api/games/1/action', { type: 'finish' }, { 'x-test-user-id': '1' });
+    const rows = db.prepare("SELECT * FROM turn_log WHERE game_id = 1 ORDER BY id").all();
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].kind, 'finish');
+    assert.equal(rows[1].kind, 'game-ended');
+    assert.equal(rows[1].turn_number, 2);
+    assert.equal(rows[1].side, 'a');
+    assert.deepEqual(JSON.parse(rows[1].summary), { kind: 'game-ended', reason: 'done', winnerSide: 'a' });
+
+    const turnEvents = broadcasts.filter(b => b.event.type === 'turn');
+    assert.equal(turnEvents.length, 2);
+    assert.equal(turnEvents[1].event.payload.summary.kind, 'game-ended');
   } finally { server.close(); }
 });
