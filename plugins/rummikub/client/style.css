@@ -265,8 +265,8 @@ body[data-font="raleway"]     { --type-display: 'Raleway', 'Helvetica Neue', sys
   right: 0;
   bottom: 0;
   width: min(360px, 90vw);
-  background: var(--bg, #fff);
-  color: var(--ink, #111);
+  background: #f0e8d4;
+  color: #2a1f12;
   border-left: 1px solid rgba(0,0,0,0.15);
   box-shadow: -8px 0 24px rgba(0,0,0,0.18);
   transform: translateX(100%);

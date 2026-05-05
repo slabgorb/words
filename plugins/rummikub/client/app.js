@@ -16,7 +16,9 @@ let turnInProgress = false;
 function historyNames() {
   const myUserId = ctx.userId;
   const mySide = state?.sides?.a === myUserId ? 'a' : 'b';
-  return mySide === 'a' ? { a: 'You', b: 'Opponent' } : { a: 'Opponent', b: 'You' };
+  const me = ctx.yourFriendlyName ?? 'You';
+  const opp = ctx.opponentFriendlyName ?? 'Opponent';
+  return mySide === 'a' ? { a: me, b: opp } : { a: opp, b: me };
 }
 
 function refreshEndButton() {
