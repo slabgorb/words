@@ -35,7 +35,9 @@ mountRoutes(app, { db, registry, sse: { broadcast } });
 mountPluginClients(app, { db, registry });
 
 const PUBLIC = resolve(PROJECT_ROOT, 'public');
-app.get('/', (_req, res) => res.sendFile(resolve(PUBLIC, 'home.html')));
+const LOBBY = resolve(PUBLIC, 'lobby');
+app.use('/lobby', express.static(LOBBY));
+app.get('/', (_req, res) => res.sendFile(resolve(LOBBY, 'lobby.html')));
 app.get('/lockout', (_req, res) => res.sendFile(resolve(PUBLIC, 'lockout.html')));
 app.use(express.static(PUBLIC));
 

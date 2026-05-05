@@ -1,0 +1,171 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #f5f5f5;
+  color: #222;
+  min-height: 100dvh;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+header #me {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+main h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+#opponents {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.opponent {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.opponent .name {
+  font-weight: 600;
+  font-size: 1rem;
+  min-width: 7rem;
+}
+
+.opponent .games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.badge.active {
+  background: #1a73e8;
+  color: #fff;
+}
+
+.badge.active:hover {
+  opacity: 0.85;
+}
+
+.start-new {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1.5px dashed #999;
+  background: transparent;
+  color: #555;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.start-new:hover {
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
+
+/* Dialog */
+dialog {
+  border: none;
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 360px;
+  width: 90vw;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+}
+
+dialog::backdrop {
+  background: rgba(0,0,0,0.35);
+}
+
+dialog h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+#ng-options {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+#ng-options li button {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f8f8f8;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+#ng-options li button:hover {
+  background: #eaf1ff;
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
+
+#ng-cancel {
+  width: 100%;
+  padding: 0.5rem;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+#ng-cancel:hover {
+  color: #333;
+}

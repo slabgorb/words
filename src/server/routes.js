@@ -98,6 +98,12 @@ export function mountRoutes(app, { db, registry, sse }) {
     next();
   });
 
+  app.get('/api/plugins', (req, res) => {
+    res.json({
+      plugins: Object.values(registry).map(p => ({ id: p.id, displayName: p.displayName })),
+    });
+  });
+
   app.get('/api/games', (req, res) => {
     const rows = db.prepare(`
       SELECT id, player_a_id AS playerAId, player_b_id AS playerBId,

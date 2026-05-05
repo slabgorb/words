@@ -1,38 +1,135 @@
 # Gamebox
 
-A self-hosted plugin host for two-player turn-based games. Currently
-ships Words (a Words-with-Friends clone) and Rummikub. Adding a new game
-is a folder + one registry line.
+A self-hosted plugin host for two-player turn-based games. Adding a new game
+is one folder plus one registry line.
 
 Not a SaaS. Not multi-tenant. Personal-use only — runs on a small Tailscale
-network for a small curated roster of users.
+network for a curated roster of friends and family.
 
 ## Quick start
 
 ```bash
 npm install
-npm run fetch-dict     # downloads ENABLE2K (~3 MB) → data/enable2k.txt
+npm run fetch-dict        # downloads ENABLE2K (~3 MB) → data/enable2k.txt
 DEV_USER=you@example.com npm start
-                       # local dev — no CF Access needed
-                       # http://localhost:3000
+                          # no CF Access needed locally
+                          # http://localhost:3000
 ```
 
-In production, put Cloudflare Access (or anything that injects the
-`Cf-Access-Authenticated-User-Email` request header) in front of the app.
-The app trusts that header.
+| var        | default          | purpose                                      |
+| ---------- | ---------------- | -------------------------------------------- |
+| `PORT`     | `3000`           | HTTP listen port                             |
+| `DB_PATH`  | `./game.db`      | SQLite file (roster + game state)            |
+| `NODE_ENV` | (unset)          | `production` enables strict header-only auth |
+| `DEV_USER` | (unset)          | dev-only email override; ignored in prod     |
 
-| var          | default            | purpose                                     |
-| ------------ | ------------------ | ------------------------------------------- |
-| `PORT`       | `3000`             | HTTP listen port                            |
-| `DB_PATH`    | `./game.db`        | SQLite file with roster + games             |
-| `NODE_ENV`   | (unset)            | `production` enables strict header-only auth |
-| `DEV_USER`   | (unset)            | dev-only override; ignored in production    |
+## Architecture
 
-## Roster
+The **host** (this repo) owns authentication, the roster, lobby routing, and
+per-game state storage. **Plugins** own rules and client UI.
 
-Friends and family are added by the host via CLI. Each user is stored as
-(email, friendly name, color). Email is the identity that Cloudflare Access
-forwards.
+```
+public/
+  lobby/              lobby SPA (host-served)
+    lobby.html
+    lobby.js
+    lobby.css
+  lockout.html        static "not on roster" page
+
+src/server/
+  server.js           entry point — env, routes, static serving
+  routes.js           /api/* — see API section below
+  identity.js         CF Access header → req.user (or DEV_USER)
+  users.js            user CRUD + color palette
+  games.js            game lifecycle (Words legacy helpers)
+  db.js               better-sqlite3 schema + open/migrate
+  plugins.js          registry builder + getPlugin helper
+  plugin-clients.js   serves each plugin's client dir at /play/:type/:id/
+  sse.js              per-game SSE broadcaster
+
+plugins/
+  words/              Words With Friends clone (ships with the host)
+    plugin.js         plugin contract implementation
+    server/           engine, dictionary, aux routes
+    client/           browser JS/CSS
+
+src/plugins/index.js  registers all plugins into the host registry
+```
+
+Each game's state is stored as a single JSON column in SQLite. The host is
+single-process; better-sqlite3 is synchronous, so there are no race
+conditions on state writes.
+
+## Plugin contract
+
+A plugin is a plain JS object (ESM default export) with these fields:
+
+| field          | type       | required | description                                           |
+| -------------- | ---------- | -------- | ----------------------------------------------------- |
+| `id`           | string     | yes      | unique slug, e.g. `"words"`                           |
+| `displayName`  | string     | yes      | shown in lobby, e.g. `"Words"`                        |
+| `players`      | number     | yes      | always `2` for now                                    |
+| `clientDir`    | string     | yes      | absolute path to the plugin's browser bundle          |
+| `initialState` | function   | yes      | `({ participants, rng }) => state`                    |
+| `applyAction`  | function   | yes      | `({ state, action, actorId, rng }) => { state, ended, error?, scoreDelta? }` |
+| `publicView`   | function   | yes      | `({ state, viewerId }) => redacted_state`             |
+| `auxRoutes`    | object     | no       | `{ [name]: { method, handler } }` — mounted under `/api/games/:gameId/<name>` |
+
+`participants` is `[{ userId, side }]` where side is `'a'` or `'b'`.
+
+The host always assigns `playerAId = min(userA, userB)` and
+`playerBId = max(...)` so game pairs are canonical and a UNIQUE constraint
+prevents duplicate active games between the same pair for the same type.
+
+## Adding a plugin
+
+1. Create `plugins/<name>/plugin.js` exporting the contract object above.
+2. Place browser assets in `plugins/<name>/client/` (or a subdirectory).
+3. Register in `src/plugins/index.js`:
+   ```js
+   import myGame from '../../plugins/my-game/plugin.js';
+   export const plugins = [wordsPlugin, myGame];
+   ```
+
+The host auto-mounts the client at `/play/<id>/:gameId/` and exposes the
+plugin in `GET /api/plugins`.
+
+## Shipped plugins
+
+| plugin | id      | description                                |
+| ------ | ------- | ------------------------------------------ |
+| Words  | `words` | Words With Friends clone, ENABLE2K dict    |
+
+## API surface
+
+All `/api/*` routes require a valid identity. Game-scoped routes additionally
+require the caller to be one of the two participants.
+
+| method | path                         | description                                    |
+| ------ | ---------------------------- | ---------------------------------------------- |
+| GET    | `/api/me`                    | `{user, games}` — current user + Words list    |
+| GET    | `/api/users`                 | `[{id, friendlyName, color}]` — full roster    |
+| GET    | `/api/plugins`               | `{plugins: [{id, displayName}]}`               |
+| GET    | `/api/games`                 | `{games: [...]}` — active games for caller     |
+| POST   | `/api/games`                 | `{opponentId, gameType}` → `{id, gameType}`    |
+| GET    | `/api/games/:id`             | game snapshot (plugin's publicView)            |
+| POST   | `/api/games/:id/action`      | `{type, payload}` → `{state, ended}`           |
+| GET    | `/api/games/:id/events`      | SSE stream, fires `{type:"update"}` on change  |
+
+Plugin aux routes are mounted at `/api/games/:id/<name>` with the method
+declared in `auxRoutes`.
+
+## Auth
+
+In production, put Cloudflare Access (or any proxy that injects
+`Cf-Access-Authenticated-User-Email`) in front of the app. The app trusts
+that header. Requests from emails not in the roster receive a 403; the client
+redirects to `/lockout`.
+
+For local dev, set `DEV_USER=you@example.com` — the header check is bypassed
+and that email is used as the identity.
+
+## Roster management
 
 ```bash
 node bin/add-user.js mom@example.com "Mom"
@@ -44,138 +141,23 @@ just add-user mom@example.com Mom
 just list-users
 ```
 
-Each user must also be on the Cloudflare Access policy. The two are managed
-separately.
-
-If someone authenticates through Cloudflare Access but isn't on the app's
-roster, they see a static lockout page asking them to message the host.
-
-## Playing
-
-The home page (`/`) shows one tile per other person on the roster. If you
-have an active game with them, the tile shows whose turn it is, the score,
-and the time of the last move; click to play. If you don't, click "Start a
-game" to begin one. Game pairs are uniquely keyed: you cannot have two
-active games with the same person.
-
-Standard Scrabble/WWF rules: 15×15 board, two 7-tile racks, 100-tile bag,
-center-square first move, words must connect, blanks score zero. The
-dictionary is [ENABLE2K] (~173k words). The server is the source of truth;
-the client only proposes placements, and the server's `/validate` endpoint
-is called live so you see your score before submitting.
-
-Controls: drag tiles from rack to board, **Submit move**, **Recall
-tiles**, **Shuffle rack**. The `⋯` menu hides Pass, Swap, Resign, and New
-Game.
-
-[ENABLE2K]: https://norvig.com/ngrams/enable1.txt
-
-## Architecture
-
-```
-public/                 vanilla JS — no framework, no bundler
-  home.html / home.js   pair-centric landing page
-  index.html / app.js   the game shell (served at /game/:id)
-  state.js              SSE-aware game state cache
-  board.js, rack.js     DOM rendering
-  drag.js               pointer-events drag manager (touch + mouse)
-  validator.js          debounced calls to /api/games/:id/validate
-  picker.js             blank-letter, swap, more-actions pickers
-  themes.js, sounds.js  visual themes + audio cues
-  callout.js            transient toast/score callouts
-  lockout.html          static "you're not on the roster" page
-
-src/server/             Node 20 + Express, ESM
-  server.js             entry point — wires env, mounts routes, serves static
-  routes.js             /api/* — see "API" below
-  identity.js           reads CF Access header (or DEV_USER) → req.user
-  users.js              user CRUD + palette of accent colors
-  games.js              game lifecycle, pair canonicalization, persistMove
-  migrate.js            one-shot legacy → multiplayer migration
-  db.js                 better-sqlite3 schema + helpers
-  engine.js             pure rules: placement validation, scoring, end-game
-  board.js              board geometry helpers
-  dictionary.js         loads ENABLE2K into a Set (~3 MB in memory)
-  sse.js                /api/games/:id/events broadcaster, per-game scoping
-
-bin/                    admin CLI (no auth, host-only)
-  add-user.js           insert (email, friendly name, color) into roster
-  list-users.js         print roster
-  rename-user.js        update a friendly name
-  fetch-dictionary.js   download ENABLE2K once
-
-data/enable2k.txt       word list, gitignored, fetched on demand
-game.db                 active games + roster + history, gitignored
-```
-
-The server is single-process and synchronous; better-sqlite3 is a blocking
-driver and the rules engine has no I/O. SSE pushes a "state changed" ping
-scoped to the game; clients re-fetch `/api/games/:id/state` and diff
-against their cache.
-
-## API
-
-All routes are under `/api`. Every route requires a valid identity (CF
-header or DEV_USER fallback) and a roster row. Game-scoped routes
-additionally require that the caller is one of the two participants.
-
-| method | path                              | purpose                                     |
-| ------ | --------------------------------- | ------------------------------------------- |
-| GET    | `/me`                             | current user + their game list              |
-| GET    | `/users`                          | roster (no emails — friendly name + color)  |
-| POST   | `/games`                          | start a new game with another roster member |
-| GET    | `/games/:id/state`                | full snapshot                               |
-| POST   | `/games/:id/validate`             | scores a hypothetical placement             |
-| POST   | `/games/:id/move`                 | submits a move                              |
-| POST   | `/games/:id/pass`                 | passes the turn                             |
-| POST   | `/games/:id/swap`                 | swaps tiles back into the bag               |
-| POST   | `/games/:id/resign`               | ends the game; opponent wins                |
-| POST   | `/games/:id/new-game`             | both-player confirm to start a fresh game   |
-| GET    | `/games/:id/events`               | SSE stream — `update` events on state change|
-
-A request whose authenticated email is not in the `users` table gets a 403
-`{error: 'not-on-roster', email}`. The home-page client redirects that to
-`/lockout?email=...` for a friendly UI.
-
-## Tests
-
-```bash
-npm test     # node --test, runs test/**/*.test.js
-```
-
-Coverage: schema, helpers, migration, identity, per-game SSE, top-level
-routes, game-scoped routes, engine (placement, scoring, end-game), board
-geometry, dictionary loading, drag manager, CLI scripts.
-
-## Operations (host machine)
-
-A `justfile` wraps macOS launchd + Cloudflare Tunnel for always-on hosting.
-See `infra/README.md` for the one-time bootstrap (`brew install`, tunnel
-creation, DNS route, Cloudflare Access policy).
+## Operations (Tailscale host)
 
 ```bash
 just install    # materialize launchd plists into ~/Library/LaunchAgents
 just up         # start server + tunnel
-just status     # show launchd state + reachability of local & public URLs
+just status     # show launchd state + URL reachability
 just logs       # tail both log streams
 just down       # stop both
-just dev        # run server in foreground (kills the launchd copy first)
+just dev        # run server in foreground (kills launchd copy first)
 just backup     # timestamped copy of game.db
-just add-user EMAIL NAME    # add to roster
-just list-users             # print roster
 ```
 
-`just install` is idempotent. There is no `just reset-game` anymore —
-games end when they end (or via the in-app **Resign** button), and a new
-one is started from the home page.
+## Tests
 
-## Files of note
-
-- `data/enable2k.txt` — word list (gitignored; `npm run fetch-dict`)
-- `game.db` — active state (gitignored; safe to delete to reset everything)
-- `infra/launchd/*.plist` — launchd templates with `__HOME__` /
-  `__PROJECT_DIR__` placeholders substituted by `just install`
-- `infra/cloudflared/words-config.yml.example` — tunnel config template
+```bash
+npm test        # node --test, runs test/**/*.test.js
+```
 
 ## Reference
 

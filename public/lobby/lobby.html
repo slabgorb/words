@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gamebox</title>
+  <link rel="stylesheet" href="/lobby/lobby.css">
+</head>
+<body>
+  <header>
+    <h1>Gamebox</h1>
+    <span id="me"></span>
+  </header>
+  <main>
+    <h2>Pick an opponent</h2>
+    <ul id="opponents"></ul>
+    <dialog id="newgame">
+      <h3>Start a new game with <span id="ng-name"></span></h3>
+      <ul id="ng-options"></ul>
+      <button id="ng-cancel">Cancel</button>
+    </dialog>
+  </main>
+  <script src="/lobby/lobby.js" type="module"></script>
+</body>
+</html>
