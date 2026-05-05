@@ -351,41 +351,43 @@ function captureTurnTransition() {
 
 function startSSE() {
   const es = new EventSource(gameUrl('events'));
-  es.addEventListener('move', async (e) => {
-    const p = parsePayload(e);
+
+  // Generic state-changed signal: refetch and re-render. This is what kept
+  // opponent moves from updating the screen prior to this fix.
+  es.addEventListener('update', async () => {
     const checkTurn = captureTurnTransition();
     await fetchState();
-    ui.rackOrder = ui.server.racks[ui.server.you].slice();
-    refresh();
-    // Only react to the opponent's move — your own callout/cheer fired in submitMove.
-    if (p.by && p.by !== ui.server.you) {
-      showMoveCallout(p);
-      playForScore(p.score ?? 0);
-      checkTurn();
+    if (ui.server?.racks?.[ui.server.you]) {
+      ui.rackOrder = ui.server.racks[ui.server.you].slice();
     }
-  });
-  es.addEventListener('pass', async (e) => {
-    const p = parsePayload(e);
-    const checkTurn = captureTurnTransition();
-    await fetchState();
     refresh();
-    if (p.by && p.by !== ui.server.you) {
-      showPassCallout(p);
-      checkTurn();
-    }
+    checkTurn();
   });
-  es.addEventListener('swap', async (e) => {
-    const p = parsePayload(e);
-    const checkTurn = captureTurnTransition();
-    await fetchState();
-    ui.rackOrder = ui.server.racks[ui.server.you].slice();
-    refresh();
-    if (p.by && p.by !== ui.server.you) {
-      showSwapCallout(p);
-      checkTurn();
+
+  // Per-turn details: callouts, sounds, history append. Fired in addition to
+  // the matching 'update' event by the server.
+  es.addEventListener('turn', (e) => {
+    let entry;
+    try { entry = JSON.parse(e.data); } catch { return; }
+    appendEntry(entry, historyNames);
+
+    // Only react to the opponent's move with callouts/sounds.
+    const isMine = entry.side === ui.server?.you;
+    if (isMine) return;
+
+    const s = entry.summary ?? {};
+    if (entry.kind === 'play') {
+      showMoveCallout({ by: entry.side, score: s.scoreDelta ?? 0, words: s.words ?? [] });
+      playForScore(s.scoreDelta ?? 0);
+    } else if (entry.kind === 'pass') {
+      showPassCallout({ by: entry.side });
+    } else if (entry.kind === 'swap') {
+      showSwapCallout({ by: entry.side, count: s.count ?? 0 });
     }
+    // 'resign' and 'game-ended' fall through to the 'update' handler's render
+    // (which calls maybeOfferNewGame) — no callout needed.
   });
-  es.addEventListener('resign', async () => { await fetchState(); refresh(); });
+
   es.onerror = () => { /* browser auto-reconnects */ };
 }
 
