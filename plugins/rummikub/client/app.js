@@ -1,8 +1,11 @@
 import { renderRack, toggleSortMode } from './rack.js';
 import { renderTable } from './table.js';
+import { beginTurn, getTentative, resetTurn, hasPendingChanges } from './turn.js';
+import { attachDrag } from './drag.js';
 
 const ctx = window.__GAME__;
 let state = null;
+let turnInProgress = false;
 
 async function fetchState() {
   const r = await fetch(ctx.stateUrl);
@@ -34,10 +37,30 @@ function render() {
     meldEl.classList.add('hidden');
   }
 
+  const myTurn = state.activeUserId === myUserId;
+
+  // When it stops being our turn, clear turnInProgress so next turn gets a fresh snapshot
+  if (!myTurn || state.endedReason) {
+    turnInProgress = false;
+  }
+
+  // Begin a new tentative turn on first render of our turn
+  if (myTurn && !state.endedReason && !turnInProgress) {
+    beginTurn(state.racks[mySide] ?? [], state.table);
+    turnInProgress = true;
+  }
+
+  const tent = getTentative();
+  const useTentative = myTurn && tent && !state.endedReason;
+  const rackToRender = useTentative ? tent.rack : (state.racks[mySide] ?? []);
+  const tableToRender = useTentative ? tent.table : state.table;
+
   const tableEl = document.getElementById('table');
-  renderTable(tableEl, state.table);
+  renderTable(tableEl, tableToRender);
   const rackEl = document.getElementById('rack');
-  renderRack(rackEl, state.racks[mySide] ?? []);
+  renderRack(rackEl, rackToRender);
+
+  document.getElementById('btn-reset').disabled = !useTentative || !hasPendingChanges();
 
   // End-game screen
   if (state.endedReason) {
@@ -58,8 +81,14 @@ function openSSE() {
 
 fetchState();
 openSSE();
+attachDrag(document.body, render);
 
 document.getElementById('btn-sort').addEventListener('click', () => {
   toggleSortMode();
+  render();
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  resetTurn();
   render();
 });
