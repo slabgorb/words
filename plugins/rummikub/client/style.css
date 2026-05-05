@@ -1,30 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Montserrat:wght@400;500;600&family=Fredoka:wght@400;500;600&family=Raleway:wght@400;500;600&family=Henny+Penny&display=swap');
+
 * { box-sizing: border-box; }
+:root {
+  --type-display: 'Source Serif 4', 'Iowan Old Style', Cambria, Georgia, serif;
+}
 html, body {
   height: 100%;
   overflow: hidden;
 }
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
+  font-family: var(--type-display);
   background: #3a4150;
   color: #f0e8d4;
   position: relative;
   display: flex;
   flex-direction: column;
 }
-/* CSS-only baize. Stack of:
-   1. A diagonal fine-line pattern (warp fibers) at +35°.
-   2. A second diagonal at -35° (cross-fibers, lower opacity) gives a
-      soft cloth-like noise without a tile image.
-   3. Vertical micro-stripes for thread density.
-   4. A radial vignette on the deep-green base.
-   The original jersey asset stays in assets/board-canvas.png — swap the
-   first declaration back to the url() form to revert. */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
+  pointer-events: none;
+}
+/* ----- baize (default): CSS-only felt ----- */
+body[data-theme="baize"]::before {
   background:
     repeating-linear-gradient(
       35deg,
@@ -48,7 +50,11 @@ body::before {
       #1b4d33 70%,
       #0f3322 110%
     );
-  pointer-events: none;
+}
+/* ----- jersey: photo of grey jersey weave ----- */
+body[data-theme="jersey"]::before {
+  background: url('assets/board-canvas.png') 0 0 / 2000px auto repeat, #6c7484;
+  filter: brightness(0.62);
 }
 header { display: flex; gap: 1rem; align-items: baseline; padding: 0.5rem 1rem; background: rgba(0, 0, 0, 0.35); border-bottom: 1px solid rgba(0, 0, 0, 0.45); color: #f0e8d4; backdrop-filter: blur(2px); }
 header .back { color: #d4cba8; text-decoration: none; }
@@ -99,14 +105,48 @@ main {
     0 1px 0 rgba(255, 240, 210, 0.30),
     1px 1px 0 rgba(255, 240, 210, 0.20);
 }
-.tile.color-red { color: #8a1f15; }
-.tile.color-blue { color: #1a3f7a; }
-.tile.color-orange { color: #9a4a08; }
-.tile.color-black { color: #1a120a; }
-.tile.joker { color: #6a3a08; }
+.tile.color-red { color: #e8483a; }
+.tile.color-blue { color: #4d8ee0; }
+.tile.color-orange { color: #f0a02a; }
+.tile.color-black { color: #f4ecd8; }
+.tile.joker { color: #f0c060; }
 .tile.joker .represents { font-size: 0.7em; opacity: 0.75; }
 .tile.dragging { opacity: 0.4; }
 #controls { display: flex; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; }
 #controls button { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid rgba(0, 0, 0, 0.5); background: #f0e8d4; color: #2a1f12; cursor: pointer; font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 #controls button:disabled { opacity: 0.45; cursor: not-allowed; }
 #end-screen { padding: 1rem; background: rgba(0, 0, 0, 0.35); border-radius: 8px; margin-top: 1rem; color: #f0e8d4; }
+
+/* ----- top-right float buttons (theme + font) ----- */
+#btn-theme, #btn-font {
+  position: fixed;
+  top: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-family: var(--type-display);
+  font-weight: 600;
+  background: #f0e8d4;
+  color: #2a1f12;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+  padding: 0;
+  line-height: 1;
+}
+#btn-theme { right: 14px; }
+#btn-font  { right: 58px; }
+#btn-theme:hover, #btn-font:hover { transform: translateY(-1px); background: #fff5e0; }
+
+/* ----- per-font display overrides ----- */
+body[data-font="serif"]       { --type-display: 'Source Serif 4', 'Iowan Old Style', Cambria, Georgia, serif; }
+body[data-font="baskerville"] { --type-display: 'Libre Baskerville', 'Iowan Old Style', Georgia, serif; }
+body[data-font="montserrat"]  { --type-display: 'Montserrat', 'Helvetica Neue', system-ui, sans-serif; }
+body[data-font="fredoka"]     { --type-display: 'Fredoka', 'Avenir Next', system-ui, sans-serif; }
+body[data-font="raleway"]     { --type-display: 'Raleway', 'Helvetica Neue', system-ui, sans-serif; }
+body[data-font="henny"]       { --type-display: 'Henny Penny', 'Iowan Old Style', Georgia, serif; }

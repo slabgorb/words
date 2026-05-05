@@ -4,6 +4,8 @@ import { beginTurn, getTentative, getSnapshot, resetTurn, hasPendingChanges } fr
 import { attachDrag } from './drag.js';
 import { validateEndState } from './validate.js';
 import { setValue } from './sets.js';
+import { cycleTheme, getThemeLabel } from './themes.js';
+import { cycleFont, getFontLabel } from './fonts.js';
 
 const ctx = window.__GAME__;
 let state = null;
@@ -165,6 +167,37 @@ document.getElementById('btn-resign').addEventListener('click', async () => {
   if (!confirm('Resign this game?')) return;
   await postAction('resign', {});
 });
+
+function setupThemeToggle() {
+  const btn = document.createElement('button');
+  btn.id = 'btn-theme';
+  btn.type = 'button';
+  const sync = () => {
+    btn.title = `Theme: ${getThemeLabel()} (click to cycle)`;
+    btn.setAttribute('aria-label', `Cycle board theme — current: ${getThemeLabel()}`);
+    btn.textContent = getThemeLabel()[0];
+  };
+  sync();
+  btn.addEventListener('click', () => { cycleTheme(); sync(); });
+  document.body.appendChild(btn);
+}
+
+function setupFontToggle() {
+  const btn = document.createElement('button');
+  btn.id = 'btn-font';
+  btn.type = 'button';
+  const sync = () => {
+    btn.title = `Font: ${getFontLabel()} (click to cycle)`;
+    btn.setAttribute('aria-label', `Cycle display font — current: ${getFontLabel()}`);
+    btn.textContent = 'Aa';
+  };
+  sync();
+  btn.addEventListener('click', () => { cycleFont(); sync(); });
+  document.body.appendChild(btn);
+}
+
+setupThemeToggle();
+setupFontToggle();
 
 document.getElementById('btn-new').addEventListener('click', async () => {
   const myUserId = ctx.userId;
