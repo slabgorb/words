@@ -39,14 +39,18 @@ function actorSide(state, actorId) {
   return null;
 }
 
-export function applyWordsAction({ state, action, actorId }) {
+export function applyWordsAction({ state, action, actorId, rng }) {
+  // Defensive check for legacy state shape: must have sides mapping
+  if (!state.sides || typeof state.sides.a !== 'number' || typeof state.sides.b !== 'number') {
+    return { error: 'state missing sides mapping (legacy game; needs migration)' };
+  }
   const side = actorSide(state, actorId);
   if (!side) return { error: 'not a participant' };
 
   switch (action.type) {
     case 'move':   return doMove(state, action.payload, side);
     case 'pass':   return doPass(state, side);
-    case 'swap':   return doSwap(state, action.payload, side);
+    case 'swap':   return doSwap(state, action.payload, side, rng);
     case 'resign': return doResign(state, side);
     default:       return { error: `unknown action: ${action.type}` };
   }
@@ -109,7 +113,7 @@ function doPass(state, side) {
   return { state: next, ended: !!endReason };
 }
 
-function doSwap(state, payload, side) {
+function doSwap(state, payload, side, rng) {
   const tiles = payload?.tiles;
   if (!Array.isArray(tiles) || tiles.length === 0) return { error: 'tiles required' };
   if (state.bag.length < 7) return { error: 'bag-too-small' };
@@ -122,6 +126,18 @@ function doSwap(state, payload, side) {
   }
   const eng = toEngine(state);
   let nextEng = applyMove(eng, { playerId: side, kind: 'swap', swapTiles: tiles });
+
+  // Shuffle the bag after swap to prevent the just-returned tiles from being
+  // drawn back in known order. The engine's swap returns swapped tiles to the
+  // END of the bag — caller may shuffle later.
+  if (rng) {
+    nextEng.bag = nextEng.bag.slice();
+    for (let i = nextEng.bag.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [nextEng.bag[i], nextEng.bag[j]] = [nextEng.bag[j], nextEng.bag[i]];
+    }
+  }
+
   let endReason = detectGameEnd(nextEng);
   if (endReason) nextEng = applyEndGameAdjustment(nextEng, endReason, null);
   let next = fromEngine(state, nextEng);

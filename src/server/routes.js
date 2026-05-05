@@ -293,6 +293,9 @@ export function mountRoutes(app, { db, registry, sse }) {
   app.post('/api/games/:gameId/action', (req, res) => {
     const { action } = parseAction(req);
     if (!action) return res.status(400).json({ error: 'missing action' });
+    if (req.game.status !== 'active') {
+      return res.status(409).json({ error: 'game ended' });
+    }
 
     let plugin;
     try { plugin = getPlugin(registry, req.game.gameType); }
