@@ -5,6 +5,7 @@ import { scheduleValidate } from './validator.js';
 import { pickBlankLetter, pickSwapTiles, confirmAction, pickMoreActions } from './picker.js';
 import { play, playForScore, primeAudio, isMuted, toggleMuted } from './sounds.js';
 import { cycleTheme, getTheme } from './themes.js';
+import { cycleFont, getFont, getFontLabel } from './fonts.js';
 import { showMoveCallout, showPassCallout, showSwapCallout } from './callout.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -33,8 +34,8 @@ function refresh() {
   const bFriendly = ui.server.you === 'b' ? ui.server.yourFriendlyName : ui.server.opponent.friendlyName;
   const aEl = $('#score-a');
   const bEl = $('#score-b');
-  aEl.textContent = `${aFriendly} ${scores.a}`;
-  bEl.textContent = `${bFriendly} ${scores.b}`;
+  setScoreCard(aEl, aFriendly, scores.a);
+  setScoreCard(bEl, bFriendly, scores.b);
   aEl.classList.toggle('active', !ended && current === 'a');
   bEl.classList.toggle('active', !ended && current === 'b');
 
@@ -80,6 +81,17 @@ function refresh() {
     if (statusClass) statusEl.classList.add(statusClass);
   }
   maybeOfferNewGame();
+}
+
+function setScoreCard(el, name, score) {
+  el.textContent = '';
+  const n = document.createElement('span');
+  n.className = 'player-name';
+  n.textContent = name;
+  const s = document.createElement('span');
+  s.className = 'player-score';
+  s.textContent = score;
+  el.append(n, s);
 }
 
 function buildValidationPositions(v) {
@@ -394,6 +406,7 @@ async function init() {
 
   setupMuteToggle();
   setupThemeToggle();
+  setupFontToggle();
   // Browsers gate Audio.play() until the user interacts. Prime the cache on
   // the first pointer/keyboard event so the SSE-driven applause for the
   // opponent's move actually plays.
@@ -439,6 +452,25 @@ function setupThemeToggle() {
     cycleTheme();
     sync();
     refresh();
+    play('click');
+  });
+  document.body.appendChild(btn);
+}
+
+function setupFontToggle() {
+  const btn = document.createElement('button');
+  btn.id = 'btn-font';
+  btn.type = 'button';
+  const sync = () => {
+    const f = getFont();
+    btn.title = `Font: ${getFontLabel()} (click to cycle)`;
+    btn.setAttribute('aria-label', `Cycle display font — current: ${getFontLabel()}`);
+    btn.textContent = 'Aa';
+  };
+  sync();
+  btn.addEventListener('click', () => {
+    cycleFont();
+    sync();
     play('click');
   });
   document.body.appendChild(btn);
