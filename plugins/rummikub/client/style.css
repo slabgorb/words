@@ -138,7 +138,7 @@ body[data-theme="jersey"] .tile.joker        { color: #8a4a08; }
 /* ----- top-right float buttons (theme + font) ----- */
 #btn-theme, #btn-font {
   position: fixed;
-  top: 12px;
+  top: 56px;
   width: 36px;
   height: 36px;
   display: flex;
