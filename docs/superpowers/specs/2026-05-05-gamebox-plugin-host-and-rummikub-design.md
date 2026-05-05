@@ -213,17 +213,38 @@ never mutate `state`. (Enforced by code review, not the framework.)
 
 ### Schema delta
 
-Extends the multiplayer schema. Concretely:
+Extends the multiplayer schema, which currently has Words-specific columns
+inlined on the `games` table (`bag`, `board`, `rack_a`, `rack_b`,
+`consecutive_scoreless_turns`). These move into a generic JSON `state`
+column owned by the plugin.
 
-- `games` gains `game_type TEXT NOT NULL` column.
-- The unique-active constraint becomes:
-  `UNIQUE(pair_a, pair_b, game_type) WHERE status = 'active'`
-- `state` column already exists (JSON); semantics now plugin-defined.
-- Migration: existing in-progress Words game gets `game_type = 'words'`.
+Concretely:
 
-Nothing else in the games table changes. No per-plugin tables — all plugin
-state lives in the JSON `state` column. (If a future plugin genuinely needs a
-side table, we revisit; YAGNI for now.)
+- `games` gains `game_type TEXT NOT NULL` column (backfill `'words'` on
+  existing rows).
+- `games` gains `state TEXT NOT NULL` column (JSON; plugin-owned shape).
+- The unique-active constraint changes from `(player_a_id, player_b_id)
+  WHERE status='active'` to `(player_a_id, player_b_id, game_type)
+  WHERE status='active'`. Drop and recreate the partial index.
+- Words plugin state shape: `{ bag, board, racks: {a, b}, scores: {a, b},
+  activeUserId, consecutiveScorelessTurns, initialMoveDone }` — packs the
+  existing inline columns.
+- One-shot migration: read each row's old columns, pack them into a `state`
+  JSON, write back. Then drop `bag`, `board`, `rack_a`, `rack_b`,
+  `consecutive_scoreless_turns`, `score_a`, `score_b`, `current_turn`
+  columns. (`score_a`/`score_b`/`current_turn` move into state too — they
+  are 2-player generic but cleaner to keep all live state in one JSON blob,
+  and they aren't queried by the lobby.)
+- Columns that stay on the row (host-generic): `id`, `player_a_id`,
+  `player_b_id`, `game_type`, `status`, `ended_reason`, `winner_side`,
+  `created_at`, `updated_at`.
+- `moves` table is unchanged structurally (still references `game_id`), but
+  the host stops writing to it for plugins that don't want a per-action audit
+  trail. Words may keep writing to it via plugin code; Rummikub doesn't use
+  it. (Audit-log policy is per-plugin, not host-mandated.)
+- No per-plugin tables. All plugin live state lives in the JSON `state`
+  column. (If a future plugin genuinely needs a side table, we revisit;
+  YAGNI for now.)
 
 ### Client serving
 
