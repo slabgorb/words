@@ -958,3 +958,14 @@ body.dragging .cell.drop-target {
   .tile-score { color: #d1d5db; }
   .tile-start { background: #1f2937; color: #f3f4f6; border-color: #374151; }
 }
+
+#home-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; margin-right: 0.5rem;
+  text-decoration: none; color: inherit; font-size: 1.25rem;
+  border-radius: 0.375rem;
+}
+#home-link:hover { background: rgba(0,0,0,0.06); }
+@media (prefers-color-scheme: dark) {
+  #home-link:hover { background: rgba(255,255,255,0.08); }
+}

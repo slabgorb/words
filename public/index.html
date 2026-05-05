@@ -11,18 +11,13 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <div id="identity-picker" hidden>
-    <h1>Who are you?</h1>
-    <button data-id="keith">I'm Keith</button>
-    <button data-id="sonia">I'm Sonia</button>
-  </div>
-
   <main id="game" hidden>
     <header id="topbar">
       <div class="topbar-row">
-        <div id="score-keith" class="score"></div>
+        <a id="home-link" href="/" aria-label="Back to games" title="Back to games">←</a>
+        <div id="score-a" class="score"></div>
         <div id="turn-pill" class="turn-pill"></div>
-        <div id="score-sonia" class="score score-right"></div>
+        <div id="score-b" class="score score-right"></div>
       </div>
       <div class="topbar-sub">
         <span id="bag-count"></span>
