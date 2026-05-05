@@ -277,7 +277,18 @@ export function mountRoutes(app, { db, registry, sse }) {
 
   app.get('/api/games', (_req, res) => res.status(501).end());      // Task 15
   app.post('/api/games', (_req, res) => res.status(501).end());     // Task 15
-  app.get('/api/games/:gameId', (_req, res) => res.status(501).end()); // Task 7
+  app.get('/api/games/:gameId', (req, res) => {
+    const plugin = getPlugin(registry, req.game.gameType);
+    const view = plugin.publicView({ state: req.game.state, viewerId: req.user.id });
+    res.json({
+      id: req.game.id,
+      gameType: req.game.gameType,
+      status: req.game.status,
+      playerAId: req.game.playerAId,
+      playerBId: req.game.playerBId,
+      state: view,
+    });
+  });
 
   app.post('/api/games/:gameId/action', (req, res) => {
     const { action } = parseAction(req);
