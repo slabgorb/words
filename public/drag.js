@@ -9,3 +9,16 @@ export function exceedsThreshold(x0, y0, x1, y1) {
   const dy = y1 - y0;
   return (dx * dx + dy * dy) > (DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX);
 }
+
+/**
+ * Resolve the drop-target element under (x, y), if any.
+ * @param {number} x – clientX
+ * @param {number} y – clientY
+ * @param {(x:number,y:number) => Element|null} elementFromPoint – usually `document.elementFromPoint`
+ * @returns {Element|null} The nearest ancestor (inclusive) carrying `data-drop-target`, or null.
+ */
+export function resolveTarget(x, y, elementFromPoint) {
+  const hit = elementFromPoint(x, y);
+  if (!hit) return null;
+  return hit.closest ? hit.closest('[data-drop-target]') : null;
+}
