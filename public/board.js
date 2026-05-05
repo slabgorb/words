@@ -1,5 +1,6 @@
 import { ui } from './state.js';
 import { applyTileTexture } from './themes.js';
+import { dragManager } from './drag.js';
 
 // WwF premium-square layout — duplicated client-side for rendering only.
 const TW = new Set(['0,3','0,11','3,0','3,14','11,0','11,14','14,3','14,11']);
@@ -66,27 +67,24 @@ export function renderBoard(root, { onCellClick, onCellDrop, onTentativeDragStar
       } else if (tentative) {
         cell.classList.add('placed');
         const tile = makeTile(tentative.letter, tentative.blank, `t:${tentative.fromRackIdx},${tentative.letter}`);
-        tile.draggable = true;
-        tile.addEventListener('dragstart', (e) => {
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', `cell:${r}:${c}`);
-          tile.classList.add('dragging');
-          if (onTentativeDragStart) onTentativeDragStart({ r, c });
-        });
-        tile.addEventListener('dragend', () => tile.classList.remove('dragging'));
         cell.appendChild(tile);
         if (validation) {
           if (validation.invalidPositions?.has(k)) cell.classList.add('invalid');
           else if (validation.validPositions?.has(k)) cell.classList.add('valid');
         }
+        // Tentative tile is a drag source. Tap recalls (handled via cell click).
+        dragManager.registerSource(tile, {
+          payload: () => ({ kind: 'cell', r, c }),
+          onTap: () => {
+            if (onCellClick) onCellClick(r, c);
+          },
+        });
       } else if (kind === 'star') {
-        // Center star — open lozenge ring
         const s = document.createElement('div');
         s.className = 'premium-star';
         s.innerHTML = '<svg viewBox="0 0 24 24" width="62%" height="62%"><path d="M12 3l1.8 5.7H19.6l-4.7 3.5 1.8 5.7L12 14.4l-4.7 3.5 1.8-5.7L4.4 8.7h5.8z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>';
         cell.appendChild(s);
       } else if (PREMIUMS[kind]) {
-        // Premium decoration: double-rule + glyph + label
         const rule = document.createElement('div');
         rule.className = 'premium-rule';
         cell.appendChild(rule);
@@ -105,23 +103,20 @@ export function renderBoard(root, { onCellClick, onCellDrop, onTentativeDragStar
 
       if (onCellClick) cell.addEventListener('click', () => onCellClick(r, c));
 
-      // Empty, server-vacant cells are drop targets (placed cells are not).
+      // Empty, server-vacant cells are drop targets.
       const isEmpty = !placed && !tentative;
       if (isEmpty && onCellDrop) {
-        cell.addEventListener('dragover', (e) => {
-          const types = e.dataTransfer.types;
-          if (!types || !types.includes('text/plain')) return;
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          cell.classList.add('drop-target');
-        });
-        cell.addEventListener('dragleave', () => cell.classList.remove('drop-target'));
-        cell.addEventListener('drop', (e) => {
-          e.preventDefault();
-          cell.classList.remove('drop-target');
-          const payload = e.dataTransfer.getData('text/plain');
-          if (!payload) return;
-          onCellDrop(r, c, payload);
+        dragManager.registerTarget(cell, {
+          kind: 'cell',
+          onDrop: (payload) => {
+            // Re-shape payload into the legacy 'rack:idx' / 'cell:r:c' string the existing
+            // app handler expects — minimises blast radius in app.js.
+            let s;
+            if (payload.kind === 'rack') s = `rack:${payload.idx}`;
+            else if (payload.kind === 'cell') s = `cell:${payload.r}:${payload.c}`;
+            else return;
+            onCellDrop(r, c, s);
+          },
         });
       }
 
