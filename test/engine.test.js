@@ -54,7 +54,7 @@ test('placement with gap (no existing tile filling it) is invalid', () => {
 
 test('placement with gap filled by existing tile is valid', () => {
   const board = emptyBoard();
-  board[7][8] = { letter: 'I', byPlayer: 'keith' };
+  board[7][8] = { letter: 'I', byPlayer: 'a' };
   const placement = [
     { r: 7, c: 7, letter: 'A' },
     { r: 7, c: 9, letter: 'T' }
@@ -65,7 +65,7 @@ test('placement with gap filled by existing tile is valid', () => {
 
 test('non-first move must touch an existing tile', () => {
   const board = emptyBoard();
-  board[7][7] = { letter: 'A', byPlayer: 'keith' };
+  board[7][7] = { letter: 'A', byPlayer: 'a' };
   const placement = [
     { r: 0, c: 0, letter: 'B' },
     { r: 0, c: 1, letter: 'Y' }
@@ -77,7 +77,7 @@ test('non-first move must touch an existing tile', () => {
 
 test('placing on an already-occupied cell is invalid', () => {
   const board = emptyBoard();
-  board[7][7] = { letter: 'A', byPlayer: 'keith' };
+  board[7][7] = { letter: 'A', byPlayer: 'a' };
   const placement = [{ r: 7, c: 7, letter: 'B' }];
   const result = validatePlacement(board, placement, false);
   assert.equal(result.valid, false);
@@ -98,9 +98,9 @@ test('extractWords on first move returns the single main word', () => {
 
 test('extractWords picks up letters extending main word on both sides', () => {
   const board = emptyBoard();
-  board[7][6] = { letter: 'C', byPlayer: 'keith' };
-  board[7][7] = { letter: 'A', byPlayer: 'keith' };
-  board[7][8] = { letter: 'T', byPlayer: 'keith' };
+  board[7][6] = { letter: 'C', byPlayer: 'a' };
+  board[7][7] = { letter: 'A', byPlayer: 'a' };
+  board[7][8] = { letter: 'T', byPlayer: 'a' };
   // Now play 'S' before, 'S' after → SCATS
   const placement = [
     { r: 7, c: 5, letter: 'S' },
@@ -115,9 +115,9 @@ test('extractWords picks up letters extending main word on both sides', () => {
 test('extractWords picks up perpendicular crosswords', () => {
   const board = emptyBoard();
   // Existing word "CAT" in row 7 cols 6-8
-  board[7][6] = { letter: 'C', byPlayer: 'keith' };
-  board[7][7] = { letter: 'A', byPlayer: 'keith' };
-  board[7][8] = { letter: 'T', byPlayer: 'keith' };
+  board[7][6] = { letter: 'C', byPlayer: 'a' };
+  board[7][7] = { letter: 'A', byPlayer: 'a' };
+  board[7][8] = { letter: 'T', byPlayer: 'a' };
   // Play 'O' at (8,7) and 'X' at (9,7) — vertical placement, axis=col
   // Main word = AOX (existing A at (7,7) + O at (8,7) + X at (9,7)).
   // No cross-words because 'O' and 'X' have no horizontal neighbors.
@@ -137,8 +137,8 @@ test('extractWords detects single-tile placement extending two perpendiculars', 
   // - Cross-word along col 6 starting at (7,6): 'O' (row 7) + 'S' (row 8) = "OS" (length 2).
   const b2 = (function () {
     const b = Array.from({ length: 15 }, () => Array(15).fill(null));
-    b[7][7] = { letter: 'A', byPlayer: 'keith' };
-    b[7][6] = { letter: 'O', byPlayer: 'keith' };
+    b[7][7] = { letter: 'A', byPlayer: 'a' };
+    b[7][6] = { letter: 'O', byPlayer: 'a' };
     return b;
   })();
   const placement = [{ r: 8, c: 6, letter: 'S' }];
@@ -167,7 +167,7 @@ test('scoreMove applies premiums only to newly-placed tiles', () => {
   // Premiums on (7,6) and (7,8) per WwF: both null. So just letter values.
   // C=4 + A=1 (existing) + T=1 = 6, no word multiplier.
   const board = emptyBoard();
-  board[7][7] = { letter: 'A', byPlayer: 'keith' };
+  board[7][7] = { letter: 'A', byPlayer: 'a' };
   const placement = [
     { r: 7, c: 6, letter: 'C' },
     { r: 7, c: 8, letter: 'T' }
@@ -214,11 +214,11 @@ function baseState() {
     board: emptyBoard(),
     bag: ['Q','U','I','R','K','S','E','S','S','S'], // 10 tiles for predictable refill
     racks: {
-      keith: ['C','A','T','S','E','E','D'],
-      sonia: ['A','A','A','A','A','A','A']
+      a: ['C','A','T','S','E','E','D'],
+      b: ['A','A','A','A','A','A','A']
     },
-    scores: { keith: 0, sonia: 0 },
-    currentTurn: 'keith',
+    scores: { a: 0, b: 0 },
+    currentTurn: 'a',
     consecutiveScorelessTurns: 0
   };
 }
@@ -231,7 +231,7 @@ test('applyMove places tiles on board, removes from rack, refills, advances turn
     { r: 7, c: 8, letter: 'T' }
   ];
   const next = applyMove(state, {
-    playerId: 'keith',
+    playerId: 'a',
     kind: 'play',
     placement,
     scoreDelta: 12
@@ -241,39 +241,39 @@ test('applyMove places tiles on board, removes from rack, refills, advances turn
   assert.equal(next.board[7][7].letter, 'A');
   assert.equal(next.board[7][8].letter, 'T');
   // Rack: removed CAT (3 tiles), refilled to 7 from front of bag (Q,U,I)
-  assert.equal(next.racks.keith.length, 7);
-  assert.deepEqual(next.racks.keith.slice(-3), ['Q','U','I']);
+  assert.equal(next.racks.a.length, 7);
+  assert.deepEqual(next.racks.a.slice(-3), ['Q','U','I']);
   // Bag shrunk by 3
   assert.equal(next.bag.length, 7);
   // Turn advanced
-  assert.equal(next.currentTurn, 'sonia');
+  assert.equal(next.currentTurn, 'b');
   // Score updated
-  assert.equal(next.scores.keith, 12);
+  assert.equal(next.scores.a, 12);
   // Scoreless counter reset
   assert.equal(next.consecutiveScorelessTurns, 0);
 });
 
 test('applyMove for pass does not mutate board, advances turn, increments scoreless counter', () => {
   const state = baseState();
-  const next = applyMove(state, { playerId: 'keith', kind: 'pass' });
+  const next = applyMove(state, { playerId: 'a', kind: 'pass' });
   assert.deepEqual(next.board, state.board);
-  assert.deepEqual(next.racks.keith, state.racks.keith);
-  assert.equal(next.currentTurn, 'sonia');
+  assert.deepEqual(next.racks.a, state.racks.a);
+  assert.equal(next.currentTurn, 'b');
   assert.equal(next.consecutiveScorelessTurns, 1);
 });
 
 test('applyMove for swap exchanges tiles, advances turn, increments scoreless counter', () => {
   const state = baseState();
   const next = applyMove(state, {
-    playerId: 'keith',
+    playerId: 'a',
     kind: 'swap',
     swapTiles: ['C','A','T']
   });
   // 3 tiles removed, 3 drawn from bag front (Q,U,I), 3 returned to bag
-  assert.equal(next.racks.keith.length, 7);
-  assert(next.racks.keith.includes('Q'));
+  assert.equal(next.racks.a.length, 7);
+  assert(next.racks.a.includes('Q'));
   assert.equal(next.bag.length, 10); // size unchanged
-  assert.equal(next.currentTurn, 'sonia');
+  assert.equal(next.currentTurn, 'b');
   assert.equal(next.consecutiveScorelessTurns, 1);
 });
 
@@ -286,28 +286,28 @@ test('applyMove refill is bounded by bag size', () => {
     { r: 7, c: 8, letter: 'T' }
   ];
   const next = applyMove(state, {
-    playerId: 'keith',
+    playerId: 'a',
     kind: 'play',
     placement,
     scoreDelta: 12
   });
   // Drew 2 (X, Y); rack now 6 tiles (4 left after removing CAT + 2 drawn)
-  assert.equal(next.racks.keith.length, 6);
+  assert.equal(next.racks.a.length, 6);
   assert.equal(next.bag.length, 0);
 });
 
 test('detectGameEnd: rack empty + bag empty → rack-empty', () => {
   const state = baseState();
   state.bag = [];
-  state.racks.keith = [];
-  state.racks.sonia = ['A','B','C'];
+  state.racks.a = [];
+  state.racks.b = ['A','B','C'];
   assert.equal(detectGameEnd(state), 'rack-empty');
 });
 
 test('detectGameEnd: rack empty but bag has tiles → null', () => {
   const state = baseState();
   state.bag = ['A'];
-  state.racks.keith = [];
+  state.racks.a = [];
   assert.equal(detectGameEnd(state), null);
 });
 
@@ -325,34 +325,34 @@ test('detectGameEnd: 5 consecutive scoreless turns → null', () => {
 
 test('applyEndGameAdjustment rack-empty: out-player +sum(opp), opponent -sum(own)', () => {
   const state = baseState();
-  state.racks.keith = [];
-  state.racks.sonia = ['Q','Z','A']; // 10 + 10 + 1 = 21
-  state.scores.keith = 100;
-  state.scores.sonia = 90;
-  const adjusted = applyEndGameAdjustment(state, 'rack-empty', 'keith');
-  assert.equal(adjusted.scores.keith, 100 + 21); // 121
-  assert.equal(adjusted.scores.sonia, 90 - 21);  // 69
+  state.racks.a = [];
+  state.racks.b = ['Q','Z','A']; // 10 + 10 + 1 = 21
+  state.scores.a = 100;
+  state.scores.b = 90;
+  const adjusted = applyEndGameAdjustment(state, 'rack-empty', 'a');
+  assert.equal(adjusted.scores.a, 100 + 21); // 121
+  assert.equal(adjusted.scores.b, 90 - 21);  // 69
   assert.equal(adjusted.endedReason, 'rack-empty');
-  assert.equal(adjusted.winner, 'keith');
+  assert.equal(adjusted.winner, 'a');
 });
 
 test('applyEndGameAdjustment six-scoreless: each player loses sum(own rack)', () => {
   const state = baseState();
-  state.racks.keith = ['Q']; // 10
-  state.racks.sonia = ['A','A']; // 2
-  state.scores.keith = 50;
-  state.scores.sonia = 50;
+  state.racks.a = ['Q']; // 10
+  state.racks.b = ['A','A']; // 2
+  state.scores.a = 50;
+  state.scores.b = 50;
   const adjusted = applyEndGameAdjustment(state, 'six-scoreless', null);
-  assert.equal(adjusted.scores.keith, 50 - 10); // 40
-  assert.equal(adjusted.scores.sonia, 50 - 2);  // 48
-  assert.equal(adjusted.winner, 'sonia');
+  assert.equal(adjusted.scores.a, 50 - 10); // 40
+  assert.equal(adjusted.scores.b, 50 - 2);  // 48
+  assert.equal(adjusted.winner, 'b');
 });
 
 test('applyEndGameAdjustment resigned: opponent wins regardless of score', () => {
   const state = baseState();
-  state.scores.keith = 200; // ahead but resigned
-  state.scores.sonia = 50;
-  const adjusted = applyEndGameAdjustment(state, 'resigned', 'keith');
-  assert.equal(adjusted.winner, 'sonia');
+  state.scores.a = 200; // ahead but resigned
+  state.scores.b = 50;
+  const adjusted = applyEndGameAdjustment(state, 'resigned', 'a');
+  assert.equal(adjusted.winner, 'b');
   assert.equal(adjusted.endedReason, 'resigned');
 });
