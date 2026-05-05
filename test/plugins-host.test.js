@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validatePlugin } from '../src/server/plugins.js';
+import { validatePlugin, buildRegistry } from '../src/server/plugins.js';
 
 const makeStub = (overrides = {}) => ({
   id: 'stub',
@@ -58,4 +58,12 @@ test('auxRoutes must be a plain object of {method, handler}', () => {
   assert.throws(() => validatePlugin(makeStub({ auxRoutes: 'nope' })), /auxRoutes/);
   assert.throws(() => validatePlugin(makeStub({ auxRoutes: { validate: { method: 'POST' } } })), /handler/);
   assert.throws(() => validatePlugin(makeStub({ auxRoutes: { validate: { handler: () => {} } } })), /method/);
+});
+
+test('static registry validates at boot (Words plugin)', async () => {
+  const { plugins } = await import('../src/plugins/index.js');
+  assert.doesNotThrow(() => buildRegistry(plugins));
+  const reg = buildRegistry(plugins);
+  assert.ok(reg.words);
+  assert.equal(reg.words.id, 'words');
 });
