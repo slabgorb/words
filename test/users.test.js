@@ -48,3 +48,8 @@ test('renameUser updates friendly_name', () => {
   renameUser(db, 'a@x.com', 'Allison');
   assert.equal(getUserById(db, u.id).friendlyName, 'Allison');
 });
+
+test('renameUser throws when email is unknown', () => {
+  const db = openDb(':memory:');
+  assert.throws(() => renameUser(db, 'nope@x.com', 'Nobody'), /user not found/i);
+});

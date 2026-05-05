@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { openDb } from '../src/server/db.js';
 import { createUser } from '../src/server/users.js';
 import {
-  createGame, getGameById, listGamesForUser, persistMove, resetGameForPair, sideForUser
+  createGame, getGameById, listGamesForUser, persistMove, resetGameForPair, sideForUser,
+  findActiveGameForPair
 } from '../src/server/games.js';
+import { TILE_BAG } from '../src/server/board.js';
 
 function withTwoUsers() {
   const db = openDb(':memory:');
@@ -24,6 +26,7 @@ test('createGame canonicalizes pair (a < b regardless of arg order)', () => {
   assert.equal(g.rackB.length, 7);
   // Bag is whatever's left after dealing 14 from TILE_BAG.
   // Don't hardcode 90 vs 86 here — derive from TILE_BAG length.
+  assert.equal(g.rackA.length + g.rackB.length + g.bag.length, TILE_BAG.length);
 });
 
 test('createGame rejects duplicate active pair', () => {
@@ -73,4 +76,23 @@ test('resetGameForPair marks current ended game and creates a fresh active game 
   assert.notEqual(fresh.id, g.id);
   assert.equal(fresh.status, 'active');
   assert.equal(getGameById(db, g.id).status, 'ended');
+});
+
+test('findActiveGameForPair returns the active game regardless of arg order', () => {
+  const { db, a, b } = withTwoUsers();
+  const g = createGame(db, a.id, b.id);
+  assert.equal(findActiveGameForPair(db, a.id, b.id).id, g.id);
+  assert.equal(findActiveGameForPair(db, b.id, a.id).id, g.id);
+});
+
+test('findActiveGameForPair returns null when no active game exists', () => {
+  const { db, a, b } = withTwoUsers();
+  assert.equal(findActiveGameForPair(db, a.id, b.id), null);
+});
+
+test('findActiveGameForPair ignores ended games', () => {
+  const { db, a, b } = withTwoUsers();
+  const g = createGame(db, a.id, b.id);
+  db.prepare("UPDATE games SET status='ended' WHERE id = ?").run(g.id);
+  assert.equal(findActiveGameForPair(db, a.id, b.id), null);
 });

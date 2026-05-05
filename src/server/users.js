@@ -39,5 +39,6 @@ export function listUsers(db) {
 
 export function renameUser(db, email, newName) {
   const info = db.prepare('UPDATE users SET friendly_name = ? WHERE email = ? COLLATE NOCASE').run(newName, email);
+  if (info.changes === 0) throw new Error(`user not found: ${email}`);
   return info.changes;
 }
