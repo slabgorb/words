@@ -74,6 +74,46 @@ export function freshGameDeal() {
   return { bag, rackA, rackB };
 }
 
+export function migrateLegacyState(db) {
+  const cols = db.prepare("PRAGMA table_info(games)").all().map(c => c.name);
+
+  const legacyCols = [
+    'bag', 'board', 'rack_a', 'rack_b',
+    'score_a', 'score_b', 'current_turn',
+    'consecutive_scoreless_turns'
+  ];
+  const presentLegacy = legacyCols.filter(c => cols.includes(c));
+  if (presentLegacy.length === 0) return; // already migrated
+
+  // Pack each row's legacy data into state JSON
+  const rows = db.prepare(`SELECT * FROM games`).all();
+  const updateState = db.prepare(`UPDATE games SET state = ? WHERE id = ?`);
+
+  const update = db.transaction((rows) => {
+    for (const row of rows) {
+      const state = {
+        bag: row.bag ? JSON.parse(row.bag) : [],
+        board: row.board ? JSON.parse(row.board) : [],
+        racks: {
+          a: row.rack_a ? JSON.parse(row.rack_a) : [],
+          b: row.rack_b ? JSON.parse(row.rack_b) : [],
+        },
+        scores: { a: row.score_a ?? 0, b: row.score_b ?? 0 },
+        activeSide: row.current_turn ?? 'a',
+        consecutiveScorelessTurns: row.consecutive_scoreless_turns ?? 0,
+        initialMoveDone: (row.score_a ?? 0) > 0 || (row.score_b ?? 0) > 0,
+      };
+      updateState.run(JSON.stringify(state), row.id);
+    }
+  });
+  update(rows);
+
+  // Drop the legacy columns. SQLite supports ALTER TABLE … DROP COLUMN since 3.35.
+  for (const col of presentLegacy) {
+    db.exec(`ALTER TABLE games DROP COLUMN ${col}`);
+  }
+}
+
 export function openDb(filePath = 'game.db') {
   const db = new Database(filePath);
   db.pragma('journal_mode = WAL');
@@ -99,6 +139,9 @@ export function openDb(filePath = 'game.db') {
     ON games (player_a_id, player_b_id, game_type)
     WHERE status = 'active'
   `);
+
+  // Migrate legacy Words columns into state JSON
+  migrateLegacyState(db);
 
   return db;
 }
