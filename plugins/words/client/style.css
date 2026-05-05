@@ -51,9 +51,10 @@ html, body {
   font-family: var(--type-sans);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;        /* belt: no horizontal scroll, ever */
+  min-height: 100vh;
 }
 
-body { display: flex; justify-content: center; }
+body { display: flex; justify-content: center; min-height: 100vh; }
 
 main {
   width: 100%;
@@ -165,17 +166,6 @@ main {
     inset 0 1px 0 rgba(255,255,255,0.18),
     inset 0 -2px 6px rgba(0,0,0,0.30),
     0 18px 36px rgba(34,22,8,0.30);
-}
-#board::before {
-  /* wood grain */
-  content: '';
-  position: absolute; inset: 0;
-  border-radius: inherit;
-  background-image:
-    repeating-linear-gradient(88deg,
-      rgba(0,0,0,0.06) 0 2px, transparent 2px 9px,
-      rgba(255,255,255,0.04) 9px 10px, transparent 10px 18px);
-  pointer-events: none;
 }
 #board::after {
   /* board surface — drawn under grid via z-index, but we use a sibling-less trick:
@@ -562,6 +552,38 @@ body[data-theme="wood"] {
 /* The topbar's bottom border vanishes on dark — flip to cream */
 body[data-theme="wood"] #topbar {
   border-bottom-color: rgba(239, 230, 211, 0.18);
+}
+
+/* Photo-textured cell surfaces. Frame stays gradient on both. */
+body[data-theme="wood"] #board {
+  background:
+    url('/assets/board-wood.jpg') center/cover,
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  background-clip: content-box, padding-box;
+  background-origin: content-box, padding-box;
+}
+body[data-theme="ivory"] #board {
+  background:
+    url('/assets/board-ivory.jpg') center/cover,
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  background-clip: content-box, padding-box;
+  background-origin: content-box, padding-box;
+}
+
+/* Etched grid lines on the wood surface — dark TL + light BR per cell
+   reads as a groove pressed into the wood. Wood theme only; on ivory the
+   grain is light enough that the original solid lines read clean without
+   creating visible banding. */
+body[data-theme="wood"] .cell {
+  box-shadow:
+    inset 1px 1px 0 rgba(0, 0, 0, 0.22),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.10);
+}
+
+/* Tone down tile drop-shadows on ivory — the lighter wood photo makes
+   the default brown shadow read as a hard black bevel. */
+body[data-theme="ivory"] {
+  --tile-shadow: rgba(34, 22, 8, 0.14);
 }
 
 /* ----- jade theme: cream ink on tiles ----- */
