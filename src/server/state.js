@@ -8,7 +8,7 @@ export function readGameState(db, gameId) {
 }
 
 export function writeGameState(db, gameId, state) {
-  const stmt = db.prepare(`UPDATE games SET state = ?, updated_at = datetime('now') WHERE id = ?`);
-  const info = stmt.run(JSON.stringify(state), gameId);
+  const stmt = db.prepare(`UPDATE games SET state = ?, updated_at = ? WHERE id = ?`);
+  const info = stmt.run(JSON.stringify(state), Date.now(), gameId);
   if (info.changes !== 1) throw new Error(`writeGameState: game ${gameId} not found`);
 }
