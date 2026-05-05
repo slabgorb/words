@@ -41,24 +41,6 @@ export function buildRoutes({ db, dict, isProd, devUser }) {
     res.json(listUsers(db).map(u => ({ id: u.id, friendlyName: u.friendlyName, color: u.color })));
   });
 
-  r.post('/games', requireIdentity, (req, res) => {
-    const { otherUserId } = req.body ?? {};
-    if (!Number.isInteger(otherUserId)) return res.status(400).json({ error: 'bad-request' });
-    if (otherUserId === req.user.id) return res.status(400).json({ error: 'self-pairing' });
-    const other = getUserById(db, otherUserId);
-    if (!other) return res.status(404).json({ error: 'unknown-user' });
-    try {
-      const g = createWordsGame(db, req.user.id, otherUserId);
-      res.status(201).json({ gameId: g.id });
-    } catch (e) {
-      const msg = String(e?.message ?? '');
-      if (/UNIQUE|one_active_per_pair/i.test(msg)) {
-        return res.status(409).json({ error: 'pair-active' });
-      }
-      throw e;
-    }
-  });
-
   // -- Per-game authorization --
   function loadGameForUser(req, res, next) {
     const gameId = Number(req.params.id);
@@ -116,8 +98,58 @@ export function mountRoutes(app, { db, registry, sse }) {
     next();
   });
 
-  app.get('/api/games', (_req, res) => res.status(501).end());      // Task 15
-  app.post('/api/games', (_req, res) => res.status(501).end());     // Task 15
+  app.get('/api/games', (req, res) => {
+    const rows = db.prepare(`
+      SELECT id, player_a_id AS playerAId, player_b_id AS playerBId,
+             game_type AS gameType, status, updated_at AS updatedAt
+      FROM games
+      WHERE status = 'active' AND (player_a_id = ? OR player_b_id = ?)
+      ORDER BY updated_at DESC
+    `).all(req.user.id, req.user.id);
+    res.json({ games: rows });
+  });
+
+  app.post('/api/games', (req, res) => {
+    const { opponentId, gameType } = req.body ?? {};
+    if (!Number.isInteger(opponentId) || opponentId === req.user.id) {
+      return res.status(400).json({ error: 'invalid opponentId' });
+    }
+    if (typeof gameType !== 'string' || !registry[gameType]) {
+      return res.status(400).json({ error: 'invalid gameType' });
+    }
+    const opponent = db.prepare('SELECT id FROM users WHERE id = ?').get(opponentId);
+    if (!opponent) return res.status(400).json({ error: 'opponent not on roster' });
+
+    const plugin = registry[gameType];
+    const aId = Math.min(req.user.id, opponentId);
+    const bId = Math.max(req.user.id, opponentId);
+    const participants = [
+      { userId: aId, side: 'a' },
+      { userId: bId, side: 'b' },
+    ];
+
+    let initialState;
+    try {
+      initialState = plugin.initialState({ participants, rng: makeRng(Date.now()) });
+    } catch (err) {
+      return res.status(500).json({ error: `initialState failed: ${err.message}` });
+    }
+
+    try {
+      const now = Date.now();
+      const result = db.prepare(`
+        INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+        VALUES (?, ?, 'active', ?, ?, ?, ?)
+        RETURNING id
+      `).get(aId, bId, gameType, JSON.stringify(initialState), now, now);
+      res.json({ id: result.id, gameType });
+    } catch (err) {
+      if (/UNIQUE constraint failed/.test(err.message)) {
+        return res.status(409).json({ error: 'an active game of this type already exists with this opponent' });
+      }
+      throw err;
+    }
+  });
   app.get('/api/games/:gameId', (req, res) => {
     const plugin = getPlugin(registry, req.game.gameType);
     const view = plugin.publicView({ state: req.game.state, viewerId: req.user.id });

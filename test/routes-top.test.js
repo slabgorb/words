@@ -3,14 +3,20 @@ import assert from 'node:assert/strict';
 import express from 'express';
 import { openDb } from '../src/server/db.js';
 import { createUser } from '../src/server/users.js';
-import { buildRoutes } from '../src/server/routes.js';
+import { buildRoutes, mountRoutes } from '../src/server/routes.js';
+import { attachIdentity } from '../src/server/identity.js';
 import { loadDictionary } from '../plugins/words/server/dictionary.js';
+import wordsPlugin from '../plugins/words/plugin.js';
 
 function buildApp(db, devUser = null) {
   const dict = loadDictionary();
   const app = express();
   app.use(express.json());
+  app.use(attachIdentity({ db, isProd: false, devUser }));
   app.use('/api', buildRoutes({ db, dict, isProd: false, devUser }));
+  const registry = { words: wordsPlugin };
+  const sse = { broadcast: () => {} };
+  mountRoutes(app, { db, registry, sse });
   return app;
 }
 async function listen(app) { return new Promise(r => { const s = app.listen(0, () => r(s)); }); }
@@ -53,11 +59,11 @@ test('POST /api/games creates a game between two users', async () => {
   const server = await listen(buildApp(db, 'a@x.com'));
   const r = await fetch(`${urlOf(server)}/api/games`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ otherUserId: b.id })
+    body: JSON.stringify({ opponentId: b.id, gameType: 'words' })
   });
-  assert.equal(r.status, 201);
+  assert.equal(r.status, 200);
   const body = await r.json();
-  assert.ok(body.gameId);
+  assert.ok(body.id);
   server.close();
 });
 
@@ -67,10 +73,9 @@ test('POST /api/games returns 409 if active pair already exists', async () => {
   const b = createUser(db, { email: 'b@x.com', friendlyName: 'Bob' });
   const server = await listen(buildApp(db, 'a@x.com'));
   const url = urlOf(server);
-  await fetch(`${url}/api/games`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ otherUserId: b.id }) });
-  const r = await fetch(`${url}/api/games`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ otherUserId: b.id }) });
+  await fetch(`${url}/api/games`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ opponentId: b.id, gameType: 'words' }) });
+  const r = await fetch(`${url}/api/games`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ opponentId: b.id, gameType: 'words' }) });
   assert.equal(r.status, 409);
-  assert.equal((await r.json()).error, 'pair-active');
   server.close();
 });
 
@@ -80,20 +85,20 @@ test('POST /api/games returns 400 on self-pairing', async () => {
   const server = await listen(buildApp(db, 'a@x.com'));
   const r = await fetch(`${urlOf(server)}/api/games`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ otherUserId: a.id })
+    body: JSON.stringify({ opponentId: a.id, gameType: 'words' })
   });
   assert.equal(r.status, 400);
   server.close();
 });
 
-test('POST /api/games returns 404 on unknown user', async () => {
+test('POST /api/games returns 400 on unknown user', async () => {
   const db = openDb(':memory:');
   createUser(db, { email: 'a@x.com', friendlyName: 'Alice' });
   const server = await listen(buildApp(db, 'a@x.com'));
   const r = await fetch(`${urlOf(server)}/api/games`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ otherUserId: 999 })
+    body: JSON.stringify({ opponentId: 999, gameType: 'words' })
   });
-  assert.equal(r.status, 404);
+  assert.equal(r.status, 400);
   server.close();
 });
