@@ -1,11 +1,54 @@
 import { renderRack, toggleSortMode } from './rack.js';
 import { renderTable } from './table.js';
-import { beginTurn, getTentative, resetTurn, hasPendingChanges } from './turn.js';
+import { beginTurn, getTentative, getSnapshot, resetTurn, hasPendingChanges } from './turn.js';
 import { attachDrag } from './drag.js';
+import { validateEndState } from './validate.js';
+import { setValue } from './sets.js';
 
 const ctx = window.__GAME__;
 let state = null;
 let turnInProgress = false;
+
+function refreshEndButton() {
+  const tent = getTentative();
+  const snap = getSnapshot();
+  const myUserId = ctx.userId;
+  const mySide = state.sides.a === myUserId ? 'a' : 'b';
+  if (!tent || state.activeUserId !== myUserId || state.endedReason) {
+    document.getElementById('btn-end').disabled = true;
+    return;
+  }
+  const result = validateEndState(
+    { rack: snap.rack, table: snap.table, initialMeldComplete: state.initialMeldComplete[mySide] },
+    { rack: tent.rack, table: tent.table }
+  );
+  const btn = document.getElementById('btn-end');
+  btn.disabled = !result.valid;
+  btn.title = result.valid ? '' : result.reason;
+}
+
+function refreshMeldIndicator() {
+  const myUserId = ctx.userId;
+  const mySide = state.sides.a === myUserId ? 'a' : 'b';
+  if (state.initialMeldComplete[mySide]) {
+    document.getElementById('meld-indicator').classList.add('hidden');
+    return;
+  }
+  document.getElementById('meld-indicator').classList.remove('hidden');
+  const tent = getTentative();
+  const snap = getSnapshot();
+  if (!tent || !snap) {
+    document.getElementById('meld-points').textContent = '0';
+    return;
+  }
+  const startKeys = new Set(snap.table.map(s => s.map(t => t.id).sort().join(',')));
+  let pts = 0;
+  for (const set of tent.table) {
+    const key = set.map(t => t.id).sort().join(',');
+    if (!startKeys.has(key)) pts += setValue(set);
+  }
+  document.getElementById('meld-points').textContent = pts;
+}
 
 async function fetchState() {
   const r = await fetch(ctx.stateUrl);
@@ -27,15 +70,6 @@ function render() {
     state.activeUserId === myUserId ? 'Your turn' : "Opponent's turn";
   document.getElementById('pool-count').textContent = state.pool.count;
   document.getElementById('opp-rack-count').textContent = state.opponentRack.count;
-
-  // Meld indicator
-  const meldEl = document.getElementById('meld-indicator');
-  if (!state.initialMeldComplete[mySide]) {
-    meldEl.classList.remove('hidden');
-    document.getElementById('meld-points').textContent = '0';
-  } else {
-    meldEl.classList.add('hidden');
-  }
 
   const myTurn = state.activeUserId === myUserId;
 
@@ -61,6 +95,9 @@ function render() {
   renderRack(rackEl, rackToRender);
 
   document.getElementById('btn-reset').disabled = !useTentative || !hasPendingChanges();
+
+  refreshEndButton();
+  refreshMeldIndicator();
 
   // End-game screen
   if (state.endedReason) {
