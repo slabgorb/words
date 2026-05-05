@@ -565,7 +565,7 @@ body[data-theme="wood"] #topbar {
   border-bottom-color: rgba(239, 230, 211, 0.18);
 }
 
-/* Photo-textured cell surface for the wood theme. The frame stays gradient. */
+/* Photo-textured cell surfaces. Frame stays gradient on both. */
 body[data-theme="wood"] #board {
   background:
     url('/assets/board-wood.jpg') center/cover,
@@ -573,14 +573,28 @@ body[data-theme="wood"] #board {
   background-clip: content-box, padding-box;
   background-origin: content-box, padding-box;
 }
+body[data-theme="ivory"] #board {
+  background:
+    url('/assets/board-ivory.jpg') center/cover,
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  background-clip: content-box, padding-box;
+  background-origin: content-box, padding-box;
+}
 
 /* Etched grid lines on the wood surface — dark TL + light BR per cell
-   reads as a groove pressed into the wood. Solid uniform lines create
-   optical vibration against the busy texture. */
+   reads as a groove pressed into the wood. Wood theme only; on ivory the
+   grain is light enough that the original solid lines read clean without
+   creating visible banding. */
 body[data-theme="wood"] .cell {
   box-shadow:
     inset 1px 1px 0 rgba(0, 0, 0, 0.22),
     inset -1px -1px 0 rgba(255, 255, 255, 0.10);
+}
+
+/* Tone down tile drop-shadows on ivory — the lighter wood photo makes
+   the default brown shadow read as a hard black bevel. */
+body[data-theme="ivory"] {
+  --tile-shadow: rgba(34, 22, 8, 0.14);
 }
 
 /* ----- jade theme: cream ink on tiles ----- */
