@@ -95,6 +95,8 @@ function render() {
   renderRack(rackEl, rackToRender);
 
   document.getElementById('btn-reset').disabled = !useTentative || !hasPendingChanges();
+  document.getElementById('btn-draw').disabled = !!state.endedReason || state.activeUserId !== ctx.userId;
+  document.getElementById('btn-resign').disabled = !!state.endedReason;
 
   refreshEndButton();
   refreshMeldIndicator();
@@ -128,4 +130,51 @@ document.getElementById('btn-sort').addEventListener('click', () => {
 document.getElementById('btn-reset').addEventListener('click', () => {
   resetTurn();
   render();
+});
+
+async function postAction(type, payload) {
+  const r = await fetch(ctx.actionUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, payload }),
+  });
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    alert(body.error ?? `action failed (${r.status})`);
+    return null;
+  }
+  return r.json();
+}
+
+document.getElementById('btn-end').addEventListener('click', async () => {
+  const tent = getTentative();
+  if (!tent) return;
+  await postAction('commit-turn', { rack: tent.rack, table: tent.table });
+});
+
+document.getElementById('btn-draw').addEventListener('click', async () => {
+  if (hasPendingChanges()) {
+    if (!confirm('Drawing will discard your pending moves. Continue?')) return;
+    resetTurn();
+    render();
+  }
+  await postAction('draw-tile', {});
+});
+
+document.getElementById('btn-resign').addEventListener('click', async () => {
+  if (!confirm('Resign this game?')) return;
+  await postAction('resign', {});
+});
+
+document.getElementById('btn-new').addEventListener('click', async () => {
+  const myUserId = ctx.userId;
+  const oppUserId = state.sides.a === myUserId ? state.sides.b : state.sides.a;
+  const r = await fetch('/api/games', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ opponentId: oppUserId, gameType: 'rummikub' }),
+  });
+  if (!r.ok) { alert('could not start new game'); return; }
+  const { id, gameType } = await r.json();
+  window.location.href = `/play/${gameType}/${id}/`;
 });
