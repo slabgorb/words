@@ -47,7 +47,8 @@ async function main() {
       const a = document.createElement('a');
       a.className = 'badge active';
       a.href = `/play/${g.gameType}/${g.id}/`;
-      a.textContent = plugin?.displayName ?? g.gameType;
+      const ICONS = { words: '📝', rummikub: '🟦' };
+      a.textContent = `${ICONS[g.gameType] ?? ''} ${plugin?.displayName ?? g.gameType}`.trim();
       gamesDiv.appendChild(a);
     }
     const btn = document.createElement('button');

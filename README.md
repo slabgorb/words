@@ -94,11 +94,23 @@ prevents duplicate active games between the same pair for the same type.
 The host auto-mounts the client at `/play/<id>/:gameId/` and exposes the
 plugin in `GET /api/plugins`.
 
+> **Note (client-side shared files):** The static server only serves files
+> from the plugin's `clientDir`. If your plugin shares validation logic with
+> the server (e.g. `validate.js`, `sets.js`, `multiset.js`, `tiles.js`),
+> copy those files into `client/` — they cannot be imported from the server
+> tree. Rummikub does this to run the same set/multiset checks in-browser.
+
 ## Shipped plugins
 
-| plugin | id      | description                                |
-| ------ | ------- | ------------------------------------------ |
-| Words  | `words` | Words With Friends clone, ENABLE2K dict    |
+| plugin   | id         | description                                                         |
+| -------- | ---------- | ------------------------------------------------------------------- |
+| Words    | `words`    | Words With Friends clone, ENABLE2K dict                             |
+| Rummikub | `rummikub` | Sabra rules, 2 jokers, 30-pt initial meld, structured-rows table UI |
+
+- **Rummikub** (`plugins/rummikub/`) — Sabra rules, 2 jokers, 30-pt initial
+  meld, structured-rows table UI. Player commits a turn-end state via
+  `commit-turn`; server validates multiset balance + set legality + initial
+  meld + joker harvest atomically.
 
 ## API surface
 
