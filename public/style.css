@@ -167,17 +167,6 @@ main {
     inset 0 -2px 6px rgba(0,0,0,0.30),
     0 18px 36px rgba(34,22,8,0.30);
 }
-#board::before {
-  /* synthetic grain accent — kept low-opacity since the wood photo has its own */
-  content: '';
-  position: absolute; inset: 0;
-  border-radius: inherit;
-  background-image:
-    repeating-linear-gradient(88deg,
-      rgba(0,0,0,0.03) 0 2px, transparent 2px 9px,
-      rgba(255,255,255,0.02) 9px 10px, transparent 10px 18px);
-  pointer-events: none;
-}
 #board::after {
   /* board surface — drawn under grid via z-index, but we use a sibling-less trick:
      we instead let .cell carry the surface tones (see below). The ::after is the
@@ -563,13 +552,6 @@ body[data-theme="wood"] {
 /* The topbar's bottom border vanishes on dark — flip to cream */
 body[data-theme="wood"] #topbar {
   border-bottom-color: rgba(239, 230, 211, 0.18);
-}
-
-/* Suppress the global synthetic grain pseudo on themes that already have a
-   photo texture — leaving it on creates visible vertical banding. */
-body[data-theme="wood"] #board::before,
-body[data-theme="ivory"] #board::before {
-  content: none;
 }
 
 /* Photo-textured cell surfaces. Frame stays gradient on both. */
