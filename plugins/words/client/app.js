@@ -334,10 +334,6 @@ function maybeOfferNewGame() {
   btn.textContent = 'Confirm new game';
 }
 
-function parsePayload(e) {
-  try { return JSON.parse(e.data); } catch { return {}; }
-}
-
 // Returns a function that, when called after fetchState, plays the
 // "your turn" chime if the turn just flipped to the local player.
 function captureTurnTransition() {
