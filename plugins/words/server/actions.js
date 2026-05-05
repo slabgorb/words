@@ -93,10 +93,16 @@ function doMove(state, payload, side) {
     next.endedReason = endReason;
     next.winnerSide = nextEng.winner ?? null;
   }
+  const summary = {
+    kind: 'play',
+    words: allWords.map(w => w.text),
+    scoreDelta,
+  };
   return {
     state: next,
     ended: !!endReason,
     scoreDelta: { [side]: scoreDelta, [side === 'a' ? 'b' : 'a']: 0 },
+    summary,
   };
 }
 
@@ -110,7 +116,7 @@ function doPass(state, side) {
     next.endedReason = endReason;
     next.winnerSide = nextEng.winner ?? null;
   }
-  return { state: next, ended: !!endReason };
+  return { state: next, ended: !!endReason, summary: { kind: 'pass' } };
 }
 
 function doSwap(state, payload, side, rng) {
@@ -145,7 +151,7 @@ function doSwap(state, payload, side, rng) {
     next.endedReason = endReason;
     next.winnerSide = nextEng.winner ?? null;
   }
-  return { state: next, ended: !!endReason };
+  return { state: next, ended: !!endReason, summary: { kind: 'swap', count: tiles.length } };
 }
 
 function doResign(state, side) {
@@ -154,5 +160,5 @@ function doResign(state, side) {
   const next = fromEngine(state, nextEng);
   next.endedReason = 'resign';
   next.winnerSide = nextEng.winner;
-  return { state: next, ended: true };
+  return { state: next, ended: true, summary: { kind: 'resign' } };
 }
