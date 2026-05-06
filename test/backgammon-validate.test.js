@@ -119,11 +119,10 @@ test('point-to-point: cannot move from a point you do not own', () => {
 
 test('point-to-point: cannot move past board edge before bearing off', () => {
   const b = emptyBoard();
-  // A on index 22, die=5 would send to index 27 — out of bounds.
-  // A checker at index 19, die=5 would send to index 24 — also out of bounds.
-  // Neither checker can move; bear-off is deferred to a later task.
+  // A has only 1 checker, on index 22. die=5 → 27 OOB (point-to-point skipped).
+  // A is not all-in-home (total checkers != 15), so bear-off remains illegal
+  // when Task 8 adds it — this test stays valid through later tasks.
   b.points[22] = { color: 'a', count: 1 };
-  b.points[19] = { color: 'a', count: 14 }; // also in home, both go OOB with die=5
   const moves = enumerateLegalMoves(b, [5], 'a');
   assert.equal(moves.length, 0);
 });
