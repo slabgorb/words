@@ -121,7 +121,8 @@ async function fetchState() {
   try {
     const r = await fetch(ctx.stateUrl);
     if (!r.ok) return;
-    state = await r.json();
+    const json = await r.json();
+    state = json.state;
     render();
   } catch (err) {
     console.warn('fetchState failed:', err);
