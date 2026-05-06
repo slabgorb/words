@@ -24,11 +24,33 @@ function barEntries(board, dice, player) {
   return out;
 }
 
+function destination(player, from, die) {
+  return player === 'a' ? from + die : from - die;
+}
+
+function pointToPointMoves(board, dice, player) {
+  const out = [];
+  const seen = new Set();
+  for (const die of uniqueDice(dice)) {
+    for (let from = 0; from < BOARD_SIZE; from++) {
+      const cell = board.points[from];
+      if (cell.color !== player || cell.count === 0) continue;
+      const to = destination(player, from, die);
+      if (to < 0 || to >= BOARD_SIZE) continue;  // bear-off handled later
+      if (isPointBlocked(board, player, to)) continue;
+      const key = `${from}->${to}@${die}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ from, to, die });
+    }
+  }
+  return out;
+}
+
 export function enumerateLegalMoves(board, dice, player) {
   if (!Array.isArray(dice) || dice.length === 0) return [];
   if (isOnBar(board, player)) return barEntries(board, dice, player);
-  // Point-to-point and bear-off come in later tasks.
-  return [];
+  return pointToPointMoves(board, dice, player);
 }
 
 export function isLegalMove(board, dice, player, from, to) {
