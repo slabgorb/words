@@ -1,4 +1,5 @@
 import { tileEl } from './tile.js';
+import { withInferredJokers } from './sets.js';
 
 export function renderTable(tableEl, sets) {
   tableEl.innerHTML = '';
@@ -6,7 +7,8 @@ export function renderTable(tableEl, sets) {
     const setDiv = document.createElement('div');
     setDiv.className = 'set';
     setDiv.dataset.setIdx = idx;
-    for (const tile of set) setDiv.appendChild(tileEl(tile));
+    const display = withInferredJokers(set);
+    for (const tile of display) setDiv.appendChild(tileEl(tile));
     tableEl.appendChild(setDiv);
   });
   const newSetDiv = document.createElement('div');

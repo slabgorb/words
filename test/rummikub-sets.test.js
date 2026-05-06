@@ -47,8 +47,48 @@ test('joker can stand in a run if annotated correctly', () => {
   assert.equal(isValidSet(s), true);
 });
 
-test('joker without annotation rejected (must declare representation)', () => {
+test('joker without annotation: inferred from run context', () => {
   const s = [tile('red', 5), joker(), tile('red', 7)];
+  assert.equal(isValidSet(s), true);
+  assert.equal(setValue(s), 18);
+});
+
+test('joker without annotation: inferred from group context', () => {
+  const s = [tile('red', 7), tile('blue', 7), joker()];
+  assert.equal(isValidSet(s), true);
+  assert.equal(setValue(s), 21);
+});
+
+test('joker without annotation: inferred at run boundary', () => {
+  const s = [tile('red', 11), tile('red', 12), joker()];
+  assert.equal(isValidSet(s), true);
+  assert.equal(setValue(s), 36);
+});
+
+test('two jokers without annotation: inferred run', () => {
+  const s = [tile('red', 5), joker(), joker(), tile('red', 8)];
+  assert.equal(isValidSet(s), true);
+  assert.equal(setValue(s), 26);
+});
+
+test('all-joker set rejected (no anchor for inference)', () => {
+  assert.equal(isValidSet([joker(), joker(), joker()]), false);
+});
+
+test('joker without annotation rejected when context contradicts', () => {
+  const s = [tile('red', 5), joker(), tile('blue', 7)];
+  assert.equal(isValidSet(s), false);
+});
+
+test('joker inference: group preferred when run would exceed 13', () => {
+  const s = [tile('red', 13), joker(), joker()];
+  assert.equal(isValidSet(s), true);
+  assert.equal(setValue(s), 39);
+});
+
+test('joker inference fails when both run and group are impossible', () => {
+  // joker would have to be red 14 or red 15 (out of range), and not a group
+  const s = [tile('red', 12), tile('red', 13), joker(), joker()];
   assert.equal(isValidSet(s), false);
 });
 

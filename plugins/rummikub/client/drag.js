@@ -1,4 +1,7 @@
 import { moveTileTo, getTentative } from './turn.js';
+import { openJokerPicker } from './joker-picker.js';
+
+const TAP_THRESHOLD_PX = 6;
 
 export function attachDrag(rootEl, onAfterMove) {
   let dragging = null;
@@ -6,13 +9,25 @@ export function attachDrag(rootEl, onAfterMove) {
   rootEl.addEventListener('pointerdown', (e) => {
     const tileEl = e.target.closest('.tile');
     if (!tileEl) return;
-    dragging = { tileId: tileEl.dataset.tileId, ghost: makeGhost(tileEl, e) };
+    dragging = {
+      tileId: tileEl.dataset.tileId,
+      ghost: makeGhost(tileEl, e),
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+      sourceEl: tileEl,
+    };
     tileEl.classList.add('dragging');
     rootEl.setPointerCapture(e.pointerId);
   });
 
   rootEl.addEventListener('pointermove', (e) => {
     if (!dragging) return;
+    if (!dragging.moved) {
+      const dx = e.clientX - dragging.startX;
+      const dy = e.clientY - dragging.startY;
+      if (dx * dx + dy * dy > TAP_THRESHOLD_PX * TAP_THRESHOLD_PX) dragging.moved = true;
+    }
     dragging.ghost.style.left = `${e.clientX - 20}px`;
     dragging.ghost.style.top = `${e.clientY - 25}px`;
     document.querySelectorAll('.set').forEach(s => s.classList.remove('drop-target'));
@@ -22,6 +37,21 @@ export function attachDrag(rootEl, onAfterMove) {
 
   rootEl.addEventListener('pointerup', (e) => {
     if (!dragging) return;
+    const wasTap = !dragging.moved;
+    const tileId = dragging.tileId;
+    const sourceEl = dragging.sourceEl;
+
+    cleanup();
+
+    if (wasTap) {
+      const tile = findTileInTentative(tileId);
+      const onTable = !!sourceEl.closest('#table');
+      if (tile?.kind === 'joker' && onTable) {
+        openJokerPicker(tile, onAfterMove);
+      }
+      return;
+    }
+
     const dropEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.set, #rack');
     let target;
     if (!dropEl) target = null;
@@ -29,20 +59,16 @@ export function attachDrag(rootEl, onAfterMove) {
     else if (dropEl.dataset.newSet) target = { kind: 'new-set' };
     else if (dropEl.dataset.setIdx) target = { kind: 'set', setIdx: Number(dropEl.dataset.setIdx) };
 
-    if (target) {
-      moveTileTo(dragging.tileId, target);
-      if (target.kind === 'set' || target.kind === 'new-set') {
-        const tile = findTileInTentative(dragging.tileId);
-        if (tile?.kind === 'joker') promptJokerRepresentation(tile);
-      }
-    }
+    if (target) moveTileTo(tileId, target);
+    onAfterMove?.();
+  });
 
-    dragging.ghost.remove();
+  function cleanup() {
+    if (dragging?.ghost) dragging.ghost.remove();
     document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
     document.querySelectorAll('.set').forEach(s => s.classList.remove('drop-target'));
     dragging = null;
-    onAfterMove?.();
-  });
+  }
 }
 
 function findTileInTentative(tileId) {
@@ -52,17 +78,10 @@ function findTileInTentative(tileId) {
     const found = set.find(t => t.id === tileId);
     if (found) return found;
   }
+  for (const t of tent.rack) {
+    if (t.id === tileId) return t;
+  }
   return null;
-}
-
-function promptJokerRepresentation(tile) {
-  const color = prompt('Joker represents which color? (red/blue/orange/black)', tile.representsColor ?? '');
-  if (!color) return;
-  const valStr = prompt('Joker represents which value? (1-13)', tile.representsValue ?? '');
-  const value = Number(valStr);
-  if (!Number.isInteger(value) || value < 1 || value > 13) return;
-  tile.representsColor = color;
-  tile.representsValue = value;
 }
 
 function makeGhost(srcEl, ev) {

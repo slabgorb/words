@@ -9,16 +9,17 @@ export function classifySet(tiles) {
 
 export function isValidSet(tiles) {
   if (!Array.isArray(tiles) || tiles.length < 3) return false;
-  for (const t of tiles) {
+  const completed = withInferredJokers(tiles);
+  for (const t of completed) {
     if (isJoker(t)) {
       if (typeof t.representsValue !== 'number') return false;
       if (typeof t.representsColor !== 'string') return false;
     }
   }
-  const kind = classifySet(tiles);
+  const kind = classifySet(completed);
   if (!kind) return false;
-  if (kind === 'run') return validateRun(tiles);
-  if (kind === 'group') return validateGroup(tiles);
+  if (kind === 'run') return validateRun(completed);
+  if (kind === 'group') return validateGroup(completed);
   return false;
 }
 
@@ -70,8 +71,69 @@ export function groupValue(tiles) {
 }
 
 export function setValue(tiles) {
-  const kind = classifySet(tiles);
-  if (kind === 'run') return runValue(tiles);
-  if (kind === 'group') return groupValue(tiles);
+  const completed = withInferredJokers(tiles);
+  const kind = classifySet(completed);
+  if (kind === 'run') return runValue(completed);
+  if (kind === 'group') return groupValue(completed);
   return 0;
+}
+
+// When a joker has no explicit representation, infer it from set context.
+// Returns a new array with inferred jokers when context is unambiguous;
+// otherwise returns the input unchanged. Already-annotated jokers are preserved.
+export function withInferredJokers(tiles) {
+  if (!Array.isArray(tiles) || tiles.length < 3) return tiles;
+  const needsInference = tiles.some(t => isJoker(t)
+    && (typeof t.representsValue !== 'number' || typeof t.representsColor !== 'string'));
+  if (!needsInference) return tiles;
+  return inferAsRun(tiles) ?? inferAsGroup(tiles) ?? tiles;
+}
+
+function inferAsRun(tiles) {
+  const known = [];
+  for (let i = 0; i < tiles.length; i++) {
+    const t = tiles[i];
+    if (!isJoker(t)) known.push({ t, i });
+    else if (typeof t.representsValue === 'number' && typeof t.representsColor === 'string') {
+      known.push({ t, i, joker: true });
+    }
+  }
+  if (known.length === 0) return null;
+  const colors = new Set(known.map(x => x.joker ? x.t.representsColor : x.t.color));
+  if (colors.size !== 1) return null;
+  const runColor = [...colors][0];
+  const startVals = known.map(x => (x.joker ? x.t.representsValue : x.t.value) - x.i);
+  if (new Set(startVals).size !== 1) return null;
+  const startVal = startVals[0];
+  if (startVal < 1 || startVal + tiles.length - 1 > 13) return null;
+  return tiles.map((t, i) => {
+    if (!isJoker(t)) return t;
+    if (typeof t.representsValue === 'number' && typeof t.representsColor === 'string') return t;
+    return { ...t, representsColor: runColor, representsValue: startVal + i };
+  });
+}
+
+function inferAsGroup(tiles) {
+  if (tiles.length < 3 || tiles.length > 4) return null;
+  const known = tiles.filter(t => !isJoker(t));
+  const annotatedJokers = tiles.filter(t => isJoker(t)
+    && typeof t.representsValue === 'number' && typeof t.representsColor === 'string');
+  const knownVals = [...known.map(t => t.value), ...annotatedJokers.map(t => t.representsValue)];
+  if (knownVals.length === 0) return null;
+  if (new Set(knownVals).size !== 1) return null;
+  const groupVal = knownVals[0];
+  const usedColors = new Set([
+    ...known.map(t => t.color),
+    ...annotatedJokers.map(t => t.representsColor),
+  ]);
+  const availableColors = COLORS.filter(c => !usedColors.has(c));
+  const unsetJokers = tiles.filter(t => isJoker(t)
+    && (typeof t.representsValue !== 'number' || typeof t.representsColor !== 'string'));
+  if (unsetJokers.length > availableColors.length) return null;
+  let colorIdx = 0;
+  return tiles.map(t => {
+    if (!isJoker(t)) return t;
+    if (typeof t.representsValue === 'number' && typeof t.representsColor === 'string') return t;
+    return { ...t, representsColor: availableColors[colorIdx++], representsValue: groupVal };
+  });
 }
