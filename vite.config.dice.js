@@ -3,8 +3,10 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 
 export default defineConfig({
+  publicDir: false,
   plugins: [react()],
   build: {
+    target: "es2022",
     outDir: "public/shared",
     emptyOutDir: false, // preserve dice-assets/
     sourcemap: true,
@@ -15,11 +17,8 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        inlineDynamicImports: true,
+        codeSplitting: false,
       },
     },
-  },
-  esbuild: {
-    target: "es2022",
   },
 });

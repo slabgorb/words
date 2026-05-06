@@ -83,11 +83,8 @@ describe("<dice-tray> Web Component", () => {
     el.addEventListener("dice-throw", (e: Event) => {
       received = (e as CustomEvent).detail;
     });
-    if (typeof el.throw === "function") {
-      el.throw({ position: [0, 0.5, 0], linearVelocity: [0, 0, -5], angularVelocity: [0, 0, 0], rotation: [0, 0, 0] });
-    } else {
-      el.dispatchEvent(new CustomEvent("dice-throw", { detail: { throwParams: [] } }));
-    }
+    expect(typeof el.throw).toBe("function");
+    el.throw!({ position: [0, 0.5, 0], linearVelocity: [0, 0, -5], angularVelocity: [0, 0, 0], rotation: [0, 0, 0] });
     expect(received).not.toBeNull();
     el.remove();
   });

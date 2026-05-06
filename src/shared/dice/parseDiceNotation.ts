@@ -1,6 +1,6 @@
 import type { DiceSpec } from "./types";
 
-const SUPPORTED_SIDES = new Set([4, 6, 8, 10, 12, 20]);
+const SUPPORTED_SIDES = new Set([4, 6, 10, 12, 20]);
 const MAX_COUNT = 8;
 const NOTATION = /^(\d*)d(\d+)$/i;
 

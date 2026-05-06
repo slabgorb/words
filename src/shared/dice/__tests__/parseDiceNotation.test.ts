@@ -26,8 +26,9 @@ describe("parseDiceNotation", () => {
     expect(parseDiceNotation("  2d6  ")).toEqual({ count: 2, sides: 6 });
   });
 
-  it("rejects unsupported sides (e.g. 7)", () => {
+  it("rejects unsupported sides (e.g. 7 or 8)", () => {
     expect(() => parseDiceNotation("1d7")).toThrow(/unsupported/i);
+    expect(() => parseDiceNotation("1d8")).toThrow(/unsupported/i);
   });
 
   it("rejects malformed input", () => {
