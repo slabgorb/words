@@ -327,3 +327,41 @@ test('all-in-home counts bornOff toward 15', () => {
   const moves = enumerateLegalMoves(b, [6], 'a');
   assert.ok(moves.some(m => m.to === 'off'));
 });
+
+test('doubles: all 4 dice consumable when board permits', () => {
+  const b = emptyBoard();
+  b.points[0] = { color: 'a', count: 4 };
+  // Roll [3,3,3,3] — each checker steps +3 onto an empty point.
+  assert.equal(maxConsumableDice(b, [3, 3, 3, 3], 'a'), 4);
+});
+
+test('doubles: 4 first-moves all on same die value', () => {
+  const b = emptyBoard();
+  b.points[0] = { color: 'a', count: 4 };
+  const first = legalFirstMoves(b, [3, 3, 3, 3], 'a');
+  // Raw enumeration dedupes (from,to,die) — there's only one such triple, repeated.
+  // legalFirstMoves passes that single move through.
+  assert.ok(first.some(m => m.from === 0 && m.to === 3 && m.die === 3));
+});
+
+test('doubles: only 2 dice consumable when 3rd dest blocked', () => {
+  const b = emptyBoard();
+  b.points[0] = { color: 'a', count: 1 };
+  // First step: 0→3. Second step: 3→6. Third step: 6→9 BLOCKED.
+  b.points[9] = { color: 'b', count: 2 };
+  assert.equal(maxConsumableDice(b, [3, 3, 3, 3], 'a'), 2);
+});
+
+test('doubles never trigger higher-die rule', () => {
+  // Construct: A on index 0 (count 1). B blocks index 6.
+  // dice [3,3,3,3]. Raw legal: 0→3 die=3.
+  // Even after applying it, 3→6 blocked. So K=1.
+  // Higher-die rule shouldn't fire because dice[0] === dice[1].
+  const b = emptyBoard();
+  b.points[0] = { color: 'a', count: 1 };
+  b.points[6] = { color: 'b', count: 2 };
+  const first = legalFirstMoves(b, [3, 3, 3, 3], 'a');
+  // The single legal first-move should be present.
+  assert.equal(first.length, 1);
+  assert.equal(first[0].die, 3);
+});
