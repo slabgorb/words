@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backgammon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=JetBrains+Mono:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="walnut">
+<div id="page">
+  <header id="topbar">
+    <a class="back" href="/">← Lobby</a>
+    <div class="match-meta">
+      <span class="match-target">Match to <strong id="match-target">3</strong></span>
+      <span class="dot"></span>
+      <span class="game-no" id="game-no">Game 1</span>
+      <span class="dot crawford-dot hidden"></span>
+      <span class="crawford-indicator hidden">Crawford</span>
+    </div>
+    <div class="float-actions">
+      <button id="btn-theme" type="button" aria-label="Cycle theme" title="Theme">◐</button>
+      <button id="btn-history" type="button" aria-label="History" title="History">≡</button>
+    </div>
+  </header>
+
+  <section id="scoreboard">
+    <div class="score score-a">
+      <span class="score-name" id="name-a">You</span>
+      <span class="score-pts"><strong id="score-a">0</strong> <span class="score-of">/ <span id="target-a">3</span></span></span>
+      <span class="score-pip">pip <em id="pip-a">167</em></span>
+    </div>
+    <div class="turn-pill" id="turn-pill">Waiting…</div>
+    <div class="score score-b">
+      <span class="score-name" id="name-b">Opponent</span>
+      <span class="score-pts"><strong id="score-b">0</strong> <span class="score-of">/ <span id="target-b">3</span></span></span>
+      <span class="score-pip">pip <em id="pip-b">167</em></span>
+    </div>
+  </section>
+
+  <main id="stage">
+    <div id="root"></div>
+  </main>
+
+  <section id="action-bar" class="hidden">
+    <button id="btn-roll" class="hidden">Roll</button>
+    <button id="btn-double" class="hidden">Double</button>
+    <button id="btn-accept" class="hidden">Accept</button>
+    <button id="btn-decline" class="hidden">Decline</button>
+    <button id="btn-resign">Resign</button>
+  </section>
+
+  <section id="end-screen" class="hidden">
+    <h2 id="end-headline"></h2>
+    <p id="end-summary"></p>
+    <button id="btn-new" class="hidden">Lobby</button>
+  </section>
+
+  <aside id="history-drawer" class="hidden">
+    <header><h3>History</h3><button id="btn-history-close" aria-label="Close">×</button></header>
+    <ol id="history-list"></ol>
+  </aside>
+</div>
+<script type="module" src="/shared/dice.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
