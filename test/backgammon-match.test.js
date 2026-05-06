@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyLegEnd, resolveLeg } from '../plugins/backgammon/server/match.js';
+import { classifyLegEnd, resolveLeg, isMatchOver } from '../plugins/backgammon/server/match.js';
 import { buildInitialState } from '../plugins/backgammon/server/state.js';
 import { PARTICIPANTS, det } from './_helpers/backgammon-fixtures.js';
 
@@ -116,4 +116,20 @@ test('resolveLeg: leg type "resigned" persists in legHistory', () => {
   const next = resolveLeg({ state: s0, winner: 'a', type: 'resigned', multiplier: 1, cubeValue: 4 });
   assert.equal(next.legHistory[0].type, 'resigned');
   assert.equal(next.legHistory[0].points, 4);
+});
+
+test('isMatchOver: returns null when no one has reached target', () => {
+  assert.equal(isMatchOver({ target: 3, scoreA: 2, scoreB: 1 }), null);
+});
+
+test('isMatchOver: returns "a" when scoreA >= target', () => {
+  assert.equal(isMatchOver({ target: 3, scoreA: 3, scoreB: 1 }), 'a');
+});
+
+test('isMatchOver: returns "b" when scoreB >= target', () => {
+  assert.equal(isMatchOver({ target: 3, scoreA: 1, scoreB: 4 }), 'b');
+});
+
+test('isMatchOver: target=1 ends match on first win', () => {
+  assert.equal(isMatchOver({ target: 1, scoreA: 1, scoreB: 0 }), 'a');
 });

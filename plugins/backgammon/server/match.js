@@ -80,3 +80,9 @@ export function classifyLegEnd(board, winner) {
   if (loserBar > 0 || inWinnerHome) return { type: 'backgammon', multiplier: 3 };
   return { type: 'gammon', multiplier: 2 };
 }
+
+export function isMatchOver(match) {
+  if (match.scoreA >= match.target) return 'a';
+  if (match.scoreB >= match.target) return 'b';
+  return null;
+}
