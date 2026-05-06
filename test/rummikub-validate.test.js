@@ -95,6 +95,35 @@ test('initial meld must be ≥30 from rack tiles', () => {
   assert.match(result.reason, /30/);
 });
 
+test('initial meld success with unannotated wildcard inferred from run', () => {
+  // Sonia's case: opens with wildcard between two reds, expects joker to count as red 10.
+  const start = {
+    rack: [t('r9a', 'red', 9), j('joker1'), t('r11a', 'red', 11)],
+    table: [],
+    initialMeldComplete: false,
+  };
+  const end = {
+    rack: [],
+    table: [[t('r9a', 'red', 9), j('joker1'), t('r11a', 'red', 11)]],
+  };
+  const result = validateEndState(start, end);
+  assert.equal(result.valid, true, result.reason);
+});
+
+test('initial meld success with unannotated wildcard inferred from group', () => {
+  const start = {
+    rack: [t('r10a', 'red', 10), t('b10', 'blue', 10), j('joker1')],
+    table: [],
+    initialMeldComplete: false,
+  };
+  const end = {
+    rack: [],
+    table: [[t('r10a', 'red', 10), t('b10', 'blue', 10), j('joker1')]],
+  };
+  const result = validateEndState(start, end);
+  assert.equal(result.valid, true, result.reason);
+});
+
 test('initial meld success at exactly 30 points (red 9, 10, 11)', () => {
   const start = {
     rack: [t('r9a', 'red', 9), t('r10a', 'red', 10), t('r11a', 'red', 11), t('b1', 'blue', 1)],
