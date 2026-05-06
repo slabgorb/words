@@ -269,3 +269,24 @@ test('move: leg ends → match ends when target reached', () => {
   assert.equal(result.ended, true);
   assert.deepEqual(result.scoreDelta, { 1: 1 });  // userId 1 (=side 'a') wins target=1 points
 });
+
+test('pass-turn: explicit call by active player switches sides', () => {
+  const s = stateAfterInitialRoll({ winner: 'a' });
+  const result = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'pass-turn', payload: {} },
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.state.turn.activePlayer, 'b');
+  assert.equal(result.state.turn.phase, 'pre-roll');
+  assert.equal(result.state.turn.dice, null);
+});
+
+test('pass-turn: rejects from non-active player', () => {
+  const s = stateAfterInitialRoll({ winner: 'a' });
+  const result = applyBackgammonAction({
+    state: s, actorId: 2,
+    action: { type: 'pass-turn', payload: {} },
+  });
+  assert.match(result.error, /not your turn/i);
+});
