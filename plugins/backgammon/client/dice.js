@@ -66,6 +66,13 @@ export function renderDice(state, ctx, onRoll) {
                  : document.body.dataset.theme === 'jade'   ? 'obsidian'
                  : 'ivory';
 
+  // Position dice on the active player's side. During initial-roll the
+  // active player is undecided, so anchor to the viewer's own die.
+  mount.classList.remove('top', 'bottom');
+  const ownerSide = phase === 'initial-roll' ? me : active;
+  if (ownerSide === me) mount.classList.add('bottom');
+  else if (ownerSide) mount.classList.add('top');
+
   if (phase === 'initial-roll') {
     const myValue = state.initialRoll?.[me];
     if (myValue == null) {
