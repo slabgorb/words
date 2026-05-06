@@ -3,8 +3,10 @@
 
 import wordsPlugin from '../../plugins/words/plugin.js';
 import rummikubPlugin from '../../plugins/rummikub/plugin.js';
+import backgammonPlugin from '../../plugins/backgammon/plugin.js';
 
 export const plugins = {
   words: wordsPlugin,
   rummikub: rummikubPlugin,
+  backgammon: backgammonPlugin,
 };
