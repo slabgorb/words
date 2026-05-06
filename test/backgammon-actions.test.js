@@ -388,3 +388,41 @@ test('decline-double: target=1 → leg end IS match end', () => {
   assert.equal(result.ended, true);
   assert.deepEqual(result.scoreDelta, { 1: 1 });
 });
+
+test('resign: A resigns mid-leg, B awarded cube value', () => {
+  const s = stateAfterInitialRoll({ winner: 'a' });
+  const result = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'resign', payload: {} },
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.state.match.scoreB, 1);  // cube=1 awarded to B
+  assert.equal(result.state.legHistory[0].type, 'resigned');
+  assert.equal(result.ended, false);
+});
+
+test('resign: rejected during awaiting-double-response', () => {
+  const s = statePreRoll({ activePlayer: 'a' });
+  const offered = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'offer-double', payload: {} },
+  }).state;
+  const result = applyBackgammonAction({
+    state: offered, actorId: 2,
+    action: { type: 'resign', payload: {} },
+  });
+  assert.match(result.error, /awaiting/i);
+});
+
+test('resign: target=1 ends match', () => {
+  const base = buildInitialState({
+    participants: PARTICIPANTS, rng: det(), options: { matchLength: 1 },
+  });
+  const s = { ...base, turn: { activePlayer: 'a', phase: 'pre-roll', dice: null } };
+  const result = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'resign', payload: {} },
+  });
+  assert.equal(result.ended, true);
+  assert.deepEqual(result.scoreDelta, { 2: 1 });  // B (userId 2) wins
+});

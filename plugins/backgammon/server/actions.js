@@ -22,6 +22,7 @@ export function applyBackgammonAction({ state, action, actorId }) {
     case 'offer-double':   return doOfferDouble(state, side);
     case 'accept-double':  return doAcceptDouble(state, side);
     case 'decline-double': return doDeclineDouble(state, side);
+    case 'resign': return doResign(state, side);
     default: return { error: `unknown action: ${action.type}` };
   }
 }
@@ -259,6 +260,19 @@ function doDeclineDouble(state, side) {
     type: 'single',
     multiplier: 1,
     cubeValue: awardedToOfferer,
+  });
+}
+
+function doResign(state, side) {
+  if (state.turn.phase === PHASE.AWAITING_DOUBLE_RESPONSE) {
+    return { error: 'cannot resign while awaiting double response' };
+  }
+  return endLegAndMaybeMatch({
+    state,
+    winner: opponent(side),
+    type: 'resigned',
+    multiplier: 1,
+    cubeValue: state.cube.value,
   });
 }
 
