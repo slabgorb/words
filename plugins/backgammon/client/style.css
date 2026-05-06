@@ -712,14 +712,17 @@ body[data-theme="leather"] .off-tray-half::before {
   display: flex;
   gap: 14px;
   align-items: center;
+  justify-content: center;
   z-index: 6;
-}
-.dice-area.right {
-  /* in the right inner board (home), centered between the points */
-  top: 50%;
+  /* Right inner board (home), centered between the bar and bear-off tray.
+     Vertical position chosen by .top / .bottom modifier per active player. */
   left: 78%;
   transform: translate(-50%, -50%);
 }
+.dice-area.bottom { top: 75%; }
+.dice-area.top    { top: 25%; }
+/* Fallback when no modifier is applied — keeps dice on the board, not at (0,0). */
+.dice-area:not(.top):not(.bottom) { top: 50%; }
 .die-placeholder {
   width: clamp(36px, 4.4vw, 54px);
   height: clamp(36px, 4.4vw, 54px);
