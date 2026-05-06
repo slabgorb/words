@@ -64,3 +64,65 @@ test('buildInitialState: matchLength=1 disables crawford forever', () => {
   assert.equal(s.match.target, 1);
   assert.equal(s.match.crawford, false);
 });
+
+test('buildInitialState: rejects participants of length != 2', () => {
+  assert.throws(
+    () => buildInitialState({ participants: [], rng: det(0) }),
+    /backgammon requires exactly 2 participants/i,
+  );
+  assert.throws(
+    () => buildInitialState({ participants: [{ userId: 1, side: 'a' }], rng: det(0) }),
+    /backgammon requires exactly 2 participants/i,
+  );
+  assert.throws(
+    () => buildInitialState({
+      participants: [
+        { userId: 1, side: 'a' },
+        { userId: 2, side: 'b' },
+        { userId: 3, side: 'a' },
+      ],
+      rng: det(0),
+    }),
+    /backgammon requires exactly 2 participants/i,
+  );
+});
+
+test('buildInitialState: rejects missing side a', () => {
+  assert.throws(
+    () => buildInitialState({
+      participants: [{ userId: 1, side: 'b' }, { userId: 2, side: 'b' }],
+      rng: det(0),
+    }),
+    /missing side 'a'/i,
+  );
+});
+
+test('buildInitialState: rejects missing side b', () => {
+  assert.throws(
+    () => buildInitialState({
+      participants: [{ userId: 1, side: 'a' }, { userId: 2, side: 'a' }],
+      rng: det(0),
+    }),
+    /missing side 'b'/i,
+  );
+});
+
+test('buildInitialState: rejects participants missing userId', () => {
+  assert.throws(
+    () => buildInitialState({
+      participants: [{ side: 'a' }, { userId: 2, side: 'b' }],
+      rng: det(0),
+    }),
+    /participant missing userId/i,
+  );
+});
+
+test('buildInitialState: rejects participants with same userId on both sides', () => {
+  assert.throws(
+    () => buildInitialState({
+      participants: [{ userId: 7, side: 'a' }, { userId: 7, side: 'b' }],
+      rng: det(0),
+    }),
+    /participants must have distinct userIds/i,
+  );
+});

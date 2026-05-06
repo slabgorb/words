@@ -192,6 +192,14 @@ export function enumerateLegalMoves(board, dice, player) {
   ];
 }
 
+// Raw individual-move legality check: does any die in `dice` reach `to` from
+// `from` for `player` under bar/blocked/hit/bear-off rules?
+//
+// This does NOT enforce turn-level rules (must-use-both, higher-die-mandatory).
+// A move that is `isLegalMove === true` may still be rejected at turn-start
+// because choosing it would prevent the player from using the maximum number of
+// dice. Callers selecting the first move of a turn MUST use `legalFirstMoves`.
+// `isLegalMove` is intended for cheap reachability probes (e.g. tooltip hints).
 export function isLegalMove(board, dice, player, from, to) {
   return enumerateLegalMoves(board, dice, player).some(m => m.from === from && m.to === to);
 }
