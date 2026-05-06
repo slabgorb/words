@@ -1,4 +1,5 @@
 import { PHASE, opponent } from './constants.js';
+import { enumerateLegalMoves } from './validate.js';
 
 function actorSide(state, actorId) {
   if (state.sides.a === actorId) return 'a';
@@ -12,8 +13,14 @@ export function applyBackgammonAction({ state, action, actorId }) {
 
   switch (action.type) {
     case 'roll-initial': return doRollInitial(state, action.payload, side);
+    case 'roll':         return doRoll(state, action.payload, side);
+    case 'pass-turn':    return doPassTurn(state, side);
     default: return { error: `unknown action: ${action.type}` };
   }
+}
+
+function isActive(state, side) {
+  return state.turn.activePlayer === side;
 }
 
 function doRollInitial(state, payload, side) {
@@ -77,5 +84,53 @@ function doRollInitial(state, payload, side) {
     state: { ...state, initialRoll: ir },
     ended: false,
     summary: { kind: 'roll-initial', side },
+  };
+}
+
+function doRoll(state, payload, side) {
+  if (state.turn.phase !== PHASE.PRE_ROLL) {
+    return { error: `cannot roll in phase: ${state.turn.phase}` };
+  }
+  if (!isActive(state, side)) return { error: 'not your turn' };
+  const values = payload?.values;
+  const throwParams = payload?.throwParams;
+  if (!Array.isArray(values) || values.length !== 2 ||
+      !values.every(v => Number.isInteger(v) && v >= 1 && v <= 6)) {
+    return { error: 'roll values must be two integers 1..6' };
+  }
+  if (!Array.isArray(throwParams)) return { error: 'roll requires throwParams array' };
+
+  const remaining = values[0] === values[1] ? [values[0], values[0], values[0], values[0]] : values.slice();
+  const dice = { values: values.slice(), remaining, throwParams };
+
+  const afterRoll = {
+    ...state,
+    turn: { ...state.turn, phase: PHASE.MOVING, dice },
+  };
+
+  // Auto-pass if no legal moves
+  const moves = enumerateLegalMoves(afterRoll.board, remaining, side);
+  if (moves.length === 0) {
+    return doPassTurn(afterRoll, side);
+  }
+  return { state: afterRoll, ended: false, summary: { kind: 'roll', values: values.slice() } };
+}
+
+function doPassTurn(state, side) {
+  if (state.turn.phase !== PHASE.MOVING) {
+    return { error: `cannot pass-turn in phase: ${state.turn.phase}` };
+  }
+  if (!isActive(state, side)) return { error: 'not your turn' };
+  return {
+    state: {
+      ...state,
+      turn: {
+        activePlayer: opponent(side),
+        phase: PHASE.PRE_ROLL,
+        dice: null,
+      },
+    },
+    ended: false,
+    summary: { kind: 'pass-turn' },
   };
 }
