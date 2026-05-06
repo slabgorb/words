@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>dice-tray smoke test</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; background: #1c1c1f; color: #f4ead4; }
+      h1 { font-size: 1.2rem; }
+      .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+      .panel { width: 360px; height: 360px; background: #2a2a2d; border-radius: 12px; padding: 0.5rem; }
+      pre { background: #0a0a0a; padding: 0.5rem; border-radius: 6px; font-size: 0.85rem; overflow-x: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>&lt;dice-tray&gt; smoke test</h1>
+    <p>Drag a die to throw. Refresh to reset.</p>
+
+    <div class="row">
+      <div>
+        <h2>1d6 (ivory)</h2>
+        <div class="panel"><dice-tray dice="1d6" mode="active" theme="ivory"></dice-tray></div>
+      </div>
+      <div>
+        <h2>2d6 (obsidian)</h2>
+        <div class="panel"><dice-tray dice="2d6" mode="active" theme="obsidian"></dice-tray></div>
+      </div>
+      <div>
+        <h2>1d20 (ivory)</h2>
+        <div class="panel"><dice-tray dice="1d20" mode="active" theme="ivory"></dice-tray></div>
+      </div>
+    </div>
+
+    <h2>Event log</h2>
+    <pre id="log"></pre>
+
+    <script type="module" src="/shared/dice.js"></script>
+    <script>
+      const log = document.getElementById("log");
+      function append(msg) {
+        log.textContent = `${new Date().toLocaleTimeString()}  ${msg}\n` + log.textContent;
+      }
+      for (const tray of document.querySelectorAll("dice-tray")) {
+        tray.addEventListener("dice-throw", (e) => append(`throw → ${JSON.stringify(e.detail).slice(0, 120)}`));
+        tray.addEventListener("dice-settle", (e) => append(`settle → values=${JSON.stringify(e.detail.values)}`));
+        tray.addEventListener("dice-error", (e) => append(`error → ${e.detail.message}`));
+      }
+    </script>
+  </body>
+</html>

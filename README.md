@@ -53,6 +53,12 @@ plugins/
     server/           engine, dictionary, aux routes
     client/           browser JS/CSS
 
+src/shared/dice/      shared <dice-tray> Web Component (Vite-built)
+                      → public/shared/dice.js (bundle, .gitignored)
+                      → public/shared/dice-assets/ (font + texture)
+                      Plugins use it via `<script type="module" src="/shared/dice.js">`
+                      and a `<dice-tray dice="2d6">` element.
+
 src/plugins/index.js  registers all plugins into the host registry
 ```
 
