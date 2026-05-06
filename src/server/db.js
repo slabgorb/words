@@ -30,10 +30,10 @@ CREATE TABLE IF NOT EXISTS games (
   updated_at      INTEGER NOT NULL,
   CHECK (player_a_id < player_b_id)
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS one_active_per_pair
-  ON games(player_a_id, player_b_id) WHERE status = 'active';
 `;
+// Note: the per-pair unique active-game index is created game-type-aware
+// later in openDb (one_active_per_pair_type). The legacy name
+// one_active_per_pair is dropped there if a previous build created it.
 
 // Tables/indexes that reference game_id — only safe after migrateLegacy rewrites moves.
 const SCHEMA_POST = `
