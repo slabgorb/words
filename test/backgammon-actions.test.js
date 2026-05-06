@@ -290,3 +290,101 @@ test('pass-turn: rejects from non-active player', () => {
   });
   assert.match(result.error, /not your turn/i);
 });
+
+test('offer-double: legal at pre-roll by active player', () => {
+  const s = statePreRoll({ activePlayer: 'a' });
+  const result = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'offer-double', payload: {} },
+  });
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.state.cube.pendingOffer, { from: 'a' });
+  assert.equal(result.state.turn.phase, 'awaiting-double-response');
+});
+
+test('offer-double: rejected during Crawford', () => {
+  const base = statePreRoll({ activePlayer: 'a' });
+  const s = { ...base, match: { ...base.match, crawford: true } };
+  const result = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'offer-double', payload: {} },
+  });
+  assert.match(result.error, /crawford|cannot/i);
+});
+
+test('offer-double: rejected when actor does not own cube', () => {
+  const base = statePreRoll({ activePlayer: 'a' });
+  const s = { ...base, cube: { value: 2, owner: 'b', pendingOffer: null } };
+  const result = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'offer-double', payload: {} },
+  });
+  assert.match(result.error, /cannot/i);
+});
+
+test('accept-double: by opponent doubles cube and transfers ownership', () => {
+  const s = statePreRoll({ activePlayer: 'a' });
+  const offered = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'offer-double', payload: {} },
+  }).state;
+  const result = applyBackgammonAction({
+    state: offered, actorId: 2,
+    action: { type: 'accept-double', payload: {} },
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.state.cube.value, 2);
+  assert.equal(result.state.cube.owner, 'b');
+  assert.equal(result.state.cube.pendingOffer, null);
+  assert.equal(result.state.turn.phase, 'pre-roll');
+  // Active player unchanged — A was about to roll
+  assert.equal(result.state.turn.activePlayer, 'a');
+});
+
+test('accept-double: rejected from offerer', () => {
+  const s = statePreRoll({ activePlayer: 'a' });
+  const offered = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'offer-double', payload: {} },
+  }).state;
+  const result = applyBackgammonAction({
+    state: offered, actorId: 1,
+    action: { type: 'accept-double', payload: {} },
+  });
+  assert.match(result.error, /opponent|cannot/i);
+});
+
+test('decline-double: ends leg, awards pre-double cube to offerer, match continues', () => {
+  const s = statePreRoll({ activePlayer: 'a' });
+  const offered = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'offer-double', payload: {} },
+  }).state;
+  const result = applyBackgammonAction({
+    state: offered, actorId: 2,
+    action: { type: 'decline-double', payload: {} },
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.state.match.scoreA, 1);  // pre-double cube value = 1
+  assert.equal(result.state.turn.phase, 'initial-roll');
+  assert.equal(result.state.legHistory.length, 1);
+  assert.equal(result.state.legHistory[0].type, 'single');
+  assert.equal(result.ended, false);
+});
+
+test('decline-double: target=1 → leg end IS match end', () => {
+  const base = buildInitialState({
+    participants: PARTICIPANTS, rng: det(), options: { matchLength: 1 },
+  });
+  const s = { ...base, turn: { activePlayer: 'a', phase: 'pre-roll', dice: null } };
+  const offered = applyBackgammonAction({
+    state: s, actorId: 1,
+    action: { type: 'offer-double', payload: {} },
+  }).state;
+  const result = applyBackgammonAction({
+    state: offered, actorId: 2,
+    action: { type: 'decline-double', payload: {} },
+  });
+  assert.equal(result.ended, true);
+  assert.deepEqual(result.scoreDelta, { 1: 1 });
+});

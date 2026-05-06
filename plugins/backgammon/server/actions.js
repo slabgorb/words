@@ -2,6 +2,7 @@ import { PHASE, opponent } from './constants.js';
 import { enumerateLegalMoves, legalFirstMoves } from './validate.js';
 import { applyMove, enterFromBar, bearOff } from './board.js';
 import { classifyLegEnd, resolveLeg, isMatchOver } from './match.js';
+import { canOffer, applyOffer, applyAccept, applyDecline } from './cube.js';
 
 function actorSide(state, actorId) {
   if (state.sides.a === actorId) return 'a';
@@ -18,6 +19,9 @@ export function applyBackgammonAction({ state, action, actorId }) {
     case 'roll':         return doRoll(state, action.payload, side);
     case 'pass-turn':    return doPassTurn(state, side);
     case 'move':         return doMove(state, action.payload, side);
+    case 'offer-double':   return doOfferDouble(state, side);
+    case 'accept-double':  return doAcceptDouble(state, side);
+    case 'decline-double': return doDeclineDouble(state, side);
     default: return { error: `unknown action: ${action.type}` };
   }
 }
@@ -202,6 +206,60 @@ function doMove(state, payload, side) {
   }
 
   return { state: next, ended: false, summary: { kind: 'move' } };
+}
+
+function doOfferDouble(state, side) {
+  if (state.turn.phase !== PHASE.PRE_ROLL) {
+    return { error: `cannot offer-double in phase: ${state.turn.phase}` };
+  }
+  if (!isActive(state, side)) return { error: 'not your turn' };
+  if (!canOffer({ cube: state.cube, match: state.match }, side)) {
+    return { error: 'cannot offer double now' };
+  }
+  return {
+    state: {
+      ...state,
+      cube: applyOffer(state.cube, side),
+      turn: { ...state.turn, phase: PHASE.AWAITING_DOUBLE_RESPONSE },
+    },
+    ended: false,
+    summary: { kind: 'offer-double' },
+  };
+}
+
+function doAcceptDouble(state, side) {
+  if (state.turn.phase !== PHASE.AWAITING_DOUBLE_RESPONSE) {
+    return { error: `cannot accept-double in phase: ${state.turn.phase}` };
+  }
+  if (state.cube.pendingOffer === null || state.cube.pendingOffer.from === side) {
+    return { error: 'only opponent of offerer can accept' };
+  }
+  return {
+    state: {
+      ...state,
+      cube: applyAccept(state.cube, side),
+      turn: { ...state.turn, phase: PHASE.PRE_ROLL },
+    },
+    ended: false,
+    summary: { kind: 'accept-double' },
+  };
+}
+
+function doDeclineDouble(state, side) {
+  if (state.turn.phase !== PHASE.AWAITING_DOUBLE_RESPONSE) {
+    return { error: `cannot decline-double in phase: ${state.turn.phase}` };
+  }
+  if (state.cube.pendingOffer === null || state.cube.pendingOffer.from === side) {
+    return { error: 'only opponent of offerer can decline' };
+  }
+  const { awardedToOfferer, offerer } = applyDecline(state.cube);
+  return endLegAndMaybeMatch({
+    state,
+    winner: offerer,
+    type: 'single',
+    multiplier: 1,
+    cubeValue: awardedToOfferer,
+  });
 }
 
 function endLegAndMaybeMatch({ state, winner, type, multiplier, cubeValue }) {
