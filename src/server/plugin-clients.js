@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import express from 'express';
 import { getGameById } from './games.js';
+import { getUserById } from './users.js';
 
 export function mountPluginClients(app, { db, registry }) {
   for (const plugin of Object.values(registry)) {
@@ -25,21 +26,24 @@ export function mountPluginClients(app, { db, registry }) {
     // Bare directory + trailing-slash variants for index.html with injection
     app.get(`${base}/:gameId`, (req, res, next) => {
       if (!req.path.endsWith('/')) return res.redirect(301, req.path + '/');
-      return serveIndex(plugin.clientDir, req, res);
+      return serveIndex(plugin.clientDir, db, req, res);
     });
-    app.get(`${base}/:gameId/`, (req, res) => serveIndex(plugin.clientDir, req, res));
-    app.get(`${base}/:gameId/index.html`, (req, res) => serveIndex(plugin.clientDir, req, res));
+    app.get(`${base}/:gameId/`, (req, res) => serveIndex(plugin.clientDir, db, req, res));
+    app.get(`${base}/:gameId/index.html`, (req, res) => serveIndex(plugin.clientDir, db, req, res));
 
     // Static assets (everything else under the path)
     app.use(`${base}/:gameId`, express.static(plugin.clientDir, { index: false }));
   }
 }
 
-function serveIndex(clientDir, req, res) {
+function serveIndex(clientDir, db, req, res) {
   const indexPath = path.join(clientDir, 'index.html');
   let html;
   try { html = fs.readFileSync(indexPath, 'utf8'); }
   catch { return res.status(500).end('plugin index.html missing'); }
+
+  const opponentId = req.game.playerAId === req.user.id ? req.game.playerBId : req.game.playerAId;
+  const opponent = getUserById(db, opponentId);
 
   const ctx = {
     gameId: req.game.id,
@@ -48,6 +52,8 @@ function serveIndex(clientDir, req, res) {
     sseUrl: `/api/games/${req.game.id}/events`,
     actionUrl: `/api/games/${req.game.id}/action`,
     stateUrl: `/api/games/${req.game.id}`,
+    yourFriendlyName: req.user.friendlyName,
+    opponentFriendlyName: opponent?.friendlyName ?? 'Opponent',
   };
   const inject = `<script>window.__GAME__ = ${JSON.stringify(ctx)};</script>`;
 

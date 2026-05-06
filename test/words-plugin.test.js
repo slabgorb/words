@@ -65,3 +65,53 @@ test('publicView hides opponent rack but keeps count', () => {
   assert.equal(view.opponentRack.count, 7);
   assert.equal(view.racks.b, undefined);
 });
+
+test('applyAction(move) returns summary with words and scoreDelta', () => {
+  // Build a state where 'a' has the word 'CAT' on rack and an empty board.
+  let state = wordsPlugin.initialState({ participants, rng });
+  // Force a deterministic rack and turn for the test.
+  state.racks.a = ['C', 'A', 'T', 'X', 'Y', 'Z', 'Q'];
+  state.activeUserId = 1;
+  state.initialMoveDone = false;
+  // First-move placement must cross the center (board size is 15; center 7,7).
+  const placement = [
+    { r: 7, c: 7, letter: 'C' },
+    { r: 7, c: 8, letter: 'A' },
+    { r: 7, c: 9, letter: 'T' },
+  ];
+  const result = wordsPlugin.applyAction({
+    state, action: { type: 'move', payload: { placement } }, actorId: 1, rng,
+  });
+  assert.equal(result.error, undefined, `unexpected error: ${result.error}`);
+  assert.ok(result.summary, 'summary should be present');
+  assert.equal(result.summary.kind, 'play');
+  assert.ok(Array.isArray(result.summary.words));
+  assert.ok(result.summary.words.includes('CAT'));
+  assert.equal(typeof result.summary.scoreDelta, 'number');
+  assert.ok(result.summary.scoreDelta > 0);
+});
+
+test('applyAction(pass) returns summary { kind: pass }', () => {
+  let state = wordsPlugin.initialState({ participants, rng });
+  state.activeUserId = 1;
+  const result = wordsPlugin.applyAction({ state, action: { type: 'pass', payload: {} }, actorId: 1, rng });
+  assert.deepEqual(result.summary, { kind: 'pass' });
+});
+
+test('applyAction(swap) returns summary { kind: swap, count }', () => {
+  let state = wordsPlugin.initialState({ participants, rng });
+  state.activeUserId = 1;
+  const tiles = state.racks.a.slice(0, 2);
+  const result = wordsPlugin.applyAction({
+    state, action: { type: 'swap', payload: { tiles } }, actorId: 1, rng,
+  });
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.summary, { kind: 'swap', count: 2 });
+});
+
+test('applyAction(resign) returns summary { kind: resign }', () => {
+  let state = wordsPlugin.initialState({ participants, rng });
+  state.activeUserId = 1;
+  const result = wordsPlugin.applyAction({ state, action: { type: 'resign', payload: {} }, actorId: 1, rng });
+  assert.deepEqual(result.summary, { kind: 'resign' });
+});

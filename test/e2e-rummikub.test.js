@@ -67,6 +67,16 @@ test('e2e: create rummikub game, draw + resign produces ended game', async () =>
   const final = await call(server, 'GET', `/api/games/${gameId}`, null, { 'x-test-user-id': '1' });
   assert.equal(final.body.status, 'ended');
 
+  // History captured both the draw, the resign, and the synthetic game-ended row.
+  const hist = await call(server, 'GET', `/api/games/${gameId}/history`,
+    null, { 'x-test-user-id': '1' });
+  assert.equal(hist.status, 200);
+  assert.ok(Array.isArray(hist.body.entries));
+  const kinds = hist.body.entries.map(e => e.summary.kind);
+  assert.ok(kinds.includes('draw-tile'), `expected draw-tile in ${JSON.stringify(kinds)}`);
+  assert.ok(kinds.includes('resign'), `expected resign in ${JSON.stringify(kinds)}`);
+  assert.equal(kinds[kinds.length - 1], 'game-ended');
+
   const create2 = await call(server, 'POST', '/api/games',
     { opponentId: 2, gameType: 'rummikub' }, { 'x-test-user-id': '1' });
   assert.equal(create2.status, 200);

@@ -7,12 +7,21 @@ import { play, playForScore, primeAudio, isMuted, toggleMuted } from './sounds.j
 import { cycleTheme, getTheme } from './themes.js';
 import { cycleFont, getFont, getFontLabel } from './fonts.js';
 import { showMoveCallout, showPassCallout, showSwapCallout } from './callout.js';
+import { loadHistory, toggleDrawer, closeDrawer, appendEntry } from './history.js';
 
 const $ = (sel) => document.querySelector(sel);
 
 
 let selectedRackIdx = null;
 let lastValidation = null;
+
+function historyNames() {
+  // ui.server.opponent.friendlyName always names the opponent regardless of side.
+  // Map by side: when user is 'a', side 'a' is the user, side 'b' is the opponent.
+  return ui.server.you === 'a'
+    ? { a: ui.server.yourFriendlyName, b: ui.server.opponent.friendlyName }
+    : { a: ui.server.opponent.friendlyName, b: ui.server.yourFriendlyName };
+}
 
 function refresh() {
   const validation = lastValidation ? buildValidationPositions(lastValidation) : null;
@@ -325,10 +334,6 @@ function maybeOfferNewGame() {
   btn.textContent = 'Confirm new game';
 }
 
-function parsePayload(e) {
-  try { return JSON.parse(e.data); } catch { return {}; }
-}
-
 // Returns a function that, when called after fetchState, plays the
 // "your turn" chime if the turn just flipped to the local player.
 function captureTurnTransition() {
@@ -342,41 +347,43 @@ function captureTurnTransition() {
 
 function startSSE() {
   const es = new EventSource(gameUrl('events'));
-  es.addEventListener('move', async (e) => {
-    const p = parsePayload(e);
+
+  // Generic state-changed signal: refetch and re-render. This is what kept
+  // opponent moves from updating the screen prior to this fix.
+  es.addEventListener('update', async () => {
     const checkTurn = captureTurnTransition();
     await fetchState();
-    ui.rackOrder = ui.server.racks[ui.server.you].slice();
-    refresh();
-    // Only react to the opponent's move — your own callout/cheer fired in submitMove.
-    if (p.by && p.by !== ui.server.you) {
-      showMoveCallout(p);
-      playForScore(p.score ?? 0);
-      checkTurn();
+    if (ui.server?.racks?.[ui.server.you]) {
+      ui.rackOrder = ui.server.racks[ui.server.you].slice();
     }
-  });
-  es.addEventListener('pass', async (e) => {
-    const p = parsePayload(e);
-    const checkTurn = captureTurnTransition();
-    await fetchState();
     refresh();
-    if (p.by && p.by !== ui.server.you) {
-      showPassCallout(p);
-      checkTurn();
-    }
+    checkTurn();
   });
-  es.addEventListener('swap', async (e) => {
-    const p = parsePayload(e);
-    const checkTurn = captureTurnTransition();
-    await fetchState();
-    ui.rackOrder = ui.server.racks[ui.server.you].slice();
-    refresh();
-    if (p.by && p.by !== ui.server.you) {
-      showSwapCallout(p);
-      checkTurn();
+
+  // Per-turn details: callouts, sounds, history append. Fired in addition to
+  // the matching 'update' event by the server.
+  es.addEventListener('turn', (e) => {
+    let entry;
+    try { entry = JSON.parse(e.data); } catch { return; }
+    appendEntry(entry, historyNames);
+
+    // Only react to the opponent's move with callouts/sounds.
+    const isMine = entry.side === ui.server?.you;
+    if (isMine) return;
+
+    const s = entry.summary ?? {};
+    if (entry.kind === 'play') {
+      showMoveCallout({ by: entry.side, score: s.scoreDelta ?? 0, words: s.words ?? [] });
+      playForScore(s.scoreDelta ?? 0);
+    } else if (entry.kind === 'pass') {
+      showPassCallout({ by: entry.side });
+    } else if (entry.kind === 'swap') {
+      showSwapCallout({ by: entry.side, count: s.count ?? 0 });
     }
+    // 'resign' and 'game-ended' fall through to the 'update' handler's render
+    // (which calls maybeOfferNewGame) — no callout needed.
   });
-  es.addEventListener('resign', async () => { await fetchState(); refresh(); });
+
   es.onerror = () => { /* browser auto-reconnects */ };
 }
 
@@ -387,6 +394,12 @@ async function init() {
   $('#game').hidden = false;
   loadTentative();
   refresh();
+
+  document.getElementById('btn-history').addEventListener('click', () => {
+    toggleDrawer();
+    loadHistory(historyNames);
+  });
+  document.getElementById('btn-history-close').addEventListener('click', closeDrawer);
 
   $('#btn-recall').addEventListener('click', recall);
   $('#btn-shuffle').addEventListener('click', () => { play('swoosh'); shuffleRack(); refresh(); });

@@ -41,7 +41,8 @@ async function setup() {
   app.use((req, res, next) => {
     const id = Number(req.header('x-test-user-id'));
     if (!id) return res.status(401).end();
-    req.user = { id };
+    const friendlyNames = { 1: 'A', 2: 'B' };
+    req.user = { id, friendlyName: friendlyNames[id] ?? null };
     req.authEmail = `${id}@test`;
     next();
   });
@@ -71,6 +72,8 @@ test('GET /play/:type/:id/ serves index.html with __GAME__ injected', async () =
     assert.match(body, /"gameId":\s*42/);
     assert.match(body, /"userId":\s*1/);
     assert.match(body, /"gameType":\s*"stub"/);
+    assert.match(body, /"yourFriendlyName":\s*"A"/);
+    assert.match(body, /"opponentFriendlyName":\s*"B"/);
     assert.match(body, /Hi/);
   } finally { cleanup(ctx); }
 });

@@ -160,5 +160,23 @@ export function openDb(filePath = 'game.db') {
   // Patch any rows that were migrated under an earlier broken shape.
   migrateStateShape(db);
 
+  // History log — single shared table across game types.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS turn_log (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id     INTEGER NOT NULL REFERENCES games(id),
+      turn_number INTEGER NOT NULL,
+      side        TEXT NOT NULL CHECK (side IN ('a','b')),
+      kind        TEXT NOT NULL,
+      summary     TEXT NOT NULL,
+      created_at  INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS turn_log_by_game ON turn_log(game_id, id);
+  `);
+
+  // Drop the dormant legacy moves table — never read or written by current code.
+  db.exec('DROP INDEX IF EXISTS moves_nonce_per_game');
+  db.exec('DROP TABLE IF EXISTS moves');
+
   return db;
 }
