@@ -44,3 +44,102 @@ test('HOME_INDICES.a = [18..23], HOME_INDICES.b = [0..5]', () => {
   assert.deepEqual(HOME_INDICES.a, [18, 19, 20, 21, 22, 23]);
   assert.deepEqual(HOME_INDICES.b, [0, 1, 2, 3, 4, 5]);
 });
+
+import { applyMove, enterFromBar, bearOff, isPointBlocked } from '../plugins/backgammon/server/board.js';
+
+function emptyBoard() {
+  const points = Array.from({ length: 24 }, () => ({ color: null, count: 0 }));
+  return { points, barA: 0, barB: 0, bornOffA: 0, bornOffB: 0 };
+}
+
+test('applyMove: A point-to-point onto empty point', () => {
+  const b = emptyBoard();
+  b.points[0] = { color: 'a', count: 2 };
+  const next = applyMove(b, 'a', 0, 5);
+  assert.deepEqual(next.points[0], { color: 'a', count: 1 });
+  assert.deepEqual(next.points[5], { color: 'a', count: 1 });
+});
+
+test('applyMove: A onto own stack increments count', () => {
+  const b = emptyBoard();
+  b.points[0] = { color: 'a', count: 2 };
+  b.points[5] = { color: 'a', count: 3 };
+  const next = applyMove(b, 'a', 0, 5);
+  assert.deepEqual(next.points[5], { color: 'a', count: 4 });
+});
+
+test('applyMove: emptying a point sets color back to null', () => {
+  const b = emptyBoard();
+  b.points[0] = { color: 'a', count: 1 };
+  const next = applyMove(b, 'a', 0, 5);
+  assert.deepEqual(next.points[0], { color: null, count: 0 });
+});
+
+test('applyMove: A hits a B blot — B checker goes to barB', () => {
+  const b = emptyBoard();
+  b.points[0] = { color: 'a', count: 1 };
+  b.points[5] = { color: 'b', count: 1 };
+  const next = applyMove(b, 'a', 0, 5);
+  assert.deepEqual(next.points[5], { color: 'a', count: 1 });
+  assert.equal(next.barB, 1);
+});
+
+test('enterFromBar: A enters with die=3 onto index 2', () => {
+  const b = emptyBoard();
+  b.barA = 2;
+  const next = enterFromBar(b, 'a', 2);
+  assert.equal(next.barA, 1);
+  assert.deepEqual(next.points[2], { color: 'a', count: 1 });
+});
+
+test('enterFromBar: A entering on B blot hits it', () => {
+  const b = emptyBoard();
+  b.barA = 1;
+  b.points[2] = { color: 'b', count: 1 };
+  const next = enterFromBar(b, 'a', 2);
+  assert.equal(next.barA, 0);
+  assert.equal(next.barB, 1);
+  assert.deepEqual(next.points[2], { color: 'a', count: 1 });
+});
+
+test('enterFromBar: B enters with die=4 onto index 20 (24-4)', () => {
+  const b = emptyBoard();
+  b.barB = 1;
+  const next = enterFromBar(b, 'b', 20);
+  assert.equal(next.barB, 0);
+  assert.deepEqual(next.points[20], { color: 'b', count: 1 });
+});
+
+test('bearOff: A bears off from index 21, increments bornOffA', () => {
+  const b = emptyBoard();
+  b.points[21] = { color: 'a', count: 2 };
+  const next = bearOff(b, 'a', 21);
+  assert.equal(next.bornOffA, 1);
+  assert.deepEqual(next.points[21], { color: 'a', count: 1 });
+});
+
+test('bearOff: B bears off from index 0, increments bornOffB', () => {
+  const b = emptyBoard();
+  b.points[0] = { color: 'b', count: 1 };
+  const next = bearOff(b, 'b', 0);
+  assert.equal(next.bornOffB, 1);
+  assert.deepEqual(next.points[0], { color: null, count: 0 });
+});
+
+test('isPointBlocked: 2+ opponent checkers blocks', () => {
+  const b = emptyBoard();
+  b.points[5] = { color: 'b', count: 2 };
+  assert.equal(isPointBlocked(b, 'a', 5), true);
+});
+
+test('isPointBlocked: own checkers do not block', () => {
+  const b = emptyBoard();
+  b.points[5] = { color: 'a', count: 5 };
+  assert.equal(isPointBlocked(b, 'a', 5), false);
+});
+
+test('isPointBlocked: single blot does not block', () => {
+  const b = emptyBoard();
+  b.points[5] = { color: 'b', count: 1 };
+  assert.equal(isPointBlocked(b, 'a', 5), false);
+});
