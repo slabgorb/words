@@ -1,5 +1,7 @@
 import { PHASE, opponent } from './constants.js';
-import { enumerateLegalMoves } from './validate.js';
+import { enumerateLegalMoves, legalFirstMoves } from './validate.js';
+import { applyMove, enterFromBar, bearOff } from './board.js';
+import { classifyLegEnd, resolveLeg, isMatchOver } from './match.js';
 
 function actorSide(state, actorId) {
   if (state.sides.a === actorId) return 'a';
@@ -15,6 +17,7 @@ export function applyBackgammonAction({ state, action, actorId }) {
     case 'roll-initial': return doRollInitial(state, action.payload, side);
     case 'roll':         return doRoll(state, action.payload, side);
     case 'pass-turn':    return doPassTurn(state, side);
+    case 'move':         return doMove(state, action.payload, side);
     default: return { error: `unknown action: ${action.type}` };
   }
 }
@@ -133,4 +136,85 @@ function doPassTurn(state, side) {
     ended: false,
     summary: { kind: 'pass-turn' },
   };
+}
+
+function applyOnePly(board, player, m) {
+  if (m.from === 'bar') return enterFromBar(board, player, m.to);
+  if (m.to === 'off')   return bearOff(board, player, m.from);
+  return applyMove(board, player, m.from, m.to);
+}
+
+function removeOneDie(remaining, die) {
+  const idx = remaining.indexOf(die);
+  if (idx < 0) return remaining.slice();
+  return [...remaining.slice(0, idx), ...remaining.slice(idx + 1)];
+}
+
+function bornOffWinner(board) {
+  if (board.bornOffA === 15) return 'a';
+  if (board.bornOffB === 15) return 'b';
+  return null;
+}
+
+function doMove(state, payload, side) {
+  if (state.turn.phase !== PHASE.MOVING) {
+    return { error: `cannot move in phase: ${state.turn.phase}` };
+  }
+  if (!isActive(state, side)) return { error: 'not your turn' };
+  const from = payload?.from;
+  const to = payload?.to;
+  if (from === undefined || to === undefined) return { error: 'move requires {from, to}' };
+
+  const candidates = legalFirstMoves(state.board, state.turn.dice.remaining, side);
+  const chosen = candidates.find(m => m.from === from && m.to === to);
+  if (!chosen) return { error: 'move is not legal under current dice' };
+
+  const nextBoard = applyOnePly(state.board, side, chosen);
+  const nextRemaining = removeOneDie(state.turn.dice.remaining, chosen.die);
+
+  // Leg end?
+  const winner = bornOffWinner(nextBoard);
+  if (winner) {
+    const klass = classifyLegEnd(nextBoard, winner);
+    return endLegAndMaybeMatch({
+      state: { ...state, board: nextBoard,
+               turn: { ...state.turn, dice: { ...state.turn.dice, remaining: nextRemaining } } },
+      winner,
+      type: klass.type,
+      multiplier: klass.multiplier,
+      cubeValue: state.cube.value,
+    });
+  }
+
+  const next = {
+    ...state,
+    board: nextBoard,
+    turn: {
+      ...state.turn,
+      dice: { ...state.turn.dice, remaining: nextRemaining },
+    },
+  };
+
+  // Auto-pass if remaining empty OR no further legal moves
+  if (nextRemaining.length === 0 ||
+      legalFirstMoves(next.board, nextRemaining, side).length === 0) {
+    return doPassTurn(next, side);
+  }
+
+  return { state: next, ended: false, summary: { kind: 'move' } };
+}
+
+function endLegAndMaybeMatch({ state, winner, type, multiplier, cubeValue }) {
+  const nextState = resolveLeg({ state, winner, type, multiplier, cubeValue });
+  const matchWinner = isMatchOver(nextState.match);
+  if (matchWinner) {
+    const winnerUserId = nextState.sides[matchWinner];
+    return {
+      state: nextState,
+      ended: true,
+      scoreDelta: { [winnerUserId]: nextState.match.target },
+      summary: { kind: 'match-end', winner: matchWinner, type },
+    };
+  }
+  return { state: nextState, ended: false, summary: { kind: 'leg-end', winner, type } };
 }
