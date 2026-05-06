@@ -1,4 +1,4 @@
-import { isPointBlocked, applyMove, enterFromBar } from './board.js';
+import { isPointBlocked, applyMove, enterFromBar, bearOff } from './board.js';
 import { HOME_INDICES, BOARD_SIZE } from './constants.js';
 
 function isOnBar(board, player) {
@@ -47,6 +47,78 @@ function pointToPointMoves(board, dice, player) {
   return out;
 }
 
+function checkerCount(board, player) {
+  let n = 0;
+  for (const p of board.points) if (p.color === player) n += p.count;
+  return n + (player === 'a' ? board.barA + board.bornOffA : board.barB + board.bornOffB);
+}
+
+function isAllInHome(board, player) {
+  if ((player === 'a' ? board.barA : board.barB) > 0) return false;
+  const home = HOME_INDICES[player];
+  const homeSet = new Set(home);
+  // Every point with a player checker outside home → not all-in-home.
+  for (let i = 0; i < BOARD_SIZE; i++) {
+    if (homeSet.has(i)) continue;
+    const cell = board.points[i];
+    if (cell.color === player && cell.count > 0) return false;
+  }
+  // Sanity: total accounted for equals 15.
+  const total = checkerCount(board, player);
+  if (total !== 15) return false;
+  return true;
+}
+
+function highestPipIndex(board, player) {
+  // For A, "highest pip" = lowest index in home that A occupies.
+  // For B, "highest pip" = highest index in home that B occupies.
+  if (player === 'a') {
+    for (let i = 18; i <= 23; i++) {
+      if (board.points[i].color === 'a' && board.points[i].count > 0) return i;
+    }
+  } else {
+    for (let i = 5; i >= 0; i--) {
+      if (board.points[i].color === 'b' && board.points[i].count > 0) return i;
+    }
+  }
+  return -1;
+}
+
+function bearOffMoves(board, dice, player) {
+  if (!isAllInHome(board, player)) return [];
+  const out = [];
+  const seen = new Set();
+  const highest = highestPipIndex(board, player);
+  for (const die of uniqueDice(dice)) {
+    if (player === 'a') {
+      for (let from = 18; from < BOARD_SIZE; from++) {
+        const cell = board.points[from];
+        if (cell.color !== 'a' || cell.count === 0) continue;
+        const exact = (24 - from) === die;
+        const higherDie = die > (24 - from) && from === highest;
+        if (!exact && !higherDie) continue;
+        const key = `${from}->off@${die}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ from, to: 'off', die });
+      }
+    } else {
+      for (let from = 0; from <= 5; from++) {
+        const cell = board.points[from];
+        if (cell.color !== 'b' || cell.count === 0) continue;
+        const exact = (from + 1) === die;
+        const higherDie = die > (from + 1) && from === highest;
+        if (!exact && !higherDie) continue;
+        const key = `${from}->off@${die}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ from, to: 'off', die });
+      }
+    }
+  }
+  return out;
+}
+
 // Returns the maximum number of dice consumable in any sequence from this board state.
 // Used to enforce must-use-both. Brute-force DFS bounded by dice length (≤ 4).
 export function maxConsumableDice(board, dice, player) {
@@ -70,7 +142,7 @@ export function maxConsumableDice(board, dice, player) {
 
 function applyMoveOrEnter(board, player, m) {
   if (m.from === 'bar') return enterFromBar(board, player, m.to);
-  if (m.to === 'off')   return board; // bear-off slot used in later task; stub here
+  if (m.to === 'off')   return bearOff(board, player, m.from);
   return applyMove(board, player, m.from, m.to);
 }
 
@@ -114,7 +186,10 @@ export function legalFirstMoves(board, dice, player) {
 export function enumerateLegalMoves(board, dice, player) {
   if (!Array.isArray(dice) || dice.length === 0) return [];
   if (isOnBar(board, player)) return barEntries(board, dice, player);
-  return pointToPointMoves(board, dice, player);
+  return [
+    ...pointToPointMoves(board, dice, player),
+    ...bearOffMoves(board, dice, player),
+  ];
 }
 
 export function isLegalMove(board, dice, player, from, to) {

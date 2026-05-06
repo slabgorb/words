@@ -238,3 +238,92 @@ test('maxConsumableDice: doubles count of 4 when fully playable', () => {
   b.points[0] = { color: 'a', count: 4 };
   assert.equal(maxConsumableDice(b, [3, 3, 3, 3], 'a'), 4);
 });
+
+test('bear-off rejected when not all-in-home', () => {
+  const b = emptyBoard();
+  b.points[18] = { color: 'a', count: 14 };
+  b.points[12] = { color: 'a', count: 1 };  // outside home
+  const moves = enumerateLegalMoves(b, [6], 'a');
+  // No bear-off candidates.
+  assert.equal(moves.filter(m => m.to === 'off').length, 0);
+});
+
+test('A bear-off: exact pip from A 6-point with die=6', () => {
+  const b = emptyBoard();
+  // All 15 in home: 5 each on 18, 19, 20.
+  b.points[18] = { color: 'a', count: 5 };
+  b.points[19] = { color: 'a', count: 5 };
+  b.points[20] = { color: 'a', count: 5 };
+  const moves = enumerateLegalMoves(b, [6], 'a');
+  // die=6 from index 18 → 18+6 = 24 = exact bear-off
+  assert.ok(moves.some(m => m.from === 18 && m.to === 'off' && m.die === 6));
+});
+
+test('A bear-off: higher-die rule with die=6 when highest point is 22', () => {
+  const b = emptyBoard();
+  b.points[22] = { color: 'a', count: 1 };
+  b.bornOffA = 14;
+  const moves = enumerateLegalMoves(b, [6], 'a');
+  // die=6 > 24-22=2; index 22 is highest-occupied; bear-off legal.
+  assert.ok(moves.some(m => m.from === 22 && m.to === 'off' && m.die === 6));
+});
+
+test('A bear-off: higher die may NOT bear off if a higher point is occupied', () => {
+  const b = emptyBoard();
+  b.points[18] = { color: 'a', count: 1 };  // higher pip — must move it first
+  b.points[22] = { color: 'a', count: 1 };
+  b.bornOffA = 13;
+  const moves = enumerateLegalMoves(b, [6], 'a');
+  // die=6 from 18 → 24 exact bear-off (legal).
+  // die=6 from 22 → would be higher-die bear-off, but 18 is occupied and is higher-pip → NOT legal.
+  assert.ok(moves.some(m => m.from === 18 && m.to === 'off' && m.die === 6));
+  assert.equal(moves.filter(m => m.from === 22 && m.to === 'off').length, 0);
+});
+
+test('A bear-off: lower die may move within home', () => {
+  const b = emptyBoard();
+  b.points[18] = { color: 'a', count: 1 };
+  b.points[22] = { color: 'a', count: 1 };
+  b.bornOffA = 13;
+  const moves = enumerateLegalMoves(b, [3], 'a');
+  // die=3 from 18 → 21 in-home (legal). die=3 from 22 → 25 overshoots, but
+  // 18 is occupied and higher-pip, so higher-die bear-off illegal. Only the
+  // 18→21 in-home move is allowed.
+  assert.ok(moves.some(m => m.from === 18 && m.to === 21 && m.die === 3));
+  assert.equal(moves.filter(m => m.to === 'off').length, 0);
+});
+
+test('B bear-off: exact pip from B 6-point with die=6', () => {
+  const b = emptyBoard();
+  b.points[5] = { color: 'b', count: 5 };
+  b.points[4] = { color: 'b', count: 5 };
+  b.points[3] = { color: 'b', count: 5 };
+  const moves = enumerateLegalMoves(b, [6], 'b');
+  // die=6 from index 5 → 5-6 = -1 = exact bear-off
+  assert.ok(moves.some(m => m.from === 5 && m.to === 'off' && m.die === 6));
+});
+
+test('B bear-off: higher-die rule with die=6 when highest is index 1', () => {
+  const b = emptyBoard();
+  b.points[1] = { color: 'b', count: 1 };
+  b.bornOffB = 14;
+  const moves = enumerateLegalMoves(b, [6], 'b');
+  assert.ok(moves.some(m => m.from === 1 && m.to === 'off' && m.die === 6));
+});
+
+test('all-in-home check counts barA against A', () => {
+  const b = emptyBoard();
+  b.points[18] = { color: 'a', count: 14 };
+  b.barA = 1;  // not in home — can't bear off
+  const moves = enumerateLegalMoves(b, [6], 'a');
+  assert.equal(moves.filter(m => m.to === 'off').length, 0);
+});
+
+test('all-in-home counts bornOff toward 15', () => {
+  const b = emptyBoard();
+  b.points[18] = { color: 'a', count: 1 };
+  b.bornOffA = 14;
+  // 14 off + 1 on point 18 = 15 accounted for, all in home — bear-off allowed.
+  const moves = enumerateLegalMoves(b, [6], 'a');
+  assert.ok(moves.some(m => m.to === 'off'));
+});
