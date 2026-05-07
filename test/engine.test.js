@@ -209,6 +209,52 @@ test('scoreMove counts blank tiles as 0', () => {
   assert.equal(score, 4);
 });
 
+test('Scrabble: scoreMove uses Scrabble letter values and 50-point bingo', () => {
+  // 7 As across the center. A=1 in both rulesets. Center (7,7) = DW.
+  // 7 * 1 = 7 * 2 (DW) = 14, + 50 (Scrabble bingo) = 64.
+  const board = emptyBoard();
+  const placement = [
+    { r: 7, c: 4, letter: 'A' },
+    { r: 7, c: 5, letter: 'A' },
+    { r: 7, c: 6, letter: 'A' },
+    { r: 7, c: 7, letter: 'A' },
+    { r: 7, c: 8, letter: 'A' },
+    { r: 7, c: 9, letter: 'A' },
+    { r: 7, c: 10, letter: 'A' }
+  ];
+  const { mainWord, crossWords } = extractWords(board, placement, 'row');
+  const score = scoreMove(board, placement, mainWord, crossWords, 'scrabble');
+  assert.equal(score, 64);
+});
+
+test('Scrabble: corner TWs apply (CAT placed touching (0,0) TW)', () => {
+  // Place "CAT" along row 0 cols 0..2. (0,0) is TW under Scrabble.
+  // Scrabble values: C=3, A=1, T=1. Letter total = 3+1+1 = 5. wordMult x3 = 15.
+  // (0,3) is DL under Scrabble — not touched here. No bingo (3 tiles).
+  const board = emptyBoard();
+  const placement = [
+    { r: 0, c: 0, letter: 'C' },
+    { r: 0, c: 1, letter: 'A' },
+    { r: 0, c: 2, letter: 'T' },
+  ];
+  const { mainWord, crossWords } = extractWords(board, placement, 'row');
+  const score = scoreMove(board, placement, mainWord, crossWords, 'scrabble');
+  assert.equal(score, 15);
+});
+
+test('WwF: corner (0,0) is NOT a TW (no premium effect)', () => {
+  // Same placement under WwF: corner is plain. 4+1+1 = 6.
+  const board = emptyBoard();
+  const placement = [
+    { r: 0, c: 0, letter: 'C' },
+    { r: 0, c: 1, letter: 'A' },
+    { r: 0, c: 2, letter: 'T' },
+  ];
+  const { mainWord, crossWords } = extractWords(board, placement, 'row');
+  const score = scoreMove(board, placement, mainWord, crossWords); // default WwF
+  assert.equal(score, 6);
+});
+
 function baseState() {
   return {
     board: emptyBoard(),

@@ -1,4 +1,5 @@
-import { POINTS } from './board.js';
+import { pointsFor } from './board.js';
+import { ui } from './state.js';
 import { applyTileTexture } from './themes.js';
 
 let modalCount = 0;
@@ -127,6 +128,7 @@ export function pickBlankLetter() {
 // `disabledIdx`: Set<number> of indices that are in-use (tentative on board).
 // Resolves to an array of letter chars to swap, or null if cancelled.
 export function pickSwapTiles({ rackOrder, disabledIdx }) {
+  const points = pointsFor(ui.server?.variant);
   return mountModal({
     titleText: 'Pick tiles to swap',
     build: ({ panel, close }) => {
@@ -155,7 +157,7 @@ export function pickSwapTiles({ rackOrder, disabledIdx }) {
         if (!blank) {
           const pt = document.createElement('span');
           pt.className = 'tile-points';
-          pt.textContent = POINTS[letter] ?? '';
+          pt.textContent = points[letter] ?? '';
           btn.appendChild(pt);
         }
         if (blank) btn.classList.add('blank');

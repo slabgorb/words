@@ -16,6 +16,7 @@ function toEngine(state) {
     scores: state.scores,
     currentTurn: state.activeUserId === state.sides.a ? 'a' : 'b',
     consecutiveScorelessTurns: state.consecutiveScorelessTurns,
+    variant: state.variant,
   };
 }
 
@@ -82,7 +83,7 @@ function doMove(state, payload, side) {
   for (const w of allWords) {
     if (!dict().isWord(w.text)) return { error: `invalid word: ${w.text}` };
   }
-  const scoreDelta = scoreMove(eng.board, placement, mainWord, crossWords);
+  const scoreDelta = scoreMove(eng.board, placement, mainWord, crossWords, state.variant);
 
   let nextEng = applyMove(eng, { playerId: side, kind: 'play', placement, scoreDelta });
   let endReason = detectGameEnd(nextEng);

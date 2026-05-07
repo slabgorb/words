@@ -6,6 +6,16 @@ async function fetchJson(path) {
 
 const PLUGINS = (await fetchJson('/api/plugins')).plugins;
 
+// Per-plugin variant choices offered in the new-game dialog. A plugin
+// without an entry here is offered as a single option using its
+// displayName.
+const PLUGIN_VARIANTS = {
+  words: [
+    { variant: 'wwf', label: 'Words (with Friends)' },
+    { variant: 'scrabble', label: 'Words (Scrabble)' },
+  ],
+};
+
 async function main() {
   const meRes = await fetchJson('/api/me').catch(() => null);
   const me = meRes?.user ?? null;
@@ -65,25 +75,42 @@ function openNewGame(opponent, activeTypes) {
   document.getElementById('ng-name').textContent = opponent.friendlyName;
   const opts = document.getElementById('ng-options');
   opts.innerHTML = '';
+
+  const startGame = async (gameType, variant) => {
+    const body = { opponentId: opponent.id, gameType };
+    if (variant) body.variant = variant;
+    const r = await fetch('/api/games', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      alert((await r.json()).error ?? 'failed to create game');
+      return;
+    }
+    const { id, gameType: gt } = await r.json();
+    window.location.href = `/play/${gt}/${id}/`;
+  };
+
   for (const p of PLUGINS) {
     if (activeTypes.has(p.id)) continue;
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
-    btn.textContent = p.displayName;
-    btn.onclick = async () => {
-      const r = await fetch('/api/games', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opponentId: opponent.id, gameType: p.id }),
-      });
-      if (!r.ok) {
-        alert((await r.json()).error ?? 'failed to create game');
-        return;
+    const variants = PLUGIN_VARIANTS[p.id];
+    if (variants) {
+      for (const v of variants) {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.textContent = v.label;
+        btn.onclick = () => startGame(p.id, v.variant);
+        li.appendChild(btn);
+        opts.appendChild(li);
       }
-      const { id, gameType } = await r.json();
-      window.location.href = `/play/${gameType}/${id}/`;
-    };
-    li.appendChild(btn);
-    opts.appendChild(li);
+    } else {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.textContent = p.displayName;
+      btn.onclick = () => startGame(p.id);
+      li.appendChild(btn);
+      opts.appendChild(li);
+    }
   }
   document.getElementById('ng-cancel').onclick = () => dlg.close();
   dlg.showModal();

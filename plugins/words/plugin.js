@@ -31,7 +31,7 @@ export default {
         const allWords = [mainWord, ...crossWords].filter(Boolean);
         const wordResults = allWords.map(w => ({ word: w.text, ok: dict().isWord(w.text) }));
         const allValid = wordResults.length > 0 && wordResults.every(w => w.ok);
-        const points = allValid ? scoreMove(board, placement, mainWord, crossWords) : 0;
+        const points = allValid ? scoreMove(board, placement, mainWord, crossWords, req.game.state.variant) : 0;
         res.json({ valid: allValid, words: wordResults, points, score: points }); // score alias for backwards compat
       },
     },

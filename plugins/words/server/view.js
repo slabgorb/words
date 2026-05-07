@@ -5,6 +5,7 @@ export function wordsPublicView({ state, viewerId }) {
   if (!viewerSide) {
     // Unknown viewer — return a fully redacted view.
     return {
+      variant: state.variant,
       board: state.board,
       bag: { count: state.bag.length },
       racks: {},
@@ -19,6 +20,7 @@ export function wordsPublicView({ state, viewerId }) {
   }
   const oppSide = viewerSide === 'a' ? 'b' : 'a';
   return {
+    variant: state.variant,
     board: state.board,
     bag: { count: state.bag.length },
     racks: { [viewerSide]: state.racks[viewerSide] },
