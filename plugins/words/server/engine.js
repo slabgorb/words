@@ -1,7 +1,6 @@
-import { BOARD_SIZE, LETTER_VALUE, BOARD_PREMIUMS } from './board.js';
+import { BOARD_SIZE, getRules, DEFAULT_VARIANT } from './board.js';
 
 const CENTER = 7;
-const BINGO_BONUS = 35; // WwF bingo bonus
 const RACK_SIZE = 7;
 
 // Validates that a placement is geometrically legal.
@@ -130,13 +129,13 @@ export function extractWords(board, placement, axis) {
 
 // Score a single word given its tiles (array of {r,c,letter,isNew,blank?}).
 // Premiums apply only to newly-placed tiles.
-function scoreWord(tiles) {
+function scoreWord(tiles, rules) {
   let wordMult = 1;
   let letterTotal = 0;
   for (const t of tiles) {
-    const base = t.blank ? 0 : (LETTER_VALUE[t.letter] ?? 0);
+    const base = t.blank ? 0 : (rules.letterValue[t.letter] ?? 0);
     if (t.isNew) {
-      const premium = BOARD_PREMIUMS[t.r][t.c];
+      const premium = rules.premiums[t.r][t.c];
       switch (premium) {
         case 'TL': letterTotal += base * 3; break;
         case 'DL': letterTotal += base * 2; break;
@@ -151,11 +150,12 @@ function scoreWord(tiles) {
   return letterTotal * wordMult;
 }
 
-export function scoreMove(board, placement, mainWord, crossWords) {
+export function scoreMove(board, placement, mainWord, crossWords, variant = DEFAULT_VARIANT) {
+  const rules = getRules(variant);
   let total = 0;
-  if (mainWord) total += scoreWord(mainWord.tiles);
-  for (const cw of crossWords) total += scoreWord(cw.tiles);
-  if (placement.length === RACK_SIZE) total += BINGO_BONUS;
+  if (mainWord) total += scoreWord(mainWord.tiles, rules);
+  for (const cw of crossWords) total += scoreWord(cw.tiles, rules);
+  if (placement.length === RACK_SIZE) total += rules.bingoBonus;
   return total;
 }
 
@@ -229,9 +229,10 @@ export function detectGameEnd(state) {
   return null;
 }
 
-function rackValue(rack) {
+function rackValue(rack, variant) {
+  const rules = getRules(variant);
   let total = 0;
-  for (const letter of rack) total += LETTER_VALUE[letter] ?? 0;
+  for (const letter of rack) total += rules.letterValue[letter] ?? 0;
   return total;
 }
 
@@ -253,12 +254,12 @@ export function applyEndGameAdjustment(state, reason, resignedPlayer) {
   if (reason === 'rack-empty') {
     const outPlayer = state.racks.a.length === 0 ? 'a' : 'b';
     const opp = otherPlayer(outPlayer);
-    const oppRackValue = rackValue(state.racks[opp]);
+    const oppRackValue = rackValue(state.racks[opp], state.variant);
     next.scores[outPlayer] += oppRackValue;
     next.scores[opp] -= oppRackValue;
   } else if (reason === 'six-scoreless') {
-    next.scores.a -= rackValue(state.racks.a);
-    next.scores.b -= rackValue(state.racks.b);
+    next.scores.a -= rackValue(state.racks.a, state.variant);
+    next.scores.b -= rackValue(state.racks.b, state.variant);
   }
 
   // Determine winner by score (ties → null)

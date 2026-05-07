@@ -115,3 +115,22 @@ test('applyAction(resign) returns summary { kind: resign }', () => {
   const result = wordsPlugin.applyAction({ state, action: { type: 'resign', payload: {} }, actorId: 1, rng });
   assert.deepEqual(result.summary, { kind: 'resign' });
 });
+
+test('initialState defaults to wwf variant with 90-tile bag remaining', () => {
+  const state = wordsPlugin.initialState({ participants, rng });
+  assert.equal(state.variant, 'wwf');
+  assert.equal(state.bag.length, 90); // 104 - 14
+});
+
+test('initialState with variant: "scrabble" yields a scrabble bag and stores variant', () => {
+  const state = wordsPlugin.initialState({ participants, rng, variant: 'scrabble' });
+  assert.equal(state.variant, 'scrabble');
+  assert.equal(state.bag.length, 86); // 100 - 14
+});
+
+test('publicView exposes the variant', () => {
+  const state = wordsPlugin.initialState({ participants, rng, variant: 'scrabble' });
+  const view = wordsPlugin.publicView({ state, viewerId: 1 });
+  assert.equal(view.variant, 'scrabble');
+});
+

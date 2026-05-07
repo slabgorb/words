@@ -1,10 +1,11 @@
 import { ui } from './state.js';
-import { POINTS } from './board.js';
+import { pointsFor } from './board.js';
 import { applyTileTexture } from './themes.js';
 import { dragManager } from './drag.js';
 
 // Render the player's rack reflecting tiles already placed tentatively (those slots are empty).
 export function renderRack(root, { onSlotClick, onDragStart, onRecallDrop, onRackReorder } = {}) {
+  const points = pointsFor(ui.server?.variant);
   root.innerHTML = '';
   const inUse = new Set();
   for (const t of ui.tentative) inUse.add(t.fromRackIdx);
@@ -23,7 +24,7 @@ export function renderRack(root, { onSlotClick, onDragStart, onRecallDrop, onRac
       if (!blank) {
         const pt = document.createElement('span');
         pt.className = 'tile-points';
-        pt.textContent = POINTS[letter] ?? '';
+        pt.textContent = points[letter] ?? '';
         slot.appendChild(pt);
       }
       applyTileTexture(slot, `r:${idx}:${letter}`);

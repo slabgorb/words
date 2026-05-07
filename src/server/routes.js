@@ -69,12 +69,15 @@ export function mountRoutes(app, { db, registry, sse }) {
   });
 
   app.post('/api/games', requireIdentity, (req, res) => {
-    const { opponentId, gameType } = req.body ?? {};
+    const { opponentId, gameType, variant } = req.body ?? {};
     if (!Number.isInteger(opponentId) || opponentId === req.user.id) {
       return res.status(400).json({ error: 'invalid opponentId' });
     }
     if (typeof gameType !== 'string' || !registry[gameType]) {
       return res.status(400).json({ error: 'invalid gameType' });
+    }
+    if (variant !== undefined && typeof variant !== 'string') {
+      return res.status(400).json({ error: 'invalid variant' });
     }
     const opponent = db.prepare('SELECT id FROM users WHERE id = ?').get(opponentId);
     if (!opponent) return res.status(400).json({ error: 'opponent not on roster' });
@@ -89,7 +92,7 @@ export function mountRoutes(app, { db, registry, sse }) {
 
     let initialState;
     try {
-      initialState = plugin.initialState({ participants, rng: makeRng(Date.now()) });
+      initialState = plugin.initialState({ participants, rng: makeRng(Date.now()), variant });
     } catch (err) {
       return res.status(500).json({ error: `initialState failed: ${err.message}` });
     }
@@ -148,6 +151,7 @@ export function mountRoutes(app, { db, registry, sse }) {
       endedReason: g.endedReason,
       winner: g.winnerSide,
       sides: g.state?.sides ?? null,
+      variant: g.state?.variant ?? null,
     });
   });
 
