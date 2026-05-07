@@ -1,8 +1,10 @@
 import { playerIndex } from './state.js';
 import { applyDiscard } from './phases/discard.js';
+import { applyCut } from './phases/cut.js';
 
 const HANDLERS = {
   'discard:discard': applyDiscard,
+  'cut:cut': applyCut,
 };
 
 export function registerPhaseHandler(phase, type, fn) {
