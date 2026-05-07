@@ -41,3 +41,6 @@ public/shared/dice.js.map
 # Playwright artifacts and ad-hoc screenshots
 .playwright-mcp/
 cribbage-*.png
+
+# Source card sheets (sliced output is what we ship)
+plugins/cribbage/client/assets/cards/Cards.png
