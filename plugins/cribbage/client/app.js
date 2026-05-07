@@ -1,3 +1,5 @@
+import { renderMyHand, renderOpponentHand, getSelection, clearSelection } from './hand.js';
+
 const ctx = window.__GAME__;
 let state = null;
 
@@ -26,16 +28,42 @@ async function send(action) {
 }
 
 function render() {
+  if (!state) return;
+  const myUserId = ctx.userId;
+  const mySide = state.sides.a === myUserId ? 0 : 1;
+  const oppSide = 1 - mySide;
+  document.getElementById('me-score').textContent = state.scores[mySide];
+  document.getElementById('opp-score').textContent = state.scores[oppSide];
+  document.getElementById('me-name').textContent = ctx.yourFriendlyName ?? 'You';
+  document.getElementById('opp-name').textContent = ctx.opponentFriendlyName ?? 'Opponent';
+
   const banner = document.getElementById('phase-banner');
-  banner.textContent = `Phase: ${state?.phase ?? '…'}`;
-  if (state) {
-    const myUserId = ctx.userId;
-    const mySide = state.sides.a === myUserId ? 0 : 1;
-    document.getElementById('me-score').textContent = state.scores[mySide];
-    document.getElementById('opp-score').textContent = state.scores[1 - mySide];
-    document.getElementById('me-name').textContent = ctx.yourFriendlyName ?? 'You';
-    document.getElementById('opp-name').textContent = ctx.opponentFriendlyName ?? 'Opponent';
+  const oppArea = document.getElementById('opp-area');
+  const meArea = document.getElementById('me-area');
+
+  if (state.phase === 'discard') {
+    banner.innerHTML = `Discard 2 to ${mySide === state.dealer ? 'your' : "your opponent's"} crib
+      <button id="btn-discard" disabled>Send to crib</button>`;
+    renderOpponentHand(oppArea, state.hands[oppSide].count ?? 0);
+    renderMyHand(meArea, state.hands[mySide], 'discard', () => updateDiscardBtn());
+    updateDiscardBtn();
+    document.getElementById('btn-discard').onclick = async () => {
+      const sel = getSelection();
+      if (sel.length !== 2) return;
+      const r = await window.__cribbage__.send({ type: 'discard', payload: { cards: sel } });
+      if (r) clearSelection();
+    };
+  } else {
+    banner.textContent = `Phase: ${state.phase}`;
+    renderOpponentHand(oppArea, state.hands[oppSide].count ?? 0);
+    renderMyHand(meArea, Array.isArray(state.hands[mySide]) ? state.hands[mySide] : [], 'view');
   }
+}
+
+function updateDiscardBtn() {
+  const btn = document.getElementById('btn-discard');
+  if (!btn) return;
+  btn.disabled = getSelection().length !== 2;
 }
 
 const es = new EventSource(ctx.sseUrl);
