@@ -30,8 +30,31 @@ export function clearTentative() {
   localStorage.removeItem(TENTATIVE_KEY());
 }
 
+let _mePromise = null;
+let _usersPromise = null;
+
+function fetchMe() {
+  _mePromise ??= fetch('/api/me').then(r => {
+    if (!r.ok) throw new Error(`/api/me: ${r.status}`);
+    return r.json();
+  });
+  return _mePromise;
+}
+
+function fetchUsersById() {
+  _usersPromise ??= fetch('/api/users').then(r => {
+    if (!r.ok) throw new Error(`/api/users: ${r.status}`);
+    return r.json();
+  }).then(arr => {
+    const byId = new Map();
+    for (const u of arr) byId.set(u.id, u);
+    return byId;
+  });
+  return _usersPromise;
+}
+
 export async function fetchState() {
-  const r = await fetch(`/api/games/${ui.gameId}/state`);
+  const r = await fetch(`/api/games/${ui.gameId}`);
   if (r.status === 403) {
     const body = await r.json().catch(() => ({}));
     location.href = `/lockout?email=${encodeURIComponent(body.email || '')}`;
@@ -39,7 +62,33 @@ export async function fetchState() {
   }
   if (r.status === 404) { location.href = '/'; return null; }
   if (!r.ok) throw new Error('state-fetch-failed');
-  ui.server = await r.json();
+  const payload = await r.json();
+  const [meRes, usersById] = await Promise.all([fetchMe(), fetchUsersById()]);
+  const me = meRes.user;
+  const state = payload.state;
+  const you = state.sides?.a === me.id ? 'a' : (state.sides?.b === me.id ? 'b' : null);
+  const otherId = payload.playerAId === me.id ? payload.playerBId : payload.playerAId;
+  const opp = usersById.get(otherId) ?? { friendlyName: '', color: '' };
+  const currentTurn = state.sides?.a === state.activeUserId ? 'a'
+                    : state.sides?.b === state.activeUserId ? 'b' : null;
+  ui.server = {
+    gameId: payload.id,
+    you,
+    opponent: { friendlyName: opp.friendlyName, color: opp.color },
+    yourFriendlyName: me.friendlyName,
+    yourColor: me.color,
+    status: payload.status,
+    currentTurn,
+    board: state.board,
+    bag: state.bag,
+    racks: state.racks,
+    scores: state.scores,
+    consecutiveScorelessTurns: state.consecutiveScorelessTurns,
+    endedReason: state.endedReason,
+    winner: state.winnerSide,
+    sides: state.sides,
+    variant: state.variant,
+  };
   if (!ui.rackOrder) ui.rackOrder = ui.server.racks[ui.server.you].slice();
   return ui.server;
 }
