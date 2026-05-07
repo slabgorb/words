@@ -115,9 +115,10 @@ export function migrateStateShape(db) {
   const update = db.transaction((rows) => {
     for (const row of rows) {
       const state = JSON.parse(row.state);
-      // Empty state from default '{}' on never-played rows — leave alone;
-      // applyAction will reject and the row will be replaced naturally.
-      if (!state.bag && !state.board) continue;
+      // Only legacy Words states (which carry `activeSide`) need this patch.
+      // Skipping anything else avoids stamping `activeUserId` onto plugin
+      // shapes (e.g. backgammon's `state.board`) that legitimately don't have one.
+      if (!state.activeSide) continue;
 
       const aSide = state.activeSide ?? 'a';
       state.sides = state.sides ?? { a: row.player_a_id, b: row.player_b_id };

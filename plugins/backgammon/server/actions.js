@@ -53,11 +53,13 @@ function doRollInitial(state, payload, side) {
   // Both rolled?
   if (ir.a !== null && ir.b !== null) {
     if (ir.a === ir.b) {
-      // Tie: clear all four fields and reroll
+      // Tie: clear all four fields and reroll. Both players still need to
+      // act, so leave activeUserId null so the host gate doesn't lock either out.
       return {
         state: {
           ...state,
           initialRoll: { a: null, b: null, throwParamsA: null, throwParamsB: null },
+          activeUserId: null,
         },
         ended: false,
         summary: { kind: 'roll-initial', tie: true },
@@ -81,15 +83,18 @@ function doRollInitial(state, payload, side) {
             throwParams: [...winnerTp, ...loserTp],
           },
         },
+        activeUserId: state.sides?.[winner] ?? null,
       },
       ended: false,
       summary: { kind: 'roll-initial', activePlayer: winner },
     };
   }
 
-  // Only this side has rolled.
+  // Only this side has rolled. The other side still needs to act, so
+  // explicitly null activeUserId — the host's turn-ownership gate keys off
+  // a numeric activeUserId, and we don't want to lock the opponent out.
   return {
-    state: { ...state, initialRoll: ir },
+    state: { ...state, initialRoll: ir, activeUserId: null },
     ended: false,
     summary: { kind: 'roll-initial', side },
   };
