@@ -34,3 +34,7 @@ main#board { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; paddin
 .card--back { background-color: #2a3f9b; }
 .card.is-selected { outline: 3px solid gold; transform: translateY(-6px); transition: transform 120ms; }
 .card.is-disabled { opacity: 0.5; cursor: not-allowed; }
+.running-total {
+  align-self: center; padding: 6px 12px; background: rgba(0,0,0,0.4);
+  border-radius: 16px; font-weight: 700; margin-right: 8px;
+}

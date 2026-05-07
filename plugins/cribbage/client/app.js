@@ -1,5 +1,6 @@
 import { renderMyHand, renderOpponentHand, getSelection, clearSelection } from './hand.js';
 import { renderCard } from './card.js';
+import { renderPeggingStrip, isPlayable } from './pegging.js';
 
 const ctx = window.__GAME__;
 let state = null;
@@ -68,15 +69,32 @@ function render() {
     if (isNonDealer) {
       document.getElementById('btn-cut').onclick = () => window.__cribbage__.send({ type: 'cut' });
     }
+  } else if (state.phase === 'pegging') {
+    const myTurn = state.activeUserId === myUserId;
+    banner.textContent = myTurn
+      ? `Your play — running ${state.pegging.running}`
+      : `Opponent's play — running ${state.pegging.running}`;
+    renderPeggingStrip(document.getElementById('pegging-strip'), state.pegging);
+    renderOpponentHand(oppArea, state.hands[oppSide].count ?? 0);
+    meArea.innerHTML = '';
+    for (const card of state.hands[mySide]) {
+      const el = renderCard(card);
+      const playable = isPlayable(card, state.pegging) && myTurn;
+      if (!playable) el.classList.add('is-disabled');
+      if (playable) el.addEventListener('click', () => window.__cribbage__.send({ type: 'play', payload: { card } }));
+      meArea.appendChild(el);
+    }
+    const slot = document.getElementById('starter');
+    slot.innerHTML = '';
+    if (state.starter) slot.appendChild(renderCard(state.starter));
   } else {
+    // remaining phases (show / done) — keep prior behavior
     banner.textContent = `Phase: ${state.phase}`;
     renderOpponentHand(oppArea, state.hands[oppSide].count ?? 0);
     renderMyHand(meArea, Array.isArray(state.hands[mySide]) ? state.hands[mySide] : [], 'view');
     const slot = document.getElementById('starter');
     slot.innerHTML = '';
-    if (state.starter) {
-      slot.appendChild(renderCard(state.starter));
-    }
+    if (state.starter) slot.appendChild(renderCard(state.starter));
   }
 }
 
