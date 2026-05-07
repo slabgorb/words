@@ -27,8 +27,10 @@ export function mountRoutes(app, { db, registry, sse }) {
       const otherId = g.playerAId === req.user.id ? g.playerBId : g.playerAId;
       const other = getUserById(db, otherId);
       const you = sideForUser(g, req.user.id);
-      const yourScore = you === 'a' ? g.scoreA : g.scoreB;
-      const theirScore = you === 'a' ? g.scoreB : g.scoreA;
+      const scoreA = g.state?.scores?.a ?? 0;
+      const scoreB = g.state?.scores?.b ?? 0;
+      const yourScore = you === 'a' ? scoreA : scoreB;
+      const theirScore = you === 'a' ? scoreB : scoreA;
       return {
         id: g.id,
         opponent: { id: other.id, friendlyName: other.friendlyName, color: other.color },
