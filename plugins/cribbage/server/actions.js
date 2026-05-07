@@ -2,11 +2,13 @@ import { playerIndex } from './state.js';
 import { applyDiscard } from './phases/discard.js';
 import { applyCut } from './phases/cut.js';
 import { applyPlay } from './phases/pegging.js';
+import { applyShowNext } from './phases/show.js';
 
 const HANDLERS = {
   'discard:discard': applyDiscard,
   'cut:cut': applyCut,
   'pegging:play': applyPlay,
+  'show:next': applyShowNext,
 };
 
 export function registerPhaseHandler(phase, type, fn) {

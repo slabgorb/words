@@ -1,5 +1,6 @@
 import { sameCard, pipValue } from '../cards.js';
 import { scorePeggingPlay } from '../scoring/pegging.js';
+import { enterShow } from './show.js';
 
 export function applyPlay({ state, action, player }) {
   const peg = state.pegging;
@@ -56,15 +57,10 @@ export function applyPlay({ state, action, player }) {
       scores[player] += 1;
       events.push({ kind: 'last-card', points: 1, cards: [card], say: 'last card for one' });
     }
+    const baseState = { ...state, hands, pegging: { ...nextPeg, running: 0, history: [], saidGo: [false, false] }, scores };
+    const showed = enterShow(baseState);
     return {
-      state: {
-        ...state,
-        hands,
-        pegging: { ...nextPeg, running: 0, history: [], saidGo: [false, false] },
-        scores,
-        phase: 'show',
-        activeUserId: null,
-      },
+      state: { ...showed.state, phase: 'show' },
       ended: false,
       summary: { kind: 'play', card, events },
     };
@@ -77,8 +73,9 @@ export function applyPlay({ state, action, player }) {
 
   // Check end-of-pegging again after auto-go (run reset may have emptied things differently)
   if (working.state.hands[0].length === 0 && working.state.hands[1].length === 0) {
+    const showed = enterShow({ ...working.state });
     return {
-      state: { ...working.state, phase: 'show', activeUserId: null },
+      state: { ...showed.state, phase: 'show' },
       ended: false,
       summary: working.summary,
     };
