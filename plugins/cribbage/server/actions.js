@@ -1,14 +1,14 @@
 import { playerIndex } from './state.js';
+import { applyDiscard } from './phases/discard.js';
 
-const HANDLERS = {}; // populated by phase modules in later tasks
+const HANDLERS = {
+  'discard:discard': applyDiscard,
+};
 
 export function registerPhaseHandler(phase, type, fn) {
   HANDLERS[`${phase}:${type}`] = fn;
 }
 
-// Stub registration so the dispatcher can distinguish "unknown action" from
-// "wrong phase for this action" before later tasks register real handlers.
-// Later tasks (pegging phase) will overwrite this with the real handler.
 registerPhaseHandler('pegging', 'play', () => ({ error: 'play handler not implemented' }));
 
 export function applyCribbageAction({ state, action, actorId, rng }) {
