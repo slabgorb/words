@@ -30,6 +30,28 @@ async function send(action) {
   return body;
 }
 
+function bannerText(state, mySide) {
+  const myTurn = state.activeUserId === ctx.userId;
+  const isDealer = mySide === state.dealer;
+  switch (state.phase) {
+    case 'discard':
+      return `Discard 2 to ${isDealer ? 'your' : "your opponent's"} crib`;
+    case 'cut':
+      return isDealer ? 'Waiting for opponent to cut…' : 'Cut the deck';
+    case 'pegging':
+      return myTurn ? `Your play — running ${state.pegging.running}` : `Opponent's play — running ${state.pegging.running}`;
+    case 'show':
+      return 'Hand counts';
+    case 'done':
+      return state.scores[0] === state.scores[1]
+        ? `Tied at ${state.scores[mySide]} — deal complete`
+        : (state.scores[mySide] > state.scores[1 - mySide]
+            ? `You took the deal, ${state.scores[mySide]} to ${state.scores[1 - mySide]}`
+            : `Opponent took the deal, ${state.scores[1 - mySide]} to ${state.scores[mySide]}`);
+  }
+  return state.phase;
+}
+
 function render() {
   if (!state) return;
   const myUserId = ctx.userId;
@@ -44,9 +66,10 @@ function render() {
   const oppArea = document.getElementById('opp-area');
   const meArea = document.getElementById('me-area');
 
+  banner.textContent = bannerText(state, mySide);
+
   if (state.phase === 'discard') {
-    banner.innerHTML = `Discard 2 to ${mySide === state.dealer ? 'your' : "your opponent's"} crib
-      <button id="btn-discard" disabled>Send to crib</button>`;
+    banner.innerHTML = `${bannerText(state, mySide)} <button id="btn-discard" disabled>Send to crib</button>`;
     renderOpponentHand(oppArea, state.hands[oppSide].count ?? 0);
     renderMyHand(meArea, state.hands[mySide], 'discard', () => updateDiscardBtn());
     updateDiscardBtn();
@@ -58,9 +81,9 @@ function render() {
     };
   } else if (state.phase === 'cut') {
     const isNonDealer = mySide !== state.dealer;
-    banner.innerHTML = isNonDealer
-      ? `Cut the deck. <button id="btn-cut">Cut</button>`
-      : `Waiting for opponent to cut…`;
+    if (isNonDealer) {
+      banner.innerHTML = `${bannerText(state, mySide)} <button id="btn-cut">Cut</button>`;
+    }
     renderMyHand(meArea, state.hands[mySide], 'view');
     renderOpponentHand(oppArea, state.hands[oppSide].count ?? 4);
     const slot = document.getElementById('starter');
@@ -72,9 +95,6 @@ function render() {
     }
   } else if (state.phase === 'pegging') {
     const myTurn = state.activeUserId === myUserId;
-    banner.textContent = myTurn
-      ? `Your play — running ${state.pegging.running}`
-      : `Opponent's play — running ${state.pegging.running}`;
     renderPeggingStrip(document.getElementById('pegging-strip'), state.pegging);
     renderOpponentHand(oppArea, state.hands[oppSide].count ?? 0);
     meArea.innerHTML = '';
@@ -89,8 +109,7 @@ function render() {
     slot.innerHTML = '';
     if (state.starter) slot.appendChild(renderCard(state.starter));
   } else {
-    // remaining phases (show / done) — keep prior behavior
-    banner.textContent = `Phase: ${state.phase}`;
+    // remaining phases (show / done) — banner already set via bannerText
     renderOpponentHand(oppArea, state.hands[oppSide].count ?? 0);
     renderMyHand(meArea, Array.isArray(state.hands[mySide]) ? state.hands[mySide] : [], 'view');
     const slot = document.getElementById('starter');
