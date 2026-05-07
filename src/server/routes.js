@@ -33,7 +33,10 @@ export function mountRoutes(app, { db, registry, sse }) {
       const theirScore = you === 'a' ? scoreB : scoreA;
       return {
         id: g.id,
+        gameType: g.gameType,
+        variant: g.state?.variant ?? null,
         opponent: { id: other.id, friendlyName: other.friendlyName, color: other.color },
+        you,
         status: g.status,
         yourTurn: g.status === 'active' && g.currentTurn === you,
         yourScore, theirScore,

@@ -131,3 +131,61 @@ test('GET /api/me derives yourScore/theirScore from state.scores', async () => {
   assert.equal(body.games[0].theirScore, 7);
   server.close();
 });
+
+test('GET /api/me exposes gameType, variant, and you side', async () => {
+  const db = openDb(':memory:');
+  const a = createUser(db, { email: 'a@x.com', friendlyName: 'Alice' });
+  const b = createUser(db, { email: 'b@x.com', friendlyName: 'Bob' });
+  const aId = Math.min(a.id, b.id);
+  const bId = Math.max(a.id, b.id);
+  const state = {
+    bag: [], board: [], racks: { a: [], b: [] },
+    scores: { a: 0, b: 0 },
+    sides: { a: aId, b: bId },
+    activeUserId: aId,
+    variant: 'scrabble',
+    initialMoveDone: false,
+    endedReason: null,
+    winnerSide: null,
+  };
+  const now = Date.now();
+  db.prepare(`INSERT INTO games
+    (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'words', ?, ?, ?)`)
+    .run(aId, bId, JSON.stringify(state), now, now);
+
+  const server = await listen(buildApp(db, 'a@x.com'));
+  const r = await fetch(`${urlOf(server)}/api/me`);
+  const body = await r.json();
+  assert.equal(body.games[0].gameType, 'words');
+  assert.equal(body.games[0].variant, 'scrabble');
+  assert.equal(body.games[0].you, 'a');
+  assert.equal(body.games[0].yourTurn, true);  // activeUserId = aId, alice = aId
+  server.close();
+});
+
+test('GET /api/me variant is null for plugins without variant', async () => {
+  const db = openDb(':memory:');
+  const a = createUser(db, { email: 'a@x.com', friendlyName: 'Alice' });
+  const b = createUser(db, { email: 'b@x.com', friendlyName: 'Bob' });
+  const aId = Math.min(a.id, b.id);
+  const bId = Math.max(a.id, b.id);
+  const state = {
+    sides: { a: aId, b: bId },
+    activeUserId: bId,
+    scores: { a: 0, b: 0 },
+  };
+  const now = Date.now();
+  db.prepare(`INSERT INTO games
+    (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'backgammon', ?, ?, ?)`)
+    .run(aId, bId, JSON.stringify(state), now, now);
+
+  const server = await listen(buildApp(db, 'a@x.com'));
+  const r = await fetch(`${urlOf(server)}/api/me`);
+  const body = await r.json();
+  assert.equal(body.games[0].gameType, 'backgammon');
+  assert.equal(body.games[0].variant, null);
+  assert.equal(body.games[0].yourTurn, false);
+  server.close();
+});

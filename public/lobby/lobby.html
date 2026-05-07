@@ -8,18 +8,48 @@
 </head>
 <body>
   <header>
-    <h1>Gamebox</h1>
-    <span id="me"></span>
+    <div id="me-card">
+      <span id="me-avatar" aria-hidden="true"></span>
+      <span id="me-name"></span>
+    </div>
   </header>
-  <main>
-    <h2>Pick an opponent</h2>
-    <ul id="opponents"></ul>
-    <dialog id="newgame">
-      <h3>Start a new game with <span id="ng-name"></span></h3>
-      <ul id="ng-options"></ul>
-      <button id="ng-cancel">Cancel</button>
-    </dialog>
+
+  <main id="lobby" hidden>
+    <section id="sec-yours" class="bucket bucket-yours" hidden>
+      <h2><span class="bucket-dot dot-filled" aria-hidden="true"></span>Your move <span class="bucket-count" id="count-yours"></span></h2>
+      <ul class="cards" id="list-yours"></ul>
+    </section>
+
+    <section id="sec-theirs" class="bucket bucket-theirs" hidden>
+      <h2><span class="bucket-dot dot-hollow" aria-hidden="true"></span>Waiting on <span id="theirs-label">others</span> <span class="bucket-count" id="count-theirs"></span></h2>
+      <ul class="cards" id="list-theirs"></ul>
+    </section>
+
+    <section id="sec-empty" hidden>
+      <p class="empty">No active games. Tap <span class="pill">+</span> below to start one.</p>
+    </section>
+
+    <section id="sec-caught-up" hidden>
+      <p class="caught-up"><span class="check" aria-hidden="true">✓</span> All caught up — <span id="caught-up-label"></span> to play.</p>
+    </section>
+
+    <section id="sec-ended" class="bucket bucket-ended" hidden>
+      <button class="ended-toggle" id="ended-toggle" aria-expanded="true">
+        <span class="chevron" aria-hidden="true">▾</span>
+        Recently ended <span class="bucket-count" id="count-ended"></span>
+      </button>
+      <ul class="cards cards-ended" id="list-ended"></ul>
+    </section>
   </main>
+
+  <button id="fab" type="button" aria-label="Start a new game" hidden>+</button>
+
+  <dialog id="newgame">
+    <h3 id="ng-title">Start a new game</h3>
+    <ol id="ng-steps"></ol>
+    <button id="ng-cancel" type="button">Cancel</button>
+  </dialog>
+
   <script src="/lobby/lobby.js" type="module"></script>
 </body>
 </html>
