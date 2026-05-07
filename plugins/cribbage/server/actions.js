@@ -1,17 +1,17 @@
 import { playerIndex } from './state.js';
 import { applyDiscard } from './phases/discard.js';
 import { applyCut } from './phases/cut.js';
+import { applyPlay } from './phases/pegging.js';
 
 const HANDLERS = {
   'discard:discard': applyDiscard,
   'cut:cut': applyCut,
+  'pegging:play': applyPlay,
 };
 
 export function registerPhaseHandler(phase, type, fn) {
   HANDLERS[`${phase}:${type}`] = fn;
 }
-
-registerPhaseHandler('pegging', 'play', () => ({ error: 'play handler not implemented' }));
 
 export function applyCribbageAction({ state, action, actorId, rng }) {
   const player = playerIndex(state, actorId);
