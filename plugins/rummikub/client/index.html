@@ -9,29 +9,75 @@
 <body>
   <header>
     <a class="back" href="/">← Lobby</a>
-    <div class="scores">
-      <span class="me">You: <span id="my-score">0</span></span>
-      <span class="opp">Opponent: <span id="opp-score">0</span></span>
+    <div class="hdr-divider" aria-hidden="true"></div>
+    <div class="players">
+      <div class="player-card" id="me-card" data-active="false">
+        <span class="player-card__name" id="me-name">You</span>
+        <div class="player-card__line">
+          <span class="player-card__score" id="me-score">0</span>
+          <span class="player-card__tiles"><span id="me-tiles">0</span>t</span>
+        </div>
+      </div>
+      <span class="players__vs" aria-hidden="true">vs</span>
+      <div class="player-card" id="opp-card" data-active="false">
+        <span class="player-card__name" id="opp-name">Opponent</span>
+        <div class="player-card__line">
+          <span class="player-card__score" id="opp-score">0</span>
+          <span class="player-card__tiles"><span id="opp-tiles">0</span>t</span>
+        </div>
+      </div>
     </div>
-    <div class="meta">
-      <span id="turn-indicator"></span>
-      <span class="pool">Pool: <span id="pool-count">0</span></span>
-      <span class="opp-rack">Opp: <span id="opp-rack-count">0</span> tiles</span>
+    <div class="hdr-spacer"></div>
+    <div class="pool">
+      <div class="pool__pile" id="pool-pile" aria-hidden="true"></div>
+      <div class="pool__meta">
+        <span class="pool__label">pool</span>
+        <span class="pool__count" id="pool-count">0</span>
+      </div>
     </div>
   </header>
   <main>
-    <section id="meld-indicator" class="hidden">
-      Initial meld: <span id="meld-points">0</span> / 30 pts
+    <section id="turn-banner">
+      <div class="turn-banner__left">
+        <span class="turn-banner__dot" aria-hidden="true"></span>
+        <span class="turn-banner__state" id="turn-state">Your turn</span>
+        <span class="turn-banner__hint" id="turn-hint">· play a set or draw a tile</span>
+      </div>
+      <div class="turn-banner__right" id="meld-indicator">
+        <span class="turn-banner__meld-label">Initial meld</span>
+        <div class="meld-bar" aria-hidden="true">
+          <div class="meld-bar__fill" id="meld-bar-fill"></div>
+        </div>
+        <span class="meld-bar__counter"><span id="meld-points">0</span><span class="meld-bar__sep">/30</span></span>
+      </div>
+    </section>
+    <section id="opp-rack-section" aria-label="Opponent rack">
+      <div class="opp-rack__meta">
+        <span class="opp-rack__label" id="opp-rack-name">Opponent's rack</span>
+        <span class="opp-rack__count"><span id="opp-rack-count">0</span> tiles</span>
+      </div>
+      <div class="opp-rack__tiles" id="opp-rack" aria-hidden="true"></div>
     </section>
     <section id="table" aria-label="Table"></section>
-    <section id="rack" aria-label="Your rack"></section>
+    <section id="rack-section">
+      <div class="rack-header">
+        <div class="rack-header__meta">
+          <span class="rack-header__label">Your rack</span>
+          <span class="rack-header__count"><span id="my-rack-count">0</span> tiles</span>
+        </div>
+        <div class="rack-header__tools">
+          <button id="btn-sort" class="chip" aria-pressed="true">Sort</button>
+        </div>
+      </div>
+      <section id="rack" aria-label="Your rack"></section>
+    </section>
     <section id="controls">
-      <button id="btn-sort">Sort</button>
-      <button id="btn-reset" disabled>Reset turn</button>
-      <button id="btn-draw">Draw tile</button>
-      <button id="btn-end" disabled>End turn</button>
-      <button id="btn-resign">Resign</button>
-      <button id="btn-history" type="button" aria-label="Open history" aria-expanded="false">History</button>
+      <button id="btn-end" class="btn btn-primary" disabled>End turn</button>
+      <button id="btn-draw" class="btn">Draw tile</button>
+      <button id="btn-reset" class="btn" disabled>Reset</button>
+      <span class="controls__spacer"></span>
+      <button id="btn-history" class="btn" type="button" aria-label="Open history" aria-expanded="false">History</button>
+      <button id="btn-resign" class="btn">Resign</button>
     </section>
     <section id="end-screen" class="hidden">
       <h2 id="end-headline"></h2>
