@@ -62,9 +62,7 @@ export function renderDice(state, ctx, onRoll) {
   const me = state.youAre;
   const phase = state.turn?.phase;
   const active = state.turn?.activePlayer;
-  const themeKey = document.body.dataset.theme === 'walnut' ? 'ivory'
-                 : document.body.dataset.theme === 'jade'   ? 'obsidian'
-                 : 'ivory';
+  const themeKey = document.body.dataset.theme === 'inlay-noir' ? 'obsidian' : 'ivory';
 
   // Position dice on the active player's side. During initial-roll the
   // active player is undecided, so anchor to the viewer's own die.

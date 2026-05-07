@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
   friendly_name TEXT NOT NULL,
   color         TEXT NOT NULL,
+  glyph         TEXT,
   created_at    INTEGER NOT NULL
 );
 
@@ -136,6 +137,12 @@ export function openDb(filePath = 'game.db') {
   db.exec(SCHEMA_PRE);
   migrateLegacy(db);
   db.exec(SCHEMA_POST);
+
+  // --- Users schema delta ---
+  const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  if (!userCols.includes('glyph')) {
+    db.exec("ALTER TABLE users ADD COLUMN glyph TEXT");
+  }
 
   // --- Plugin host schema delta ---
   const gameCols = db.prepare("PRAGMA table_info(games)").all().map(c => c.name);

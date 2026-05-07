@@ -35,7 +35,7 @@ export function mountRoutes(app, { db, registry, sse }) {
         id: g.id,
         gameType: g.gameType,
         variant: g.state?.variant ?? null,
-        opponent: { id: other.id, friendlyName: other.friendlyName, color: other.color },
+        opponent: { id: other.id, friendlyName: other.friendlyName, color: other.color, glyph: other.glyph },
         you,
         status: g.status,
         yourTurn: g.status === 'active' && g.currentTurn === you,
@@ -46,13 +46,13 @@ export function mountRoutes(app, { db, registry, sse }) {
       };
     });
     res.json({
-      user: { id: req.user.id, email: req.user.email, friendlyName: req.user.friendlyName, color: req.user.color },
+      user: { id: req.user.id, email: req.user.email, friendlyName: req.user.friendlyName, color: req.user.color, glyph: req.user.glyph },
       games
     });
   });
 
   app.get('/api/users', requireIdentity, (_req, res) => {
-    res.json(listUsers(db).map(u => ({ id: u.id, friendlyName: u.friendlyName, color: u.color })));
+    res.json(listUsers(db).map(u => ({ id: u.id, friendlyName: u.friendlyName, color: u.color, glyph: u.glyph })));
   });
 
   app.get('/api/plugins', requireIdentity, (_req, res) => {

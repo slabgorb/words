@@ -4,10 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Gamebox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/lobby/lobby.css">
 </head>
 <body>
   <header>
+    <span class="header-screw header-screw-l" aria-hidden="true"></span>
+    <span class="header-screw header-screw-r" aria-hidden="true"></span>
+    <div id="brand-plate" aria-label="Gamebox">
+      <svg class="brand-flourish" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+        <rect x="2" y="2" width="16" height="16" rx="3" fill="#2a1808" opacity="0.85"/>
+        <circle cx="6" cy="6" r="1.4" fill="#f3d97a"/>
+        <circle cx="14" cy="14" r="1.4" fill="#f3d97a"/>
+        <circle cx="10" cy="10" r="1.4" fill="#f3d97a"/>
+      </svg>
+      <span class="brand-text">GAMEBOX</span>
+      <svg class="brand-flourish" width="18" height="20" viewBox="0 0 18 20" aria-hidden="true">
+        <rect x="2" y="2" width="14" height="16" rx="2" fill="#2a1808" opacity="0.85"/>
+        <text x="9" y="14" text-anchor="middle" font-family="Georgia, serif" font-weight="800" font-size="10" fill="#f3d97a">G</text>
+      </svg>
+      <span class="brand-rivet brand-rivet-tl"></span>
+      <span class="brand-rivet brand-rivet-tr"></span>
+      <span class="brand-rivet brand-rivet-bl"></span>
+      <span class="brand-rivet brand-rivet-br"></span>
+    </div>
     <div id="me-card">
       <span id="me-avatar" aria-hidden="true"></span>
       <span id="me-name"></span>
@@ -16,27 +38,27 @@
 
   <main id="lobby" hidden>
     <section id="sec-yours" class="bucket bucket-yours" hidden>
-      <h2><span class="bucket-dot dot-filled" aria-hidden="true"></span>Your move <span class="bucket-count" id="count-yours"></span></h2>
+      <h2><span class="bucket-dot dot-filled" aria-hidden="true"></span>Your turn <span class="bucket-count" id="count-yours"></span></h2>
       <ul class="cards" id="list-yours"></ul>
     </section>
 
     <section id="sec-theirs" class="bucket bucket-theirs" hidden>
-      <h2><span class="bucket-dot dot-hollow" aria-hidden="true"></span>Waiting on <span id="theirs-label">others</span> <span class="bucket-count" id="count-theirs"></span></h2>
+      <h2><span class="bucket-dot dot-hollow" aria-hidden="true"></span>Awaiting <span id="theirs-label">their reply</span> <span class="bucket-count" id="count-theirs"></span></h2>
       <ul class="cards" id="list-theirs"></ul>
     </section>
 
     <section id="sec-empty" hidden>
-      <p class="empty">No active games. Tap <span class="pill">+</span> below to start one.</p>
+      <p class="empty">The cabinet is bare. Tap <span class="pill">+</span> below to challenge a friend.</p>
     </section>
 
     <section id="sec-caught-up" hidden>
-      <p class="caught-up"><span class="check" aria-hidden="true">✓</span> All caught up — <span id="caught-up-label"></span> to play.</p>
+      <p class="caught-up"><span class="check" aria-hidden="true">&check;</span> All caught up &mdash; <span id="caught-up-label"></span>.</p>
     </section>
 
     <section id="sec-ended" class="bucket bucket-ended" hidden>
       <button class="ended-toggle" id="ended-toggle" aria-expanded="true">
-        <span class="chevron" aria-hidden="true">▾</span>
-        Recently ended <span class="bucket-count" id="count-ended"></span>
+        <span class="chevron" aria-hidden="true">&#9662;</span>
+        From the cabinet <span class="bucket-count" id="count-ended"></span>
       </button>
       <ul class="cards cards-ended" id="list-ended"></ul>
     </section>

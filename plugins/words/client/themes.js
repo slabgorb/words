@@ -22,9 +22,27 @@ const THEMES = {
     'assets/wood-4.png?v=2','assets/wood-5.png?v=2','assets/wood-6.png?v=2',
     'assets/wood-7.png?v=2','assets/wood-8.png?v=2','assets/wood-9.png?v=2',
   ] },
+  // Parquet variants — board surface alternates grain across square tiles.
+  // Tile pools borrow from the closest existing material.
+  'parquet-cream': { textures: [
+    'assets/marble-1.png?v=2','assets/marble-2.png?v=2','assets/marble-3.png?v=2',
+    'assets/marble-4.png?v=2','assets/marble-5.png?v=2','assets/marble-6.png?v=2',
+    'assets/marble-7.png?v=2','assets/marble-8.png?v=2','assets/marble-9.png?v=2',
+  ] },
+  'parquet-silver': { textures: [
+    'assets/marble-1.png?v=2','assets/marble-2.png?v=2','assets/marble-3.png?v=2',
+    'assets/marble-4.png?v=2','assets/marble-5.png?v=2','assets/marble-6.png?v=2',
+    'assets/marble-7.png?v=2','assets/marble-8.png?v=2','assets/marble-9.png?v=2',
+  ] },
+  'parquet-slate': { textures: [
+    'assets/marble-1.png?v=2','assets/marble-2.png?v=2','assets/marble-3.png?v=2',
+    'assets/marble-4.png?v=2','assets/marble-5.png?v=2','assets/marble-6.png?v=2',
+    'assets/marble-7.png?v=2','assets/marble-8.png?v=2','assets/marble-9.png?v=2',
+  ] },
 };
 
-const ORDER = ['ivory', 'marble', 'jade', 'wood'];
+const ORDER = ['ivory', 'marble', 'jade', 'wood',
+               'parquet-cream', 'parquet-silver', 'parquet-slate'];
 const STORAGE_KEY = 'words.theme';
 
 let active = localStorage.getItem(STORAGE_KEY);

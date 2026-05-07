@@ -1,16 +1,15 @@
 // Board-surface theme cycler. Sets body[data-theme]; CSS responds.
 
 const THEMES = {
-  walnut:  { label: 'Walnut'  },
-  marble:  { label: 'Marble'  },
-  jade:    { label: 'Jade'    },
-  leather: { label: 'Leather' },
+  'inlay-marble':   { label: 'Inlay Marble'   },
+  'inlay-walnut':   { label: 'Inlay Walnut'   },
+  'inlay-noir':     { label: 'Inlay Noir'     },
 };
-const ORDER = ['walnut', 'marble', 'jade', 'leather'];
+const ORDER = ['inlay-marble', 'inlay-walnut', 'inlay-noir'];
 const STORAGE_KEY = 'backgammon.theme';
 
 let active = localStorage.getItem(STORAGE_KEY);
-if (!THEMES[active]) active = 'walnut';
+if (!THEMES[active]) active = 'inlay-marble';
 
 function syncBodyAttr() {
   if (typeof document !== 'undefined' && document.body) {

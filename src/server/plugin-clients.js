@@ -53,7 +53,11 @@ function serveIndex(clientDir, db, req, res) {
     actionUrl: `/api/games/${req.game.id}/action`,
     stateUrl: `/api/games/${req.game.id}`,
     yourFriendlyName: req.user.friendlyName,
+    yourGlyph: req.user.glyph ?? null,
+    yourColor: req.user.color ?? null,
     opponentFriendlyName: opponent?.friendlyName ?? 'Opponent',
+    opponentGlyph: opponent?.glyph ?? null,
+    opponentColor: opponent?.color ?? null,
   };
   const inject = `<script>window.__GAME__ = ${JSON.stringify(ctx)};</script>`;
 

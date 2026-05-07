@@ -541,6 +541,40 @@ body[data-theme="wood"] {
   --dl: #98c4d8;
 }
 
+/* ── Parquet variants — checkered/rotated tile floors ── */
+body[data-theme="parquet-cream"] {
+  --board-hi:  #f3e8c9;
+  --board-mid: #e6d6a8;
+  --board-lo:  #ccb888;
+  --frame-hi:  #b8902f;
+  --frame-lo:  #6e5a1f;
+  --grid-line: rgba(56,38,20,0.18);
+}
+body[data-theme="parquet-silver"] {
+  --board-hi:  #ece5d4;
+  --board-mid: #c8c0b0;
+  --board-lo:  #9a948a;
+  --frame-hi:  #4a4a4a;
+  --frame-lo:  #232323;
+  --grid-line: rgba(40,40,40,0.22);
+  --page-bg:   #e8e6e0;
+}
+body[data-theme="parquet-slate"] {
+  --board-hi:  #4a4a4a;
+  --board-mid: #2c2c2c;
+  --board-lo:  #1a1a1a;
+  --frame-hi:  #6a4a2c;
+  --frame-lo:  #3a2818;
+  --grid-line: rgba(255,255,255,0.18);
+  --page-bg:    #1a1612;
+  --page-ink:   #efe6d3;
+  --page-muted: rgba(239, 230, 211, 0.55);
+  --tw: #e87053;
+  --dw: #e8a263;
+  --tl: #6dadc4;
+  --dl: #98c4d8;
+}
+
 /* Wood-theme page wears a horizontal grain like the frame/rack */
 body[data-theme="wood"] {
   background-image:
@@ -581,6 +615,30 @@ body[data-theme="jade"] #board {
   background:
     url('assets/board-jade.jpg') center/cover,
     url('assets/frame-jade.jpg') center/cover;
+  background-clip: content-box, padding-box;
+  background-origin: content-box, padding-box;
+}
+/* Parquet boards are baked as a 15×15 tile grid that maps 1:1 to the
+   board's 15×15 cell grid. 100% 100% / no-repeat so each parquet tile
+   aligns with one game cell. */
+body[data-theme="parquet-cream"] #board {
+  background:
+    url('assets/board-parquet-marble-cream-checker.jpg') 0 0 / 100% 100% no-repeat,
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  background-clip: content-box, padding-box;
+  background-origin: content-box, padding-box;
+}
+body[data-theme="parquet-silver"] #board {
+  background:
+    url('assets/board-parquet-marble-silver-checker.jpg') 0 0 / 100% 100% no-repeat,
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
+  background-clip: content-box, padding-box;
+  background-origin: content-box, padding-box;
+}
+body[data-theme="parquet-slate"] #board {
+  background:
+    url('assets/board-parquet-stone-slate-checker.jpg') 0 0 / 100% 100% no-repeat,
+    linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-lo) 100%);
   background-clip: content-box, padding-box;
   background-origin: content-box, padding-box;
 }

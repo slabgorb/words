@@ -1,6 +1,6 @@
 /* ============================================================
    Backgammon — full match screen
-   Themes: walnut · marble · jade · leather
+   Themes: inlay-marble · inlay-walnut · inlay-noir
 ============================================================ */
 
 * { box-sizing: border-box; }
@@ -26,164 +26,112 @@ body {
 
 /* ======================== THEMES ======================== */
 
-/* ---------- Walnut & ivory ---------- */
-body[data-theme="walnut"] {
-  --page-bg:     #2b1d12;
+/* ---------- Inlay (pre-rendered photo boards) ---------------------------
+   The board surface is a single rendered PNG (frame + bar + quad textures
+   baked in). The CSS .quad/.bar elements go transparent and only host the
+   .point triangles + .checker stacks on top of the PNG. Checkers are the
+   photographed disc cutouts (checker-stone-<tint>.png).
+   The off-tray column sits on top of the right portion of the PNG —
+   that's intentional. */
+body[data-theme="inlay-marble"] {
+  --page-bg:     #1f1a13;
   --page-ink:    #efe6d3;
   --page-muted:  rgba(239, 230, 211, 0.55);
-  --page-bg-image:
-    repeating-linear-gradient(88deg,
-      rgba(0,0,0,0.30) 0 2px, transparent 2px 9px,
-      rgba(255,255,255,0.04) 9px 10px, transparent 10px 18px);
+  --page-bg-image: none;
 
-  --frame-hi:    #9a774f;
-  --frame-mid:   #7a5a37;
-  --frame-lo:    #5a3f24;
+  --frame-hi:    #6a4a2c;
+  --frame-mid:   #4a3318;
+  --frame-lo:    #2a1a0a;
+  --frame-stitch: rgba(0,0,0,0);
+
+  --surface-hi:  #ece5d4;
+  --surface-mid: #c8c0b0;
+  --surface-lo:  #9a948a;
+
+  --bar-hi:      #2a1a0a;
+  --bar-lo:      #1a0e04;
+
+  --pt-light:    #f5edd5;
+  --pt-dark:     #4a3318;
+  --pt-edge:     rgba(0,0,0,0.40);
+
+  /* fallback gradient values (only show if --c-*-img is missing) */
+  --c-a-hi:      #f5efdc;  --c-a-mid: #e6dcc0;  --c-a-lo: #b8a982;  --c-a-ink: #2c2418;
+  --c-b-hi:      #3a2418;  --c-b-mid: #2a160c;  --c-b-lo: #160a05;  --c-b-ink: #efe6d3;
+
+  --c-a-img: url('assets/checker-green.png');
+  --c-b-img: url('assets/checker-red.png');
+
+  --gold:        #d3a44e;
+  --highlight:   #ffd66b;
+  --legal-dot:   rgba(255, 214, 107, 0.85);
+  --label-ink:   rgba(255, 240, 210, 0.50);
+}
+body[data-theme="inlay-walnut"] {
+  --page-bg:     #1a120a;
+  --page-ink:    #efe6d3;
+  --page-muted:  rgba(239, 230, 211, 0.55);
+  --page-bg-image: none;
+
+  --frame-hi:    #6e3a24;
+  --frame-mid:   #4a2515;
+  --frame-lo:    #2c1308;
   --frame-stitch: rgba(0,0,0,0);
 
   --surface-hi:  #d4b48a;
   --surface-mid: #b9925f;
   --surface-lo:  #8a6a3f;
 
-  --bar-hi:      #6a4a2c;
-  --bar-lo:      #3e2812;
+  --bar-hi:      #4a2515;
+  --bar-lo:      #1f0c05;
 
-  --pt-light:    #f3e3c0;   /* ivory / bone points */
-  --pt-dark:     #6e4226;   /* burnt sienna points */
-  --pt-edge:     rgba(0,0,0,0.35);
+  --pt-light:    #f3e3c0;
+  --pt-dark:     #6e4226;
+  --pt-edge:     rgba(0,0,0,0.40);
 
-  --c-a-hi:      #f7eed8;   /* ivory checkers */
-  --c-a-mid:     #e6d8b3;
-  --c-a-lo:      #b89a68;
-  --c-a-ink:     #2a1f12;
-  --c-b-hi:      #3a2418;   /* walnut checkers */
-  --c-b-mid:     #2a160c;
-  --c-b-lo:      #160a05;
-  --c-b-ink:     #efe6d3;
+  --c-a-hi:      #f7eed8;  --c-a-mid: #e6d8b3;  --c-a-lo: #b89a68;  --c-a-ink: #2a1f12;
+  --c-b-hi:      #3a2418;  --c-b-mid: #2a160c;  --c-b-lo: #160a05;  --c-b-ink: #efe6d3;
+
+  --c-a-img: url('assets/checker-pink.png');
+  --c-b-img: url('assets/checker-green.png');
 
   --gold:        #d3a44e;
   --highlight:   #ffd66b;
   --legal-dot:   rgba(255, 214, 107, 0.85);
-
   --label-ink:   rgba(255, 240, 210, 0.50);
 }
-
-/* ---------- Marble & jade (luxury stone) ---------- */
-body[data-theme="marble"] {
-  --page-bg:     #1a2823;
-  --page-ink:    #e8e2cf;
-  --page-muted:  rgba(232, 226, 207, 0.55);
-  --page-bg-image:
-    radial-gradient(ellipse at 20% 0%, rgba(184, 144, 47, 0.10) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(80, 130, 100, 0.18) 0%, transparent 60%);
-
-  --frame-hi:    #1d3329;
-  --frame-mid:   #122019;
-  --frame-lo:    #0a140f;
-
-  --surface-hi:  #ece5d4;   /* warm marble */
-  --surface-mid: #d6cdb6;
-  --surface-lo:  #b8ad94;
-
-  --bar-hi:      #1f3329;
-  --bar-lo:      #0c1813;
-
-  --pt-light:    #f1ead7;   /* cream marble */
-  --pt-dark:     #2c5e44;   /* deep jade */
-  --pt-edge:     rgba(20,40,30,0.45);
-
-  --c-a-hi:      #f5efdc;   /* bone */
-  --c-a-mid:     #e6dcc0;
-  --c-a-lo:      #b8a982;
-  --c-a-ink:     #2c2418;
-  --c-b-hi:      #3f6a52;   /* polished jade */
-  --c-b-mid:     #234a36;
-  --c-b-lo:      #122a1e;
-  --c-b-ink:     #e8e2cf;
-
-  --gold:        #b8902f;
-  --highlight:   #d8b656;
-  --legal-dot:   rgba(216, 182, 86, 0.85);
-
-  --label-ink:   rgba(20, 40, 30, 0.55);
-}
-
-/* ---------- Jade (deep board / brass accents) ---------- */
-body[data-theme="jade"] {
-  --page-bg:     #0e1c16;
-  --page-ink:    #efe4c4;
-  --page-muted:  rgba(239, 228, 196, 0.55);
+body[data-theme="inlay-noir"] {
+  --page-bg:     #0e0a07;
+  --page-ink:    #efe6d3;
+  --page-muted:  rgba(239, 230, 211, 0.55);
   --page-bg-image: none;
 
-  --frame-hi:    #b8902f;
-  --frame-mid:   #8a6b1e;
-  --frame-lo:    #5e4810;
+  --frame-hi:    #4a4a4a;
+  --frame-mid:   #2c2c2c;
+  --frame-lo:    #1a1a1a;
+  --frame-stitch: rgba(0,0,0,0);
 
-  --surface-hi:  #2f5a3e;
-  --surface-mid: #234a31;
-  --surface-lo:  #173724;
+  --surface-hi:  #c8c0b0;
+  --surface-mid: #9a948a;
+  --surface-lo:  #5a564f;
 
-  --bar-hi:      #8a6b1e;
-  --bar-lo:      #4e3a0c;
+  --bar-hi:      #2c2c2c;
+  --bar-lo:      #0a0a0a;
 
-  --pt-light:    #e6d49a;   /* aged ivory */
-  --pt-dark:     #6a3a2a;   /* sangre */
-  --pt-edge:     rgba(0,0,0,0.5);
-
-  --c-a-hi:      #f4ead0;
-  --c-a-mid:     #e0d2a8;
-  --c-a-lo:      #a89466;
-  --c-a-ink:     #2a1f12;
-  --c-b-hi:      #4a2e22;
-  --c-b-mid:     #321c12;
-  --c-b-lo:      #1a0d07;
-  --c-b-ink:     #efe4c4;
-
-  --gold:        #d8b656;
-  --highlight:   #ffd66b;
-  --legal-dot:   rgba(255, 214, 107, 0.90);
-
-  --label-ink:   rgba(255, 240, 200, 0.55);
-}
-
-/* ---------- Leather attaché (folded travel set) ---------- */
-body[data-theme="leather"] {
-  --page-bg:     #2a1812;
-  --page-ink:    #f3e7d0;
-  --page-muted:  rgba(243, 231, 208, 0.55);
-  --page-bg-image:
-    radial-gradient(circle at 30% 20%, rgba(0,0,0,0) 0, rgba(0,0,0,0.35) 80%);
-
-  --frame-hi:    #6e3a24;
-  --frame-mid:   #4a2515;
-  --frame-lo:    #2c1308;
-  --frame-stitch: rgba(238, 210, 156, 0.85);
-
-  --surface-hi:  #8a4a30;
-  --surface-mid: #6e3a24;
-  --surface-lo:  #4a2515;
-
-  --bar-hi:      #4a2515;
-  --bar-lo:      #1f0c05;
-
-  --pt-light:    #efd9a8;   /* cream suede */
-  --pt-dark:     #2c1208;   /* near-black leather */
+  --pt-light:    #ece5d4;
+  --pt-dark:     #1a1a1a;
   --pt-edge:     rgba(0,0,0,0.55);
 
-  --c-a-hi:      #f0e1bc;   /* cream */
-  --c-a-mid:     #d8c393;
-  --c-a-lo:      #ad9560;
-  --c-a-ink:     #2a1810;
-  --c-b-hi:      #b94a2a;   /* cognac */
-  --c-b-mid:     #8a3318;
-  --c-b-lo:      #571c0a;
-  --c-b-ink:     #f3e7d0;
+  --c-a-hi:      #f5efdc;  --c-a-mid: #e6dcc0;  --c-a-lo: #b8a982;  --c-a-ink: #2c2418;
+  --c-b-hi:      #3a3a3a;  --c-b-mid: #1f1f1f;  --c-b-lo: #0a0a0a;  --c-b-ink: #efe6d3;
 
-  --gold:        #e8b974;
-  --highlight:   #ffd066;
-  --legal-dot:   rgba(255, 208, 102, 0.90);
+  --c-a-img: url('assets/checker-red.png');
+  --c-b-img: url('assets/checker-blue.png');
 
-  --label-ink:   rgba(238, 210, 156, 0.65);
+  --gold:        #b89a4a;
+  --highlight:   #d8b656;
+  --legal-dot:   rgba(216, 182, 86, 0.85);
+  --label-ink:   rgba(40, 40, 40, 0.55);
 }
 
 /* ======================== LAYOUT ======================== */
@@ -335,13 +283,20 @@ body[data-theme="leather"] {
   .board-wrap { height: auto; width: 100%; }
 }
 
+/* Board grid uses fr units that mirror the rendered PNG's region
+   proportions exactly (frameL 35 / quad 691 / bar 58 / quad 691 / frameR 125
+   horizontally; frameT 35 / quad 446 / mid 38 / quad 446 / frameB 35
+   vertically — out of a 1600×1000 PNG). The PNG fills .board border-box,
+   the .quad / .bar / .off-tray sit in cells whose proportions match the
+   PNG, so dart centerlines align with .point centers at every viewport
+   size. */
 .board {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 36px 1fr 56px;
-  grid-template-rows: 1fr 24px 1fr;
+  grid-template-columns: 35fr 691fr 58fr 691fr 125fr;
+  grid-template-rows:    35fr 446fr 38fr 446fr  35fr;
   border-radius: 10px;
-  padding: 22px 22px 22px 22px;
+  padding: 0;
   position: relative;
   background:
     linear-gradient(180deg, var(--frame-hi) 0%, var(--frame-mid) 50%, var(--frame-lo) 100%);
@@ -349,95 +304,70 @@ body[data-theme="leather"] {
     inset 0 1px 0 rgba(255,255,255,0.18),
     inset 0 -2px 6px rgba(0,0,0,0.40),
     0 24px 48px rgba(0,0,0,0.45);
-  gap: 0 6px;
+  gap: 0;
 }
 
-/* leather: stitched edge around the frame */
-body[data-theme="leather"] .board::before {
-  content: '';
-  position: absolute;
-  inset: 8px;
-  border-radius: 6px;
-  border: 1px dashed var(--frame-stitch);
-  opacity: 0.7;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Quadrants of the board */
+/* Quadrants of the board — transparent so the rendered-PNG board surface
+   shows through. Only the .point triangles + checker stacks paint here. */
 .quad {
   position: relative;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  background:
-    linear-gradient(180deg, var(--surface-hi) 0%, var(--surface-mid) 60%, var(--surface-lo) 100%);
-  border-radius: 4px;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25), inset 0 2px 6px rgba(0,0,0,0.20);
+  background: transparent;
 }
-.quad.tl { grid-column: 1; grid-row: 1; }
-.quad.tr { grid-column: 3; grid-row: 1; }
-.quad.bl { grid-column: 1; grid-row: 3; }
-.quad.br { grid-column: 3; grid-row: 3; }
+.quad.tl { grid-column: 2; grid-row: 2; }
+.quad.tr { grid-column: 4; grid-row: 2; }
+.quad.bl { grid-column: 2; grid-row: 4; }
+.quad.br { grid-column: 4; grid-row: 4; }
 
-/* Marble theme: subtle veining via radial gradients */
-body[data-theme="marble"] .quad {
+/* Inlay themes: the entire board surface (frame + bar + quads) is one
+   pre-rendered PNG. We apply it to .board (border-box, fills the whole
+   board including its padding / frame area), and make the .quad/.bar
+   transparent so the photo shows through. The .point triangles and
+   checker stacks layer on top.
+   The off-tray column overlaps the right portion of the PNG by design —
+   it acts as the right-side dice/borne-off cabinet. */
+body[data-theme="inlay-marble"] .board {
   background:
-    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.55) 0%, transparent 35%),
-    radial-gradient(ellipse at 75% 80%, rgba(0,0,0,0.10) 0%, transparent 40%),
-    linear-gradient(170deg, var(--surface-hi) 0%, var(--surface-mid) 60%, var(--surface-lo) 100%);
+    url('assets/board-marble-parquet.png') 0 0 / 100% 100% no-repeat;
+  background-clip: border-box;
+}
+body[data-theme="inlay-walnut"] .board {
+  background:
+    url('assets/board-ivory-walnut.png') 0 0 / 100% 100% no-repeat;
+  background-clip: border-box;
+}
+body[data-theme="inlay-noir"] .board {
+  background:
+    url('assets/board-marble-noir.png') 0 0 / 100% 100% no-repeat;
+  background-clip: border-box;
+}
+/* Photo discs for inlay themes — overrides the radial-gradient checkers. */
+body[data-theme^="inlay-"] .checker.color-a {
+  background: var(--c-a-img) center/100% 100% no-repeat;
+}
+body[data-theme^="inlay-"] .checker.color-b {
+  background: var(--c-b-img) center/100% 100% no-repeat;
+}
+body[data-theme^="inlay-"] .checker {
+  /* photo already has its own highlight grain — drop the inset gloss,
+     keep the drop-shadow so the disc visibly sits on the board */
+  box-shadow: 0 2px 3px rgba(0,0,0,0.45);
+}
+body[data-theme^="inlay-"] .checker::before,
+body[data-theme^="inlay-"] .checker::after {
+  display: none;
 }
 
-/* Walnut: faint horizontal grain */
-body[data-theme="walnut"] .quad {
-  background:
-    repeating-linear-gradient(91deg,
-      rgba(0,0,0,0.05) 0 2px, transparent 2px 7px,
-      rgba(255,255,255,0.04) 7px 8px, transparent 8px 14px),
-    linear-gradient(180deg, var(--surface-hi) 0%, var(--surface-mid) 60%, var(--surface-lo) 100%);
-}
-
-/* Leather: pebbled grain */
-body[data-theme="leather"] .quad {
-  background:
-    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.06) 0 2px, transparent 3px),
-    radial-gradient(circle at 60% 70%, rgba(0,0,0,0.10) 0 2px, transparent 3px),
-    radial-gradient(circle at 80% 20%, rgba(255,255,255,0.04) 0 2px, transparent 3px),
-    radial-gradient(circle at 40% 80%, rgba(0,0,0,0.08) 0 2px, transparent 3px),
-    linear-gradient(170deg, var(--surface-hi) 0%, var(--surface-mid) 60%, var(--surface-lo) 100%);
-  background-size: 18px 18px, 22px 22px, 26px 26px, 14px 14px, 100% 100%;
-}
-
-/* Jade: wood-grain over deep green */
-body[data-theme="jade"] .quad {
-  background:
-    repeating-linear-gradient(91deg,
-      rgba(0,0,0,0.10) 0 2px, transparent 2px 7px),
-    linear-gradient(180deg, var(--surface-hi) 0%, var(--surface-mid) 60%, var(--surface-lo) 100%);
-}
-
-/* Bar (center spine) */
+/* Bar (center spine) — transparent (PNG provides the visual). */
 .bar {
-  grid-column: 2;
-  grid-row: 1 / span 3;
-  background: linear-gradient(180deg, var(--bar-hi) 0%, var(--bar-lo) 100%);
-  border-radius: 3px;
-  box-shadow:
-    inset 0 0 0 1px rgba(0,0,0,0.4),
-    inset 0 2px 6px rgba(0,0,0,0.45),
-    inset 0 -2px 6px rgba(0,0,0,0.45);
+  grid-column: 3;
+  grid-row: 2 / span 3;
+  background: transparent;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-body[data-theme="leather"] .bar::before {
-  content: '';
-  position: absolute;
-  inset: 4px 6px;
-  border: 1px dashed var(--frame-stitch);
-  opacity: 0.55;
-  border-radius: 2px;
-  pointer-events: none;
 }
 .bar-half {
   flex: 1;
@@ -452,12 +382,13 @@ body[data-theme="leather"] .bar::before {
 .bar-half.bar-top { justify-content: flex-start; }
 .bar-half.bar-bottom { justify-content: flex-end; flex-direction: column-reverse; }
 
-/* Off-tray (right side), holds borne-off checkers */
+/* Off-tray (right side), holds borne-off checkers — sits inside the PNG's
+   wider right frame area (col 5). */
 .off-tray {
-  grid-column: 4;
-  grid-row: 1 / span 3;
+  grid-column: 5;
+  grid-row: 1 / span 5;
   display: grid;
-  grid-template-rows: 1fr 24px 1fr;
+  grid-template-rows: 1fr 38fr 1fr;
   gap: 0;
 }
 .off-tray-half {
@@ -479,15 +410,6 @@ body[data-theme="leather"] .bar::before {
   margin: 2px 0;
   border-radius: 2px;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3);
-}
-body[data-theme="leather"] .off-tray-half::before {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border: 1px dashed var(--frame-stitch);
-  opacity: 0.55;
-  border-radius: 2px;
-  pointer-events: none;
 }
 .off-tray-label {
   font-family: var(--type-mono);
@@ -560,6 +482,9 @@ body[data-theme="leather"] .off-tray-half::before {
   pointer-events: none;
 }
 .point-tri svg { width: 100%; height: 100%; display: block; }
+/* Inlay themes have triangles baked into the rendered board PNG —
+   the CSS-drawn point-tri SVG would double up on top, so hide it. */
+body[data-theme^="inlay-"] .point-tri { display: none; }
 
 .point-num {
   position: absolute;
@@ -623,6 +548,23 @@ body[data-theme="leather"] .off-tray-half::before {
 }
 .checker.color-a { color: var(--c-a-ink); }
 .checker.color-b { color: var(--c-b-ink); }
+
+/* Photographed-disc checkers — used by the inlay-* themes (plus any other
+   theme that opts in via [data-checker-style="photo"]). The disc image
+   has its own rings/grain baked in, so the pseudo-element rings hide and
+   the box-shadow stays for the on-board lift. */
+body[data-checker-style="photo"] .checker.color-a {
+  background:
+    var(--c-a-img) center/100% 100% no-repeat;
+}
+body[data-checker-style="photo"] .checker.color-b {
+  background:
+    var(--c-b-img) center/100% 100% no-repeat;
+}
+body[data-checker-style="photo"] .checker::before,
+body[data-checker-style="photo"] .checker::after {
+  display: none;
+}
 
 /* Compressed stack: when count > 5, checkers nudge upward to overlap */
 .point-stack.compressed .checker { margin-top: -6px; }
