@@ -14,17 +14,37 @@ export function applyBackgammonAction({ state, action, actorId }) {
   const side = actorSide(state, actorId);
   if (side === null) return { error: 'unknown participant' };
 
+  let result;
   switch (action.type) {
-    case 'roll-initial': return doRollInitial(state, action.payload, side);
-    case 'roll':         return doRoll(state, action.payload, side);
-    case 'pass-turn':    return doPassTurn(state, side);
-    case 'move':         return doMove(state, action.payload, side);
-    case 'offer-double':   return doOfferDouble(state, side);
-    case 'accept-double':  return doAcceptDouble(state, side);
-    case 'decline-double': return doDeclineDouble(state, side);
-    case 'resign': return doResign(state, side);
+    case 'roll-initial': result = doRollInitial(state, action.payload, side); break;
+    case 'roll':         result = doRoll(state, action.payload, side); break;
+    case 'pass-turn':    result = doPassTurn(state, side); break;
+    case 'move':         result = doMove(state, action.payload, side); break;
+    case 'offer-double':   result = doOfferDouble(state, side); break;
+    case 'accept-double':  result = doAcceptDouble(state, side); break;
+    case 'decline-double': result = doDeclineDouble(state, side); break;
+    case 'resign':       result = doResign(state, side); break;
     default: return { error: `unknown action: ${action.type}` };
   }
+
+  if (result.error || !result.state) return result;
+  return { ...result, state: { ...result.state, activeUserId: deriveActiveUserId(result.state) } };
+}
+
+// Mirror plugin turn state onto the host-level activeUserId so routes.js's
+// turn-ownership gate lets the right player act. Returns null for phases
+// where the "active player" isn't who needs to act (initial-roll requires
+// both, awaiting-double-response requires the opponent of the offerer) —
+// null disables the host gate and the plugin's own checks gatekeep instead.
+function deriveActiveUserId(state) {
+  const phase = state.turn?.phase;
+  if (phase === PHASE.INITIAL_ROLL) return null;
+  if (phase === PHASE.AWAITING_DOUBLE_RESPONSE) {
+    const offerer = state.cube?.pendingOffer?.from;
+    return offerer ? state.sides?.[opponent(offerer)] ?? null : null;
+  }
+  const ap = state.turn?.activePlayer;
+  return (ap === 'a' || ap === 'b') ? state.sides?.[ap] ?? null : null;
 }
 
 function isActive(state, side) {
@@ -53,13 +73,11 @@ function doRollInitial(state, payload, side) {
   // Both rolled?
   if (ir.a !== null && ir.b !== null) {
     if (ir.a === ir.b) {
-      // Tie: clear all four fields and reroll. Both players still need to
-      // act, so leave activeUserId null so the host gate doesn't lock either out.
+      // Tie: clear all four fields and reroll.
       return {
         state: {
           ...state,
           initialRoll: { a: null, b: null, throwParamsA: null, throwParamsB: null },
-          activeUserId: null,
         },
         ended: false,
         summary: { kind: 'roll-initial', tie: true },
@@ -83,18 +101,15 @@ function doRollInitial(state, payload, side) {
             throwParams: [...winnerTp, ...loserTp],
           },
         },
-        activeUserId: state.sides?.[winner] ?? null,
       },
       ended: false,
       summary: { kind: 'roll-initial', activePlayer: winner },
     };
   }
 
-  // Only this side has rolled. The other side still needs to act, so
-  // explicitly null activeUserId — the host's turn-ownership gate keys off
-  // a numeric activeUserId, and we don't want to lock the opponent out.
+  // Only this side has rolled.
   return {
-    state: { ...state, initialRoll: ir, activeUserId: null },
+    state: { ...state, initialRoll: ir },
     ended: false,
     summary: { kind: 'roll-initial', side },
   };
