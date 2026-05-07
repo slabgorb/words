@@ -37,6 +37,14 @@ function setup() {
   return { db, a, b, c, g };
 }
 
+test('GET /api/games/:id/state is gone (returns 404)', async () => {
+  const { db, g } = setup();
+  const server = await listen(buildApp(db, 'a@x.com'));
+  const r = await fetch(`${urlOf(server)}/api/games/${g.id}/state`);
+  assert.equal(r.status, 404);
+  server.close();
+});
+
 test('POST /api/games/:id/action (pass) advances the turn', async () => {
   const { db, a, g } = setup();
   // Force activeUserId = player a's id so Alice can pass.
