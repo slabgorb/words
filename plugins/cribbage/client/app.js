@@ -18,7 +18,7 @@ async function send(action) {
   const r = await fetch(ctx.actionUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ action }),
+    body: JSON.stringify(action),
   });
   const body = await r.json().catch(() => ({}));
   if (!r.ok) {
@@ -69,16 +69,23 @@ function render() {
   banner.textContent = bannerText(state, mySide);
 
   if (state.phase === 'discard') {
-    banner.innerHTML = `${bannerText(state, mySide)} <button id="btn-discard" disabled>Send to crib</button>`;
+    const mySubmitted = state.pendingDiscards?.[mySide] != null;
+    if (mySubmitted) {
+      banner.textContent = 'Waiting for opponent to discard…';
+    } else {
+      banner.innerHTML = `${bannerText(state, mySide)} <button id="btn-discard" disabled>Send to crib</button>`;
+    }
     renderOpponentHand(oppArea, state.hands[oppSide].count ?? 0);
-    renderMyHand(meArea, state.hands[mySide], 'discard', () => updateDiscardBtn());
-    updateDiscardBtn();
-    document.getElementById('btn-discard').onclick = async () => {
-      const sel = getSelection();
-      if (sel.length !== 2) return;
-      const r = await window.__cribbage__.send({ type: 'discard', payload: { cards: sel } });
-      if (r) clearSelection();
-    };
+    renderMyHand(meArea, state.hands[mySide], mySubmitted ? 'view' : 'discard', () => updateDiscardBtn());
+    if (!mySubmitted) {
+      updateDiscardBtn();
+      document.getElementById('btn-discard').onclick = async () => {
+        const sel = getSelection();
+        if (sel.length !== 2) return;
+        const r = await window.__cribbage__.send({ type: 'discard', payload: { cards: sel } });
+        if (r) clearSelection();
+      };
+    }
   } else if (state.phase === 'cut') {
     const isNonDealer = mySide !== state.dealer;
     if (isNonDealer) {
@@ -134,6 +141,33 @@ function updateDiscardBtn() {
 const es = new EventSource(ctx.sseUrl);
 es.addEventListener('update', () => fetchState());
 es.addEventListener('ended', () => fetchState());
+es.addEventListener('turn', (e) => {
+  try {
+    const data = JSON.parse(e.data);
+    const events = data?.summary?.events;
+    if (!Array.isArray(events) || events.length === 0) return;
+    const text = events.map(ev => ev.say).filter(Boolean).join(' · ');
+    if (text) showToast(text);
+  } catch { /* ignore malformed */ }
+});
+
+function showToast(text) {
+  const layer = document.getElementById('toast-layer') ?? (() => {
+    const el = document.createElement('div');
+    el.id = 'toast-layer';
+    document.body.appendChild(el);
+    return el;
+  })();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = text;
+  layer.appendChild(t);
+  setTimeout(() => t.classList.add('toast--show'), 10);
+  setTimeout(() => {
+    t.classList.remove('toast--show');
+    setTimeout(() => t.remove(), 400);
+  }, 2400);
+}
 
 window.__cribbage__ = { send };
 

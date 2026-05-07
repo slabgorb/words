@@ -12,6 +12,7 @@ const PLUGIN_META = {
   words:      { tagline: 'Cross-word tile game' },
   rummikub:   { tagline: 'Tile runs and groups' },
   backgammon: { tagline: 'Race off the board' },
+  cribbage:   { tagline: 'Pegs, pairs, and fifteen-twos' },
 };
 const PLUGIN_VARIANTS = {
   words: [
