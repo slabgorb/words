@@ -19,3 +19,18 @@ main#board { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; paddin
 .pegging-strip { grid-column: 1 / -1; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .show-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .show-overlay[hidden] { display: none; }
+.card {
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: var(--card-radius);
+  background-size: cover;
+  background-position: center;
+  background-color: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  cursor: pointer;
+  user-select: none;
+  flex: none;
+}
+.card--back { background-color: #2a3f9b; }
+.card.is-selected { outline: 3px solid gold; transform: translateY(-6px); transition: transform 120ms; }
+.card.is-disabled { opacity: 0.5; cursor: not-allowed; }
