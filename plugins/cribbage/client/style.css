@@ -1,0 +1,21 @@
+:root {
+  --bg: #0d3a1f;          /* card-table green */
+  --card-w: 90px;
+  --card-h: 130px;
+  --card-radius: 8px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: #fff; }
+header { display: flex; align-items: center; gap: 16px; padding: 8px 16px; background: rgba(0,0,0,0.25); }
+.back { color: #fff; text-decoration: none; opacity: 0.8; }
+.players { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.player { display: flex; gap: 6px; }
+.player .score { font-weight: 700; }
+.phase-banner { padding: 12px 16px; text-align: center; background: rgba(0,0,0,0.35); font-weight: 500; }
+main#board { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; padding: 16px; min-height: calc(100vh - 120px); }
+.hand-row { display: flex; gap: 8px; justify-content: center; min-height: var(--card-h); }
+.table { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: center; justify-items: center; }
+.slot { width: var(--card-w); height: var(--card-h); border: 2px dashed rgba(255,255,255,0.25); border-radius: var(--card-radius); display: flex; align-items: center; justify-content: center; }
+.pegging-strip { grid-column: 1 / -1; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.show-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.show-overlay[hidden] { display: none; }

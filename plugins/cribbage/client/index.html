@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cribbage</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <a class="back" href="/">← Lobby</a>
+    <div class="players">
+      <div class="player" id="p-me"><span class="name" id="me-name">You</span><span class="score" id="me-score">0</span></div>
+      <span class="vs">vs</span>
+      <div class="player" id="p-opp"><span class="name" id="opp-name">Opponent</span><span class="score" id="opp-score">0</span></div>
+    </div>
+  </header>
+
+  <div id="phase-banner" class="phase-banner"></div>
+
+  <main id="board">
+    <section id="opp-area" class="hand-row hand-row--opp"></section>
+    <section id="table" class="table">
+      <div class="slot slot--starter" id="starter"></div>
+      <div class="slot slot--crib" id="crib"></div>
+      <div class="pegging-strip" id="pegging-strip"></div>
+    </section>
+    <section id="me-area" class="hand-row hand-row--me"></section>
+  </main>
+
+  <div id="show-overlay" class="show-overlay" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
