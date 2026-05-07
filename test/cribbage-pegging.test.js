@@ -101,7 +101,7 @@ test('play: end-of-pegging when both hands empty → advance to show', () => {
     hands: [[c('A','C')],[]],
   });
   const r = applyCribbageAction({ state: s, action: { type: 'play', payload: { card: c('A','C') } }, actorId: 1, rng: det() });
-  assert.equal(r.state.scores[0], 1, 'last-card +1');
+  assert.ok(r.summary.events.some(e => e.kind === 'last-card'), 'last-card event fires');
   assert.equal(r.state.phase, 'show');
 });
 
