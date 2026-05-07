@@ -1,4 +1,5 @@
 import { renderMyHand, renderOpponentHand, getSelection, clearSelection } from './hand.js';
+import { renderCard } from './card.js';
 
 const ctx = window.__GAME__;
 let state = null;
@@ -53,10 +54,29 @@ function render() {
       const r = await window.__cribbage__.send({ type: 'discard', payload: { cards: sel } });
       if (r) clearSelection();
     };
+  } else if (state.phase === 'cut') {
+    const isNonDealer = mySide !== state.dealer;
+    banner.innerHTML = isNonDealer
+      ? `Cut the deck. <button id="btn-cut">Cut</button>`
+      : `Waiting for opponent to cut…`;
+    renderMyHand(meArea, state.hands[mySide], 'view');
+    renderOpponentHand(oppArea, state.hands[oppSide].count ?? 4);
+    const slot = document.getElementById('starter');
+    slot.innerHTML = '';
+    const back = renderCard(null, { faceDown: true });
+    slot.appendChild(back);
+    if (isNonDealer) {
+      document.getElementById('btn-cut').onclick = () => window.__cribbage__.send({ type: 'cut' });
+    }
   } else {
     banner.textContent = `Phase: ${state.phase}`;
     renderOpponentHand(oppArea, state.hands[oppSide].count ?? 0);
     renderMyHand(meArea, Array.isArray(state.hands[mySide]) ? state.hands[mySide] : [], 'view');
+    const slot = document.getElementById('starter');
+    slot.innerHTML = '';
+    if (state.starter) {
+      slot.appendChild(renderCard(state.starter));
+    }
   }
 }
 
