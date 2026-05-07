@@ -105,11 +105,11 @@ test('migrateLegacy preserves the active game with mapped racks/scores', () => {
   const g = games[0];
   assert.equal(g.status, 'active');
   // keith is inserted first → id 1 → side 'a'.
-  assert.equal(g.scoreA, 42);
-  assert.equal(g.scoreB, 17);
+  assert.equal(g.state.scores.a, 42);
+  assert.equal(g.state.scores.b, 17);
   assert.equal(g.currentTurn, 'a'); // 'keith' → 'a'
-  assert.deepEqual(g.rackA, ['E','I','O','U','Y','Z','_']);
-  assert.deepEqual(g.rackB, ['T','S','R','N','L','D','P']);
+  assert.deepEqual(g.state.racks.a, ['E','I','O','U','Y','Z','_']);
+  assert.deepEqual(g.state.racks.b, ['T','S','R','N','L','D','P']);
 });
 
 test('migrateLegacy rebuilds moves with game_id and side', () => {

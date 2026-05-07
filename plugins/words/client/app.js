@@ -60,7 +60,7 @@ function refresh() {
   pill.setAttribute('role', 'status');
   pill.setAttribute('aria-live', 'polite');
 
-  $('#bag-count').textContent = `bag ${ui.server.bag.length}`;
+  $('#bag-count').textContent = `bag ${ui.server.bag.count}`;
   const rackLeft = ui.server.racks?.[ui.server.you]?.length ?? 0;
   $('#rack-remaining').textContent = `${rackLeft} in rack`;
   const myTurn = current === ui.server.you;

@@ -27,8 +27,10 @@ export function mountRoutes(app, { db, registry, sse }) {
       const otherId = g.playerAId === req.user.id ? g.playerBId : g.playerAId;
       const other = getUserById(db, otherId);
       const you = sideForUser(g, req.user.id);
-      const yourScore = you === 'a' ? g.scoreA : g.scoreB;
-      const theirScore = you === 'a' ? g.scoreB : g.scoreA;
+      const scoreA = g.state?.scores?.a ?? 0;
+      const scoreB = g.state?.scores?.b ?? 0;
+      const yourScore = you === 'a' ? scoreA : scoreB;
+      const theirScore = you === 'a' ? scoreB : scoreA;
       return {
         id: g.id,
         opponent: { id: other.id, friendlyName: other.friendlyName, color: other.color },
@@ -124,34 +126,6 @@ export function mountRoutes(app, { db, registry, sse }) {
       playerAId: req.game.playerAId,
       playerBId: req.game.playerBId,
       state: view,
-    });
-  });
-
-  // Legacy Words-shape state endpoint — used by the existing Words client.
-  // Returns full game state including both racks; new clients should use
-  // GET /api/games/:gameId (which goes through publicView).
-  app.get('/api/games/:gameId/state', requireIdentity, (req, res) => {
-    const g = req.game;
-    const side = sideForUser(g, req.user.id);
-    const otherId = g.playerAId === req.user.id ? g.playerBId : g.playerAId;
-    const other = getUserById(db, otherId);
-    res.json({
-      gameId: g.id,
-      you: side,
-      opponent: { friendlyName: other.friendlyName, color: other.color },
-      yourFriendlyName: req.user.friendlyName,
-      yourColor: req.user.color,
-      status: g.status,
-      currentTurn: g.currentTurn,
-      board: g.board,
-      bag: g.bag,
-      racks: { a: g.rackA, b: g.rackB },
-      scores: { a: g.scoreA, b: g.scoreB },
-      consecutiveScorelessTurns: g.consecutiveScorelessTurns,
-      endedReason: g.endedReason,
-      winner: g.winnerSide,
-      sides: g.state?.sides ?? null,
-      variant: g.state?.variant ?? null,
     });
   });
 

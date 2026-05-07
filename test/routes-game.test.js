@@ -37,30 +37,10 @@ function setup() {
   return { db, a, b, c, g };
 }
 
-test('GET /api/games/:id/state returns snapshot for a participant', async () => {
+test('GET /api/games/:id/state is gone (returns 404)', async () => {
   const { db, g } = setup();
   const server = await listen(buildApp(db, 'a@x.com'));
   const r = await fetch(`${urlOf(server)}/api/games/${g.id}/state`);
-  assert.equal(r.status, 200);
-  const body = await r.json();
-  assert.equal(body.you, 'a'); // Alice has lower id post-canonicalization
-  assert.ok(body.opponent.friendlyName);
-  assert.ok(Array.isArray(body.board));
-  server.close();
-});
-
-test('GET /api/games/:id/state returns 403 for non-participant', async () => {
-  const { db, g } = setup();
-  const server = await listen(buildApp(db, 'c@x.com'));
-  const r = await fetch(`${urlOf(server)}/api/games/${g.id}/state`);
-  assert.equal(r.status, 403);
-  server.close();
-});
-
-test('GET /api/games/:id/state returns 404 for missing game', async () => {
-  const { db } = setup();
-  const server = await listen(buildApp(db, 'a@x.com'));
-  const r = await fetch(`${urlOf(server)}/api/games/9999/state`);
   assert.equal(r.status, 404);
   server.close();
 });

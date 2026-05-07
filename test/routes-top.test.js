@@ -99,3 +99,35 @@ test('POST /api/games returns 400 on unknown user', async () => {
   assert.equal(r.status, 400);
   server.close();
 });
+
+test('GET /api/me derives yourScore/theirScore from state.scores', async () => {
+  const db = openDb(':memory:');
+  const a = createUser(db, { email: 'a@x.com', friendlyName: 'Alice' });
+  const b = createUser(db, { email: 'b@x.com', friendlyName: 'Bob' });
+  const aId = Math.min(a.id, b.id);
+  const bId = Math.max(a.id, b.id);
+  const state = {
+    bag: [], board: [], racks: { a: [], b: [] },
+    scores: { a: 42, b: 7 },
+    sides: { a: aId, b: bId },
+    activeUserId: aId,
+    consecutiveScorelessTurns: 0,
+    initialMoveDone: true,
+    endedReason: null,
+    winnerSide: null,
+  };
+  const now = Date.now();
+  db.prepare(`INSERT INTO games
+    (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'words', ?, ?, ?)`)
+    .run(aId, bId, JSON.stringify(state), now, now);
+
+  const server = await listen(buildApp(db, 'a@x.com'));
+  const r = await fetch(`${urlOf(server)}/api/me`);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.games.length, 1);
+  assert.equal(body.games[0].yourScore, 42);
+  assert.equal(body.games[0].theirScore, 7);
+  server.close();
+});
