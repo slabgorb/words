@@ -1,6 +1,7 @@
 import { renderMyHand, renderOpponentHand, getSelection, clearSelection } from './hand.js';
 import { renderCard } from './card.js';
 import { renderPeggingStrip, isPlayable } from './pegging.js';
+import { renderShow, hideShow } from './show.js';
 
 const ctx = window.__GAME__;
 let state = null;
@@ -95,6 +96,13 @@ function render() {
     const slot = document.getElementById('starter');
     slot.innerHTML = '';
     if (state.starter) slot.appendChild(renderCard(state.starter));
+  }
+
+  const overlay = document.getElementById('show-overlay');
+  if (state.phase === 'show' && state.showBreakdown) {
+    renderShow(overlay, state, ctx.userId, () => window.__cribbage__.send({ type: 'next' }));
+  } else {
+    hideShow(overlay);
   }
 }
 
