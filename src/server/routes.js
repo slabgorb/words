@@ -127,34 +127,6 @@ export function mountRoutes(app, { db, registry, sse }) {
     });
   });
 
-  // Legacy Words-shape state endpoint — used by the existing Words client.
-  // Returns full game state including both racks; new clients should use
-  // GET /api/games/:gameId (which goes through publicView).
-  app.get('/api/games/:gameId/state', requireIdentity, (req, res) => {
-    const g = req.game;
-    const side = sideForUser(g, req.user.id);
-    const otherId = g.playerAId === req.user.id ? g.playerBId : g.playerAId;
-    const other = getUserById(db, otherId);
-    res.json({
-      gameId: g.id,
-      you: side,
-      opponent: { friendlyName: other.friendlyName, color: other.color },
-      yourFriendlyName: req.user.friendlyName,
-      yourColor: req.user.color,
-      status: g.status,
-      currentTurn: g.currentTurn,
-      board: g.board,
-      bag: g.bag,
-      racks: { a: g.rackA, b: g.rackB },
-      scores: { a: g.scoreA, b: g.scoreB },
-      consecutiveScorelessTurns: g.consecutiveScorelessTurns,
-      endedReason: g.endedReason,
-      winner: g.winnerSide,
-      sides: g.state?.sides ?? null,
-      variant: g.state?.variant ?? null,
-    });
-  });
-
   app.get('/api/games/:gameId/history', requireIdentity, (req, res) => {
     const entries = listTurnEntries(db, req.game.id);
     res.json({ entries });
