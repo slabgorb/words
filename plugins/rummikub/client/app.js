@@ -42,24 +42,62 @@ function refreshEndButton() {
 function refreshMeldIndicator() {
   const myUserId = ctx.userId;
   const mySide = state.sides.a === myUserId ? 'a' : 'b';
+  const meldEl = document.getElementById('meld-indicator');
+  const fillEl = document.getElementById('meld-bar-fill');
   if (state.initialMeldComplete[mySide]) {
-    document.getElementById('meld-indicator').classList.add('hidden');
+    meldEl.classList.add('hidden');
     return;
   }
-  document.getElementById('meld-indicator').classList.remove('hidden');
+  meldEl.classList.remove('hidden');
   const tent = getTentative();
   const snap = getSnapshot();
-  if (!tent || !snap) {
-    document.getElementById('meld-points').textContent = '0';
-    return;
-  }
-  const startKeys = new Set(snap.table.map(s => s.map(t => t.id).sort().join(',')));
   let pts = 0;
-  for (const set of tent.table) {
-    const key = set.map(t => t.id).sort().join(',');
-    if (!startKeys.has(key)) pts += setValue(set);
+  if (tent && snap) {
+    const startKeys = new Set(snap.table.map(s => s.map(t => t.id).sort().join(',')));
+    for (const set of tent.table) {
+      const key = set.map(t => t.id).sort().join(',');
+      if (!startKeys.has(key)) pts += setValue(set);
+    }
   }
   document.getElementById('meld-points').textContent = pts;
+  if (fillEl) fillEl.style.width = `${Math.min(100, (pts / 30) * 100)}%`;
+}
+
+function refreshTurnBanner(myTurn) {
+  const banner = document.getElementById('turn-banner');
+  const stateEl = document.getElementById('turn-state');
+  const hintEl = document.getElementById('turn-hint');
+  if (state.endedReason) {
+    banner.dataset.mine = 'false';
+    stateEl.textContent = 'Game over';
+    hintEl.textContent = '';
+    return;
+  }
+  banner.dataset.mine = myTurn ? 'true' : 'false';
+  if (myTurn) {
+    stateEl.textContent = 'Your turn';
+    hintEl.textContent = '· play a set or draw a tile';
+  } else {
+    stateEl.textContent = "Opponent's turn";
+    hintEl.textContent = '· waiting…';
+  }
+}
+
+function renderOppRack(count) {
+  const el = document.getElementById('opp-rack');
+  el.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const back = document.createElement('div');
+    back.className = 'tile face-down size-sm';
+    el.appendChild(back);
+  }
+}
+
+function setPlayerCard(prefix, name, score, tilesLeft, active) {
+  document.getElementById(`${prefix}-name`).textContent = name;
+  document.getElementById(`${prefix}-score`).textContent = score;
+  document.getElementById(`${prefix}-tiles`).textContent = tilesLeft;
+  document.getElementById(`${prefix}-card`).dataset.active = active ? 'true' : 'false';
 }
 
 async function fetchState() {
@@ -75,15 +113,22 @@ function render() {
   const myUserId = ctx.userId;
   const mySide = state.sides.a === myUserId ? 'a' : 'b';
   const oppSide = mySide === 'a' ? 'b' : 'a';
-
-  document.getElementById('my-score').textContent = state.scores[mySide];
-  document.getElementById('opp-score').textContent = state.scores[oppSide];
-  document.getElementById('turn-indicator').textContent =
-    state.activeUserId === myUserId ? 'Your turn' : "Opponent's turn";
-  document.getElementById('pool-count').textContent = state.pool.count;
-  document.getElementById('opp-rack-count').textContent = state.opponentRack.count;
-
+  const myName = ctx.yourFriendlyName ?? 'You';
+  const oppName = ctx.opponentFriendlyName ?? 'Opponent';
   const myTurn = state.activeUserId === myUserId;
+
+  const myRackCount = (state.racks?.[mySide] ?? []).length;
+  const oppRackCount = state.opponentRack.count;
+
+  setPlayerCard('me', myName, state.scores[mySide], myRackCount, myTurn);
+  setPlayerCard('opp', oppName, state.scores[oppSide], oppRackCount, !myTurn && !state.endedReason);
+
+  document.getElementById('pool-count').textContent = state.pool.count;
+  document.getElementById('opp-rack-count').textContent = oppRackCount;
+  document.getElementById('opp-rack-name').textContent = `${oppName}'s rack`;
+  document.getElementById('my-rack-count').textContent = myRackCount;
+  renderOppRack(oppRackCount);
+  refreshTurnBanner(myTurn);
 
   // When it stops being our turn, clear turnInProgress so next turn gets a fresh snapshot
   if (!myTurn || state.endedReason) {
@@ -100,6 +145,9 @@ function render() {
   const useTentative = myTurn && tent && !state.endedReason;
   const rackToRender = useTentative ? tent.rack : (state.racks[mySide] ?? []);
   const tableToRender = useTentative ? tent.table : state.table;
+
+  document.getElementById('my-rack-count').textContent = rackToRender.length;
+  setPlayerCard('me', myName, state.scores[mySide], rackToRender.length, myTurn);
 
   const tableEl = document.getElementById('table');
   renderTable(tableEl, tableToRender);
@@ -140,8 +188,11 @@ openSSE();
 initJokerPicker();
 attachDrag(document.body, render);
 
-document.getElementById('btn-sort').addEventListener('click', () => {
+document.getElementById('btn-sort').addEventListener('click', (e) => {
   toggleSortMode();
+  const btn = e.currentTarget;
+  const next = btn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true';
+  btn.setAttribute('aria-pressed', next);
   render();
 });
 

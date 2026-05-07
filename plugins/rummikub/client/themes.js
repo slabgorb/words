@@ -2,10 +2,11 @@
 
 const THEMES = {
   baize:  { label: 'Baize'  },
+  walnut: { label: 'Walnut' },
   jersey: { label: 'Jersey' },
 };
 
-const ORDER = ['baize', 'jersey'];
+const ORDER = ['baize', 'walnut', 'jersey'];
 const STORAGE_KEY = 'rummikub.theme';
 
 let active = localStorage.getItem(STORAGE_KEY);
