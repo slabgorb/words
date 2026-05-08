@@ -9,8 +9,8 @@ export function cardImageUrl(card) {
   return `assets/cards/${SUIT_NAME[card.suit]}-${card.rank}.jpg`;
 }
 
-export function backImageUrl(n = 5) {
-  return `assets/cards/back-${n}.jpg`;
+export function backImageUrl(n = 1) {
+  return `assets/cards/back_${n}.png`;
 }
 
 export function renderCard(card, { faceDown = false, draggable = false } = {}) {

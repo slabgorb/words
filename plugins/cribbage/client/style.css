@@ -1,7 +1,7 @@
 :root {
   --bg: #0d3a1f;          /* card-table green */
-  --card-w: 90px;
-  --card-h: 130px;
+  --card-w: 113px;
+  --card-h: 163px;
   --card-radius: 8px;
 }
 * { box-sizing: border-box; }
