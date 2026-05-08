@@ -12,11 +12,15 @@ function collect(value, out) {
     for (const item of value) collect(item, out);
     return;
   }
-  if (typeof value === 'object' && typeof value.id === 'string') {
-    out.push(value.id);
-    return;
+  if (typeof value === 'object') {
+    if (typeof value.id === 'string') {
+      out.push(value.id);
+      return;
+    }
+    // Plain container objects ({ a: [...], b: [...] }) — recurse into values.
+    for (const v of Object.values(value)) collect(v, out);
   }
-  // Anything else (numbers, plain objects without id) is ignored.
+  // Primitives are ignored.
 }
 
 export function multisetEqual(a, b) {
