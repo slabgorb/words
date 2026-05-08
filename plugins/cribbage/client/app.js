@@ -2,6 +2,7 @@ import { renderMyHand, renderOpponentHand, getSelection, clearSelection } from '
 import { renderCard } from './card.js';
 import { renderPeggingStrip, isPlayable } from './pegging.js';
 import { renderShow, hideShow } from './show.js';
+import { renderPegBoard } from './peg-board.js';
 
 const ctx = window.__GAME__;
 let state = null;
@@ -42,12 +43,17 @@ function bannerText(state, mySide) {
       return myTurn ? `Your play — running ${state.pegging.running}` : `Opponent's play — running ${state.pegging.running}`;
     case 'show':
       return 'Hand counts';
-    case 'done':
-      return state.scores[0] === state.scores[1]
-        ? `Tied at ${state.scores[mySide]} — deal complete`
-        : (state.scores[mySide] > state.scores[1 - mySide]
-            ? `You took the deal, ${state.scores[mySide]} to ${state.scores[1 - mySide]}`
-            : `Opponent took the deal, ${state.scores[1 - mySide]} to ${state.scores[mySide]}`);
+    case 'match-end': {
+      const target = state.matchTarget ?? 121;
+      const me = state.scores[mySide];
+      const opp = state.scores[1 - mySide];
+      const won = state.winnerSide === (mySide === 0 ? 'a' : 'b');
+      const skunked = (won ? opp : me) < 91;
+      const margin = skunked ? ' — skunk!' : '';
+      return won
+        ? `You won the match, ${me} to ${opp}${margin}`
+        : `Opponent won the match, ${opp} to ${me}${margin}`;
+    }
   }
   return state.phase;
 }
@@ -65,6 +71,8 @@ function render() {
   const banner = document.getElementById('phase-banner');
   const oppArea = document.getElementById('opp-area');
   const meArea = document.getElementById('me-area');
+  const pegBoard = document.getElementById('peg-board');
+  if (pegBoard) renderPegBoard(pegBoard, state, ctx);
 
   banner.textContent = bannerText(state, mySide);
 

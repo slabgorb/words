@@ -45,12 +45,26 @@ test('show next: first ack does not advance phase', () => {
   assert.deepEqual(r.state.acknowledged, [true, false]);
 });
 
-test('show next: both acks → phase=done, ended=true', () => {
-  const s = { ...showState(), showBreakdown: { nonDealer: { items: [], total: 0 }, dealer: { items: [], total: 0 }, crib: { items: [], total: 0 } }, acknowledged: [false, true] };
+test('show next: both acks below match target → next deal, dealer rotates, phase=discard', () => {
+  const s = { ...showState(), matchTarget: 121, dealNumber: 1, prevScores: [0, 0],
+    showBreakdown: { nonDealer: { items: [], total: 0 }, dealer: { items: [], total: 0 }, crib: { items: [], total: 0 } },
+    acknowledged: [false, true] };
+  const r = applyCribbageAction({ state: s, action: { type: 'next' }, actorId: 1, rng: () => 0.5 });
+  assert.equal(r.state.phase, 'discard');
+  assert.equal(r.state.dealer, 1, 'dealer rotates to opponent');
+  assert.equal(r.state.dealNumber, 2);
+  assert.equal(r.ended, false);
+});
+
+test('show next: both acks with score >= matchTarget → match-end', () => {
+  const s = { ...showState({ scores: [121, 5] }), matchTarget: 121, dealNumber: 3, prevScores: [115, 5],
+    showBreakdown: { nonDealer: { items: [], total: 0 }, dealer: { items: [], total: 0 }, crib: { items: [], total: 0 } },
+    acknowledged: [false, true] };
   const r = applyCribbageAction({ state: s, action: { type: 'next' }, actorId: 1, rng: () => 0 });
-  assert.equal(r.state.phase, 'done');
+  assert.equal(r.state.phase, 'match-end');
+  assert.equal(r.state.winnerSide, 'a');
   assert.equal(r.ended, true);
-  assert.equal(r.state.endedReason, 'deal-complete');
+  assert.equal(r.state.endedReason, 'reached-target');
 });
 
 test('enterShow: computes breakdown and adds totals to scores', async () => {

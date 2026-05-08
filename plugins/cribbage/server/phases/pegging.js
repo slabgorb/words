@@ -1,6 +1,17 @@
 import { sameCard, pipValue } from '../cards.js';
 import { scorePeggingPlay } from '../scoring/pegging.js';
 import { enterShow } from './show.js';
+import { applyScore, checkMatchWin } from '../state.js';
+
+function endIfWon(stateAfter, summary) {
+  const winner = checkMatchWin(stateAfter);
+  if (!winner) return null;
+  return {
+    state: { ...stateAfter, phase: 'match-end', winnerSide: winner, endedReason: 'reached-target', activeUserId: null },
+    ended: true,
+    summary: { ...summary, matchEnd: true },
+  };
+}
 
 export function applyPlay({ state, action, player }) {
   const peg = state.pegging;
@@ -16,7 +27,6 @@ export function applyPlay({ state, action, player }) {
     return { error: 'play would push running total over 31' };
   }
 
-  // Apply play
   const hands = state.hands.map(h => h.slice());
   hands[player].splice(handIdx, 1);
   const history = [...peg.history, card];
@@ -24,10 +34,8 @@ export function applyPlay({ state, action, player }) {
   pile[player] = [...pile[player], card];
   const running = peg.running + v;
 
-  // Score the play
   const events = scorePeggingPlay(history, running);
-  const scores = [...state.scores];
-  for (const e of events) scores[player] += e.points;
+  const eventPoints = events.reduce((sum, e) => sum + e.points, 0);
 
   let nextPeg = {
     ...peg,
@@ -38,7 +46,6 @@ export function applyPlay({ state, action, player }) {
     next: 1 - player,
   };
 
-  // 31 → reset run
   if (running === 31) {
     nextPeg = {
       ...nextPeg,
@@ -49,44 +56,56 @@ export function applyPlay({ state, action, player }) {
     };
   }
 
-  // End-of-pegging if both hands empty
+  let working = applyScore({ ...state, hands, pegging: nextPeg }, player, eventPoints);
+
+  // Pegging score may end the match mid-deal.
+  const won = endIfWon(working, { kind: 'play', card, events });
+  if (won) return won;
+
   const handsEmpty = hands[0].length === 0 && hands[1].length === 0;
   if (handsEmpty) {
+    let endState = working;
+    let endEvents = events;
     if (running !== 31) {
-      // Award last-card +1
-      scores[player] += 1;
-      events.push({ kind: 'last-card', points: 1, cards: [card], say: 'last card for one' });
+      endState = applyScore(endState, player, 1);
+      endEvents = [...events, { kind: 'last-card', points: 1, cards: [card], say: 'last card for one' }];
+      const wonAfterLast = endIfWon(endState, { kind: 'play', card, events: endEvents });
+      if (wonAfterLast) return wonAfterLast;
     }
-    const baseState = { ...state, hands, pegging: { ...nextPeg, running: 0, history: [], saidGo: [false, false] }, scores };
+    const baseState = { ...endState, pegging: { ...nextPeg, running: 0, history: [], saidGo: [false, false] } };
     const showed = enterShow(baseState);
+    const wonAfterShow = endIfWon(showed.state, { kind: 'play', card, events: endEvents });
+    if (wonAfterShow) return { ...wonAfterShow, state: { ...wonAfterShow.state, phase: 'match-end' } };
     return {
       state: { ...showed.state, phase: 'show' },
       ended: false,
-      summary: { kind: 'play', card, events },
+      summary: { kind: 'play', card, events: endEvents },
     };
   }
 
-  // Auto-go loop: while next player has no legal card, mark goes; on
-  // both-go, end the run with last-card +1 to lastPlayer.
-  let working = { state: { ...state, hands, pegging: nextPeg, scores }, summary: { kind: 'play', card, events } };
-  working = autoGoLoop(working);
+  // Auto-go loop
+  let loop = autoGoLoop({ state: working, summary: { kind: 'play', card, events } });
 
-  // Check end-of-pegging again after auto-go (run reset may have emptied things differently)
-  if (working.state.hands[0].length === 0 && working.state.hands[1].length === 0) {
-    const showed = enterShow({ ...working.state });
+  // Win during auto-go (last-card peg)
+  const wonAfterGo = endIfWon(loop.state, loop.summary);
+  if (wonAfterGo) return wonAfterGo;
+
+  if (loop.state.hands[0].length === 0 && loop.state.hands[1].length === 0) {
+    const showed = enterShow({ ...loop.state });
+    const wonAfterShow = endIfWon(showed.state, loop.summary);
+    if (wonAfterShow) return { ...wonAfterShow, state: { ...wonAfterShow.state, phase: 'match-end' } };
     return {
       state: { ...showed.state, phase: 'show' },
       ended: false,
-      summary: working.summary,
+      summary: loop.summary,
     };
   }
 
-  // Set activeUserId from peg.next
-  const nextUserId = working.state.pegging.next === 0 ? working.state.sides.a : working.state.sides.b;
+  const nextUserId = loop.state.pegging.next === 0 ? loop.state.sides.a : loop.state.sides.b;
   return {
-    state: { ...working.state, activeUserId: nextUserId },
+    state: { ...loop.state, activeUserId: nextUserId },
     ended: false,
-    summary: working.summary,
+    summary: loop.summary,
   };
 }
 
@@ -104,7 +123,6 @@ function autoGoLoop({ state, summary }) {
     if (st.hands[next].length > 0 && hasPlayable(st.hands[next], peg.running)) {
       break;
     }
-    // mark go for next player
     const saidGo = peg.saidGo.slice();
     saidGo[next] = true;
     const other = 1 - next;
@@ -113,10 +131,8 @@ function autoGoLoop({ state, summary }) {
       st = { ...st, pegging: { ...peg, saidGo, next: other } };
       continue;
     }
-    // both can't play OR opponent has no cards: end the run
     const lp = peg.lastPlayer;
-    const scores = [...st.scores];
-    scores[lp] += 1;
+    st = applyScore(st, lp, 1);
     events.push({ kind: 'last-card', points: 1, cards: peg.history.slice(-1), say: 'last card for one' });
     st = {
       ...st,
@@ -127,7 +143,6 @@ function autoGoLoop({ state, summary }) {
         saidGo: [false, false],
         next: 1 - lp,
       },
-      scores,
     };
     if (st.hands[0].length === 0 && st.hands[1].length === 0) break;
   }

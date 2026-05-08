@@ -46,7 +46,14 @@ test('full deal: deterministic seed → discard, cut, pegging through end, show,
   state = r.state;
   r = applyCribbageAction({ state, action: { type: 'next' }, actorId: 2, rng: det(7) });
   state = r.state;
-  assert.equal(state.phase, 'done');
-  assert.equal(r.ended, true);
-  assert.equal(state.endedReason, 'deal-complete');
+  // Multi-deal match: second ack starts the next deal (or ends the match
+  // if someone hit matchTarget). With low scores, we expect a fresh deal.
+  if (state.scores[0] >= state.matchTarget || state.scores[1] >= state.matchTarget) {
+    assert.equal(state.phase, 'match-end');
+    assert.equal(r.ended, true);
+  } else {
+    assert.equal(state.phase, 'discard', 'next deal begins');
+    assert.equal(state.dealer, 1, 'dealer rotates');
+    assert.equal(state.dealNumber, 2);
+  }
 });

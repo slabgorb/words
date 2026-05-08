@@ -6,9 +6,11 @@ export function cribbagePublicView({ state, viewerId }) {
     viewerSide === 1 ? state.hands[1] : { count: state.hands[1].length },
   ];
 
-  const cribVisible = state.phase === 'show' || state.phase === 'done';
+  const cribVisible = state.phase === 'show' || state.phase === 'match-end';
 
   return {
+    matchTarget: state.matchTarget ?? 121,
+    dealNumber: state.dealNumber ?? 1,
     phase: state.phase,
     dealer: state.dealer,
     deck: { count: state.deck.length },
@@ -21,6 +23,7 @@ export function cribbagePublicView({ state, viewerId }) {
     starter: state.starter,
     pegging: state.pegging,
     scores: state.scores,
+    prevScores: state.prevScores ?? [0, 0],
     showBreakdown: state.showBreakdown,
     acknowledged: state.acknowledged,
     sides: state.sides,
