@@ -1,5 +1,5 @@
 import { renderMyHand, renderOpponentHand, getSelection, clearSelection } from './hand.js';
-import { renderCard } from './card.js';
+import { renderCard } from '/shared/cards/card-element.js';
 import { renderPeggingStrip, isPlayable } from './pegging.js';
 import { renderShow, hideShow } from './show.js';
 import { renderPegBoard } from './peg-board.js';

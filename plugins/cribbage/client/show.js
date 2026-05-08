@@ -1,4 +1,4 @@
-import { renderCard } from './card.js';
+import { renderCard } from '/shared/cards/card-element.js';
 
 function renderBreakdownCard(title, breakdown) {
   const card = document.createElement('div');

@@ -1,4 +1,4 @@
-import { renderCard, cardImageUrl } from './card.js';
+import { renderCard, cardImageUrl } from '/shared/cards/card-element.js';
 
 let selected = []; // array of {rank,suit}
 
