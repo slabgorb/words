@@ -63,6 +63,7 @@ header .player .score { font-weight: bold; }
   display: flex; align-items: center; justify-content: center;
   z-index: 10;
 }
+.overlay[hidden] { display: none; }
 .overlay > div {
   background: #fff; color: #222; padding: 20px; border-radius: 8px;
   max-width: 480px; width: 90%;
