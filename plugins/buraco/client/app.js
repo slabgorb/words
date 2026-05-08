@@ -1,11 +1,21 @@
+import { renderTableCenter } from './table.js';
+import { renderMeldsZone } from './melds.js';
+import { renderOppHand, renderMyHand } from './hand.js';
+import { renderActionBar } from './action-bar.js';
+
 const ctx = window.__GAME__;
 let state = null;
+let mySide = null;
+const selection = new Set();
+let extendModeMeldIdx = null;
 
 async function fetchState() {
   const r = await fetch(ctx.stateUrl);
   if (!r.ok) throw new Error(`state fetch failed: ${r.status}`);
   const data = await r.json();
   state = data.state ?? data;
+  if (!mySide) mySide = state.sides.a === ctx.userId ? 'a' : 'b';
+  selection.clear();
   render();
 }
 
@@ -22,34 +32,86 @@ async function send(action) {
   }
   if (body.state) {
     state = body.state;
+    selection.clear();
+    extendModeMeldIdx = null;
     render();
   }
   return body;
 }
 
-function mySide() {
-  return state.sides.a === ctx.userId ? 'a' : 'b';
-}
-
 function bannerText() {
-  const me = mySide();
-  if (state.phase === 'game-end') return state.winner === me ? 'You won the match!' : 'Opponent won the match.';
+  if (state.phase === 'game-end') return state.winner === mySide ? 'You won the match!' : 'Opponent won the match.';
   if (state.phase === 'deal-end') return 'Deal ended — scoring…';
-  if (state.currentTurn !== me) return `Waiting for opponent…`;
+  if (state.currentTurn !== mySide) return `Waiting for opponent…`;
   if (state.phase === 'draw') return 'Your turn — draw a card';
   if (state.phase === 'meld') return 'Your turn — meld or discard';
   return state.phase;
 }
 
+function onLayMeld() {
+  const cards = state.hands[mySide].filter(c => selection.has(c.id));
+  send({ type: 'meld', payload: { op: 'create', cards } });
+}
+
+function onExtendMode() {
+  extendModeMeldIdx = -1; // -1 = picking; non-null enables interactive melds
+  render();
+}
+
+function onExtendPick(idx) {
+  const cards = state.hands[mySide].filter(c => selection.has(c.id));
+  send({ type: 'meld', payload: { op: 'extend', meldIndex: idx, cards } });
+}
+
+function onDiscardMode() {
+  const sel = [...selection];
+  if (sel.length !== 1) {
+    alert('Select exactly one card to discard.');
+    return;
+  }
+  const card = state.hands[mySide].find(c => c.id === sel[0]);
+  send({ type: 'discard', payload: { card } });
+}
+
 function render() {
   if (!state) return;
-  const me = mySide();
-  const opp = me === 'a' ? 'b' : 'a';
+  const opp = mySide === 'a' ? 'b' : 'a';
+
   document.getElementById('me-name').textContent = ctx.yourFriendlyName ?? 'You';
   document.getElementById('opp-name').textContent = ctx.opponentFriendlyName ?? 'Opponent';
-  document.getElementById('me-score').textContent = state.scores[me]?.total ?? 0;
+  document.getElementById('me-score').textContent = state.scores[mySide]?.total ?? 0;
   document.getElementById('opp-score').textContent = state.scores[opp]?.total ?? 0;
+
+  // Opponent zone (hand is a number, melds is an array)
+  renderOppHand(document.getElementById('opp-hand-row'), state.hands[opp]);
+  renderMeldsZone(document.getElementById('opp-melds-row'), state.melds[opp]);
+
+  // Table center
+  renderTableCenter(document.getElementById('table-center'), state);
+
+  // My melds (interactive when in extend mode)
+  renderMeldsZone(document.getElementById('my-melds-row'), state.melds[mySide], {
+    interactive: extendModeMeldIdx !== null,
+    onPick: (idx) => onExtendPick(idx),
+  });
+
   document.getElementById('phase-banner').textContent = bannerText();
+
+  renderMyHand(document.getElementById('my-hand-row'), state.hands[mySide], selection, {
+    onToggle: (card) => {
+      if (selection.has(card.id)) selection.delete(card.id);
+      else selection.add(card.id);
+      render();
+    },
+  });
+
+  renderActionBar(document.getElementById('action-bar'), state, mySide, selection, {
+    onDrawStock: () => send({ type: 'draw', payload: { source: 'stock' } }),
+    onTakeDiscard: () => send({ type: 'draw', payload: { source: 'discard' } }),
+    onLayMeld,
+    onExtendMode,
+    onDiscardMode,
+  });
 }
 
 const es = new EventSource(ctx.sseUrl);
