@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buraco</title>
+  <link rel="stylesheet" href="/shared/cards/style.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <a class="back" href="/">← Lobby</a>
+    <button id="btn-mute" class="mute" type="button" aria-label="Toggle sound" title="Toggle sound">🔊</button>
+    <div class="players">
+      <div class="player" id="p-me"><span class="name" id="me-name">You</span><span class="score" id="me-score">0</span></div>
+      <span class="vs">vs</span>
+      <div class="player" id="p-opp"><span class="name" id="opp-name">Opponent</span><span class="score" id="opp-score">0</span></div>
+    </div>
+  </header>
+
+  <main id="board">
+    <section id="opp-hand-row" class="zone zone--opp-hand"></section>
+    <section id="opp-melds-row" class="zone zone--opp-melds"></section>
+    <section id="table-center" class="zone zone--table"></section>
+    <section id="my-melds-row" class="zone zone--my-melds"></section>
+    <div id="phase-banner" class="phase-banner"></div>
+    <section id="my-hand-row" class="zone zone--my-hand"></section>
+  </main>
+
+  <div id="action-bar" class="action-bar"></div>
+  <div id="deal-end-overlay" class="overlay" hidden></div>
+  <div id="game-end-overlay" class="overlay" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
