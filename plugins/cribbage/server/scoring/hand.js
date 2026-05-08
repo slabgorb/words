@@ -1,4 +1,4 @@
-import { pipValue, runValue } from '../cards.js';
+import { pipValue, runValue } from '../values.js';
 
 const NUMBER_WORDS = {
   2:'two', 4:'four', 6:'six', 8:'eight', 10:'ten', 12:'twelve', 14:'fourteen',

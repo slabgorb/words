@@ -1,4 +1,5 @@
-import { sameCard, pipValue } from '../cards.js';
+import { sameCard } from '../cards.js';
+import { pipValue } from '../values.js';
 import { scorePeggingPlay } from '../scoring/pegging.js';
 import { enterShow } from './show.js';
 import { applyScore, checkMatchWin } from '../state.js';

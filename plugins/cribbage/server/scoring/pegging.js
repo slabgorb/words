@@ -1,4 +1,4 @@
-import { runValue } from '../cards.js';
+import { runValue } from '../values.js';
 
 /**
  * Score events triggered by the most recent play.
