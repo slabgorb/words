@@ -27,3 +27,35 @@ export function applyMeldCreate(state, payload, side) {
     },
   };
 }
+
+export function applyMeldExtend(state, payload, side) {
+  if (state.phase !== 'meld') return { error: 'not in meld phase' };
+  const { meldIndex, cards = [] } = payload ?? {};
+  const meld = state.melds[side]?.[meldIndex];
+  if (!meld) return { error: `meld at index ${meldIndex} not found` };
+
+  const hand = state.hands[side];
+  for (const c of cards) {
+    if (!hand.some(h => sameCard(h, c))) return { error: `card ${c.id} not in hand` };
+  }
+
+  // Try appending at high or low end and validate the resulting sequence.
+  const candidates = [
+    [...meld, ...cards],     // high end
+    [...cards, ...meld],     // low end
+  ];
+  const valid = candidates.find(seq => isValidSequence(seq));
+  if (!valid) return { error: 'cards do not extend the sequence' };
+
+  const newHand = hand.filter(h => !cards.some(c => sameCard(c, h)));
+  const newSideMelds = state.melds[side].map((m, i) => i === meldIndex ? valid : m);
+
+  return {
+    state: {
+      ...state,
+      hands: { ...state.hands, [side]: newHand },
+      melds: { ...state.melds, [side]: newSideMelds },
+      lastEvent: { kind: 'extend', side, summary: `${side} extended a meld by ${cards.length}` },
+    },
+  };
+}
