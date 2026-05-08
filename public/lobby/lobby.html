@@ -30,10 +30,10 @@
       <span class="brand-rivet brand-rivet-bl"></span>
       <span class="brand-rivet brand-rivet-br"></span>
     </div>
-    <div id="me-card">
+    <button id="me-card" type="button" aria-haspopup="dialog" aria-label="Account">
       <span id="me-avatar" aria-hidden="true"></span>
       <span id="me-name"></span>
-    </div>
+    </button>
   </header>
 
   <main id="lobby" hidden>
@@ -70,6 +70,15 @@
     <h3 id="ng-title">Start a new game</h3>
     <ol id="ng-steps"></ol>
     <button id="ng-cancel" type="button">Cancel</button>
+  </dialog>
+
+  <dialog id="logout-prompt" aria-labelledby="lo-title">
+    <h3 id="lo-title">Sign out of Gamebox?</h3>
+    <p id="lo-body">You can sign back in any time.</p>
+    <div class="lo-actions">
+      <button id="lo-cancel" type="button" class="lo-btn lo-btn-cancel">Stay signed in</button>
+      <button id="lo-confirm" type="button" class="lo-btn lo-btn-confirm">Sign out</button>
+    </div>
   </dialog>
 
   <script src="/lobby/lobby.js" type="module"></script>

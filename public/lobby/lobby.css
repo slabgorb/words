@@ -142,7 +142,7 @@ header::before {
 .brand-rivet-bl { bottom: 5px; left: 5px; }
 .brand-rivet-br { bottom: 5px; right: 5px; }
 
-/* "Me" — leather luggage tag */
+/* "Me" — leather luggage tag (button: opens logout prompt) */
 #me-card {
   position: relative;
   z-index: 1;
@@ -158,7 +158,21 @@ header::before {
     inset 0 -1px 0 rgba(40,15,5,0.5),
     0 2px 0 rgba(0,0,0,0.35),
     0 5px 10px rgba(0,0,0,0.32);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.12s ease;
 }
+#me-card:hover, #me-card:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,222,180,0.55),
+    inset 0 -1px 0 rgba(40,15,5,0.5),
+    0 3px 0 rgba(0,0,0,0.35),
+    0 8px 14px rgba(0,0,0,0.34);
+}
+#me-card:active { transform: translateY(0); }
 #me-card::before {
   content: "";
   position: absolute; inset: 4px;
@@ -710,6 +724,48 @@ dialog h3 {
   font-size: 13px;
 }
 #ng-cancel:hover { color: var(--ink); }
+
+/* Logout dialog */
+#logout-prompt p {
+  font-family: var(--body);
+  color: var(--ink-faint);
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+.lo-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.lo-btn {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  padding: 9px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid rgba(80,50,20,0.35);
+  transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.lo-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lo-btn-cancel {
+  background: #fffbe9;
+  color: var(--ink);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(60,30,5,0.10);
+}
+.lo-btn-cancel:hover { background: #fff5d6; }
+.lo-btn-confirm {
+  color: #fff8e3;
+  background: linear-gradient(180deg, #b34a2a 0%, #8a3318 100%);
+  border-color: #5a2210;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 -1px 0 rgba(0,0,0,0.3),
+    0 2px 0 rgba(0,0,0,0.3);
+}
+.lo-btn-confirm:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.3), 0 3px 0 rgba(0,0,0,0.3), 0 6px 12px rgba(60,15,5,0.35); }
+.lo-btn-confirm:active { transform: translateY(0); }
 
 /* Mobile */
 @media (max-width: 480px) {

@@ -398,6 +398,24 @@ async function main() {
   document.getElementById('lobby').hidden = false;
   document.getElementById('fab').hidden = false;
   wireNewGame(me, plugins);
+  wireLogout();
+}
+
+function wireLogout() {
+  const card = document.getElementById('me-card');
+  const dlg = document.getElementById('logout-prompt');
+  const cancel = document.getElementById('lo-cancel');
+  const confirm = document.getElementById('lo-confirm');
+  if (!card || !dlg) return;
+
+  card.addEventListener('click', () => dlg.showModal());
+  cancel.addEventListener('click', () => dlg.close());
+  dlg.addEventListener('cancel', () => dlg.close());
+  confirm.addEventListener('click', () => {
+    confirm.disabled = true;
+    confirm.textContent = 'Signing out…';
+    window.location.assign('/cdn-cgi/access/logout');
+  });
 }
 
 // New-game flow
