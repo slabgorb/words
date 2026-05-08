@@ -1,5 +1,31 @@
-import { isValidSequence } from '../sequence.js';
+import { isValidSequence, isBuracoLimpo, isBuracoSujo } from '../sequence.js';
 import { sameCard, isJoker } from '../../../../src/shared/cards/deck.js';
+
+// After any action that may empty a player's hand, run this transition.
+// Returns:
+//   - the (possibly transitioned) state, or
+//   - null if the player tried to go out without a buraco (caller must reject).
+export function applyHandEmptyTransition(state, side) {
+  if (state.hands[side].length > 0) return state;
+
+  if (!state.mortoTaken[side]) {
+    return {
+      ...state,
+      hands: { ...state.hands, [side]: state.mortos[side] },
+      mortos: { ...state.mortos, [side]: [] },
+      mortoTaken: { ...state.mortoTaken, [side]: true },
+      lastEvent: { kind: 'takeMorto', side, summary: `${side} took the morto` },
+    };
+  }
+
+  const hasBuraco = state.melds[side].some(m => isBuracoLimpo(m) || isBuracoSujo(m));
+  if (!hasBuraco) return null;
+  return {
+    ...state,
+    phase: 'deal-end',
+    lastEvent: { kind: 'deal-end', side, summary: `${side} went out` },
+  };
+}
 
 export function applyMeldCreate(state, payload, side) {
   if (state.phase !== 'meld') return { error: 'not in meld phase' };
@@ -18,14 +44,16 @@ export function applyMeldCreate(state, payload, side) {
   const newHand = hand.filter(h => !cards.some(c => sameCard(c, h)));
   const newMelds = [...state.melds[side], cards];
 
-  return {
-    state: {
-      ...state,
-      hands: { ...state.hands, [side]: newHand },
-      melds: { ...state.melds, [side]: newMelds },
-      lastEvent: { kind: 'meld', side, summary: `${side} laid down ${cards.length} cards` },
-    },
+  const postState = {
+    ...state,
+    hands: { ...state.hands, [side]: newHand },
+    melds: { ...state.melds, [side]: newMelds },
+    lastEvent: { kind: 'meld', side, summary: `${side} laid down ${cards.length} cards` },
   };
+
+  const transitioned = applyHandEmptyTransition(postState, side);
+  if (transitioned === null) return { error: 'cannot go out: no buraco on the table' };
+  return { state: transitioned };
 }
 
 export function applyMeldExtend(state, payload, side) {
@@ -39,10 +67,9 @@ export function applyMeldExtend(state, payload, side) {
     if (!hand.some(h => sameCard(h, c))) return { error: `card ${c.id} not in hand` };
   }
 
-  // Try appending at high or low end and validate the resulting sequence.
   const candidates = [
-    [...meld, ...cards],     // high end
-    [...cards, ...meld],     // low end
+    [...meld, ...cards],
+    [...cards, ...meld],
   ];
   const valid = candidates.find(seq => isValidSequence(seq));
   if (!valid) return { error: 'cards do not extend the sequence' };
@@ -50,14 +77,16 @@ export function applyMeldExtend(state, payload, side) {
   const newHand = hand.filter(h => !cards.some(c => sameCard(c, h)));
   const newSideMelds = state.melds[side].map((m, i) => i === meldIndex ? valid : m);
 
-  return {
-    state: {
-      ...state,
-      hands: { ...state.hands, [side]: newHand },
-      melds: { ...state.melds, [side]: newSideMelds },
-      lastEvent: { kind: 'extend', side, summary: `${side} extended a meld by ${cards.length}` },
-    },
+  const postState = {
+    ...state,
+    hands: { ...state.hands, [side]: newHand },
+    melds: { ...state.melds, [side]: newSideMelds },
+    lastEvent: { kind: 'extend', side, summary: `${side} extended a meld by ${cards.length}` },
   };
+
+  const transitioned = applyHandEmptyTransition(postState, side);
+  if (transitioned === null) return { error: 'cannot go out: no buraco on the table' };
+  return { state: transitioned };
 }
 
 export function applyMeldReplaceWild(state, payload, side) {
@@ -68,7 +97,6 @@ export function applyMeldReplaceWild(state, payload, side) {
   const wildCard = meld[slotIndex];
   if (!wildCard) return { error: `slot ${slotIndex} out of range` };
 
-  // The slot is a wild iff it has representsRank set (annotated wild) OR is a joker.
   const isWild = !!wildCard.representsRank || isJoker(wildCard);
   if (!isWild) return { error: 'slot is not a wild' };
 
@@ -83,7 +111,6 @@ export function applyMeldReplaceWild(state, payload, side) {
     return { error: `withCard ${withCard.id} not in hand` };
   }
 
-  // Strip the wild's annotations when returning it to hand.
   const freedWild = { ...wildCard };
   delete freedWild.representsRank;
   delete freedWild.representsSuit;
