@@ -12,11 +12,18 @@ function det(seed = 1) {
   return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
 }
 
-test('buildInitialState: phase=discard, dealer=0, scores=[0,0]', () => {
+test('buildInitialState: phase=discard, dealer is 0 or 1, scores=[0,0]', () => {
   const s = buildInitialState({ participants, rng: det() });
   assert.equal(s.phase, 'discard');
-  assert.equal(s.dealer, 0);
+  assert.ok(s.dealer === 0 || s.dealer === 1, `dealer must be 0 or 1, got ${s.dealer}`);
   assert.deepEqual(s.scores, [0, 0]);
+});
+
+test('buildInitialState: opening dealer is rng-driven (coin flip)', () => {
+  const lowRng = () => 0.1;
+  const highRng = () => 0.9;
+  assert.equal(buildInitialState({ participants, rng: lowRng }).dealer, 0);
+  assert.equal(buildInitialState({ participants, rng: highRng }).dealer, 1);
 });
 
 test('buildInitialState: deals 6 to each hand, 40 left in deck', () => {

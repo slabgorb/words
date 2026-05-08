@@ -33,20 +33,44 @@ export function renderShow(overlay, state, myUserId, onNext) {
   const wrap = document.createElement('div');
   wrap.className = 'show-wrap';
 
-  const isDealer = (state.sides.a === myUserId ? 0 : 1) === state.dealer;
+  const mySide = state.sides.a === myUserId ? 0 : 1;
+  const isDealer = mySide === state.dealer;
+  const isMatchEnd = state.phase === 'match-end';
+
+  if (isMatchEnd) {
+    const won = state.winnerSide === (mySide === 0 ? 'a' : 'b');
+    const me = state.scores[mySide];
+    const opp = state.scores[1 - mySide];
+    const loserScore = won ? opp : me;
+    const skunked = loserScore < 91;
+    const head = document.createElement('h2');
+    head.className = 'show-head';
+    head.textContent = won
+      ? (skunked ? `Game! You skunked them, ${me} to ${opp}.` : `Game! You won, ${me} to ${opp}.`)
+      : (skunked ? `Game. You were skunked, ${opp} to ${me}.` : `Game. They won, ${opp} to ${me}.`);
+    wrap.appendChild(head);
+  }
+
   const ndLabel = isDealer ? 'Opponent (non-dealer)' : 'You (non-dealer)';
   const dLabel = isDealer ? 'You (dealer)' : 'Opponent (dealer)';
   wrap.appendChild(renderBreakdownCard(ndLabel, state.showBreakdown.nonDealer));
   wrap.appendChild(renderBreakdownCard(dLabel, state.showBreakdown.dealer));
   wrap.appendChild(renderBreakdownCard('Crib', state.showBreakdown.crib));
 
-  const mySide = state.sides.a === myUserId ? 0 : 1;
-  const myAck = state.acknowledged[mySide];
-  const btn = document.createElement('button');
-  btn.textContent = myAck ? 'Waiting for opponent…' : 'Continue';
-  btn.disabled = myAck;
-  btn.addEventListener('click', () => onNext());
-  wrap.appendChild(btn);
+  if (isMatchEnd) {
+    const link = document.createElement('a');
+    link.href = '/';
+    link.className = 'show-lobby-btn';
+    link.textContent = 'Back to lobby';
+    wrap.appendChild(link);
+  } else {
+    const myAck = state.acknowledged[mySide];
+    const btn = document.createElement('button');
+    btn.textContent = myAck ? 'Waiting for opponent…' : 'Continue';
+    btn.disabled = myAck;
+    btn.addEventListener('click', () => onNext());
+    wrap.appendChild(btn);
+  }
 
   overlay.appendChild(wrap);
 }

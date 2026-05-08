@@ -19,7 +19,9 @@ test('full deal: deterministic seed → discard, cut, pegging through end, show,
   state = r.state;
   assert.equal(state.phase, 'cut');
 
-  r = applyCribbageAction({ state, action: { type: 'cut' }, actorId: 2, rng: det(7) });
+  // Random initial dealer means non-dealer's actorId depends on the rng.
+  const nonDealerActor = state.dealer === 0 ? 2 : 1;
+  r = applyCribbageAction({ state, action: { type: 'cut' }, actorId: nonDealerActor, rng: det(7) });
   assert.equal(r.error, undefined);
   state = r.state;
   assert.equal(state.phase, 'pegging');
@@ -44,6 +46,7 @@ test('full deal: deterministic seed → discard, cut, pegging through end, show,
 
   r = applyCribbageAction({ state, action: { type: 'next' }, actorId: 1, rng: det(7) });
   state = r.state;
+  const dealerBeforeAck2 = state.dealer;
   r = applyCribbageAction({ state, action: { type: 'next' }, actorId: 2, rng: det(7) });
   state = r.state;
   // Multi-deal match: second ack starts the next deal (or ends the match
@@ -53,7 +56,7 @@ test('full deal: deterministic seed → discard, cut, pegging through end, show,
     assert.equal(r.ended, true);
   } else {
     assert.equal(state.phase, 'discard', 'next deal begins');
-    assert.equal(state.dealer, 1, 'dealer rotates');
+    assert.equal(state.dealer, 1 - dealerBeforeAck2, 'dealer rotates');
     assert.equal(state.dealNumber, 2);
   }
 });

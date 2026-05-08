@@ -10,11 +10,15 @@ export function buildInitialState({ participants, rng }) {
   const hands = [deck.slice(0, 6), deck.slice(6, 12)];
   const remaining = deck.slice(12);
 
+  // Coin flip for the opening dealer. Cribbage tradition is "low card
+  // cuts the deck deals first" — a coin flip is the digital analogue.
+  const openingDealer = rng() < 0.5 ? 0 : 1;
+
   return {
     matchTarget: DEFAULT_MATCH_TARGET,
     dealNumber: 1,
     phase: 'discard',
-    dealer: 0,
+    dealer: openingDealer,
     deck: remaining,
     hands,
     pendingDiscards: [null, null],
