@@ -112,11 +112,17 @@ plugin in `GET /api/plugins`.
 | -------- | ---------- | ------------------------------------------------------------------- |
 | Words    | `words`    | Words With Friends clone, ENABLE2K dict                             |
 | Rummikub | `rummikub` | Sabra rules, 2 jokers, 30-pt initial meld, structured-rows table UI |
+| Cribbage | `cribbage` | 2-player, 121-pt match, pegging + show, walnut peg board            |
+| Buraco   | `buraco`   | 2-player Buraco Brasileiro, 2 decks + 4 jokers, 3000-pt match       |
 
 - **Rummikub** (`plugins/rummikub/`) — Sabra rules, 2 jokers, 30-pt initial
   meld, structured-rows table UI. Player commits a turn-end state via
   `commit-turn`; server validates multiset balance + set legality + initial
   meld + joker harvest atomically.
+- **Buraco** (`plugins/buraco/`) — 2-player Brazilian rules: sequences only
+  (no sets), wilds are jokers and off-suit 2s, going out requires at least
+  one buraco (≥7 cards), match ends at 3000. Shares card primitives with
+  cribbage via `src/shared/cards/` and `public/shared/cards/`.
 
 ## API surface
 
