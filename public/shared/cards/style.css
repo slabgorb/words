@@ -1,0 +1,30 @@
+/* Shared playing-card visuals. Plugins are responsible for layout (rows, fans,
+   selection states beyond .card--selected). This file owns ONLY the card itself. */
+
+.card {
+  display: inline-block;
+  width: 80px;
+  height: 116px;
+  border-radius: 6px;
+  background-color: #fff;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+  border: 1px solid #999;
+  user-select: none;
+}
+
+.card--back {
+  background-color: #5a3424;
+}
+
+.card--joker {
+  /* No special visuals beyond the joker image; class is for hooks. */
+}
+
+.card--selected {
+  outline: 3px solid #4a8;
+  transform: translateY(-6px);
+  transition: transform 100ms ease-out;
+}
