@@ -13,6 +13,7 @@ const PLUGIN_META = {
   rummikub:   { tagline: 'Tile runs and groups' },
   backgammon: { tagline: 'Race off the board' },
   cribbage:   { tagline: 'Pegs, pairs, and fifteen-twos' },
+  buraco:     { tagline: 'Brazilian rummy — sequences, jokers, mortos' },
 };
 const PLUGIN_VARIANTS = {
   words: [
@@ -179,10 +180,65 @@ function boxArtBackgammon() {
     </svg>`;
 }
 
+function boxArtBuraco() {
+  // A fan of three cards on green felt with a joker peeking out.
+  // suit pip = ♥ (red), card values 5-6-7 of hearts, plus a jester face cap.
+  return `
+    <svg viewBox="0 0 420 120" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <pattern id="bu-felt" width="3" height="3" patternUnits="userSpaceOnUse">
+          <rect width="3" height="3" fill="#275e3a"/>
+          <circle cx="1.5" cy="1.5" r="0.4" fill="#1c4329" opacity="0.7"/>
+        </pattern>
+      </defs>
+      <rect width="420" height="120" fill="url(#bu-felt)"/>
+      <!-- gold corner flourishes echoing rummikub -->
+      <path d="M8 8 H40 M8 8 V36" stroke="#d8b75a" stroke-width="1.2" fill="none"/>
+      <path d="M412 112 H380 M412 112 V84" stroke="#d8b75a" stroke-width="1.2" fill="none"/>
+
+      <!-- Card fan, centered around (210, 64), each card 56x80, rotated -->
+      <g transform="translate(150, 28) rotate(-14 28 40)">
+        <rect x="0" y="0" width="56" height="80" rx="4" fill="#fff" stroke="#222" stroke-width="0.7"/>
+        <text x="6" y="16" font-family="Georgia, serif" font-size="14" font-weight="700" fill="#cf3a2c">5</text>
+        <text x="6" y="28" font-size="10" fill="#cf3a2c">♥</text>
+        <text x="28" y="50" text-anchor="middle" font-family="Georgia, serif" font-size="26" fill="#cf3a2c">♥</text>
+      </g>
+      <g transform="translate(186, 22)">
+        <rect x="0" y="0" width="56" height="80" rx="4" fill="#fff" stroke="#222" stroke-width="0.7"/>
+        <text x="6" y="16" font-family="Georgia, serif" font-size="14" font-weight="700" fill="#cf3a2c">6</text>
+        <text x="6" y="28" font-size="10" fill="#cf3a2c">♥</text>
+        <text x="28" y="50" text-anchor="middle" font-family="Georgia, serif" font-size="26" fill="#cf3a2c">♥</text>
+      </g>
+      <g transform="translate(222, 28) rotate(14 28 40)">
+        <rect x="0" y="0" width="56" height="80" rx="4" fill="#fff" stroke="#222" stroke-width="0.7"/>
+        <text x="6" y="16" font-family="Georgia, serif" font-size="14" font-weight="700" fill="#cf3a2c">7</text>
+        <text x="6" y="28" font-size="10" fill="#cf3a2c">♥</text>
+        <text x="28" y="50" text-anchor="middle" font-family="Georgia, serif" font-size="26" fill="#cf3a2c">♥</text>
+      </g>
+
+      <!-- Joker card peeking from the right -->
+      <g transform="translate(312, 30) rotate(22 28 40)">
+        <rect x="0" y="0" width="56" height="80" rx="4" fill="#fff8e3" stroke="#222" stroke-width="0.7"/>
+        <!-- jester hat: three points with bell-tip dots -->
+        <path d="M14 38 L20 18 L28 30 L36 18 L42 38 Z" fill="#cf3a2c" stroke="#1a0a04" stroke-width="0.6"/>
+        <circle cx="20" cy="18" r="1.6" fill="#d8b75a"/>
+        <circle cx="36" cy="18" r="1.6" fill="#d8b75a"/>
+        <!-- face -->
+        <circle cx="28" cy="46" r="9" fill="#f7e7c2" stroke="#5a3a18" stroke-width="0.5"/>
+        <circle cx="25" cy="44" r="0.9" fill="#1a0a04"/>
+        <circle cx="31" cy="44" r="0.9" fill="#1a0a04"/>
+        <path d="M24 49 Q28 52 32 49" stroke="#1a0a04" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+        <text x="6" y="14" font-family="Georgia, serif" font-size="9" font-weight="700" fill="#cf3a2c">JK</text>
+        <text x="50" y="76" text-anchor="end" font-family="Georgia, serif" font-size="9" font-weight="700" fill="#cf3a2c">JK</text>
+      </g>
+    </svg>`;
+}
+
 function boxArt(gameType, variant) {
   if (gameType === 'words')      return boxArtWords(variant);
   if (gameType === 'rummikub')   return boxArtRummikub();
   if (gameType === 'backgammon') return boxArtBackgammon();
+  if (gameType === 'buraco')     return boxArtBuraco();
   return `<svg viewBox="0 0 200 120"><rect width="200" height="120" fill="#e9d9a8"/></svg>`;
 }
 
