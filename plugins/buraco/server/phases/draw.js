@@ -4,7 +4,16 @@ export function applyDraw(state, payload, side) {
   }
   const { source } = payload ?? {};
   if (source === 'stock') {
-    if (state.stock.length === 0) return { error: 'stock is empty' };
+    if (state.stock.length === 0) {
+      // Brazilian rule: when stock exhausts on a draw, the deal ends and is scored.
+      return {
+        state: {
+          ...state,
+          phase: 'deal-end',
+          lastEvent: { kind: 'deal-end', side, summary: 'stock exhausted; deal ends' },
+        },
+      };
+    }
     const drawn = state.stock[state.stock.length - 1];
     return {
       state: {
