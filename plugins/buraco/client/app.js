@@ -1,6 +1,6 @@
 import { renderTableCenter } from './table.js';
 import { renderMeldsZone } from './melds.js';
-import { renderOppHand, renderMyHand } from './hand.js';
+import { renderOppHand, renderMyHand, sortHand } from './hand.js';
 import { renderActionBar } from './action-bar.js';
 
 const ctx = window.__GAME__;
@@ -8,6 +8,7 @@ let state = null;
 let mySide = null;
 const selection = new Set();
 let extendModeMeldIdx = null;
+let sorted = false;
 
 async function fetchState() {
   const r = await fetch(ctx.stateUrl);
@@ -97,7 +98,8 @@ function render() {
 
   document.getElementById('phase-banner').textContent = bannerText();
 
-  renderMyHand(document.getElementById('my-hand-row'), state.hands[mySide], selection, {
+  const myHand = sorted ? sortHand(state.hands[mySide]) : state.hands[mySide];
+  renderMyHand(document.getElementById('my-hand-row'), myHand, selection, {
     onToggle: (card) => {
       if (selection.has(card.id)) selection.delete(card.id);
       else selection.add(card.id);
@@ -111,6 +113,8 @@ function render() {
     onLayMeld,
     onExtendMode,
     onDiscardMode,
+    sorted,
+    onToggleSort: () => { sorted = !sorted; render(); },
   });
 }
 

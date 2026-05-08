@@ -2,26 +2,26 @@ import { canLay } from './sequence-validator.js';
 
 export function renderActionBar(container, view, mySide, selection, callbacks) {
   container.innerHTML = '';
-  const { onDrawStock, onTakeDiscard, onLayMeld, onExtendMode, onDiscardMode } = callbacks;
+  const { onDrawStock, onTakeDiscard, onLayMeld, onExtendMode, onDiscardMode, sorted, onToggleSort } = callbacks;
 
   if (view.currentTurn !== mySide) {
     container.textContent = `Waiting for opponent…`;
-    return;
-  }
-  if (view.phase === 'draw') {
+  } else if (view.phase === 'draw') {
     container.append(button('Draw stock', onDrawStock));
     container.append(button('Take discard', onTakeDiscard, view.discard.length === 0));
-    return;
-  }
-  if (view.phase === 'meld') {
+  } else if (view.phase === 'meld') {
     const selectedCards = view.hands[mySide].filter(c => selection.has(c.id));
     const valid = canLay(selectedCards);
-    const lay = button(`Lay meld (${selection.size})`, onLayMeld, !valid);
-    const ext = button('Extend meld', onExtendMode, selection.size === 0);
-    const disc = button('Discard…', onDiscardMode);
-    container.append(lay, ext, disc);
-    return;
+    container.append(button(`Lay meld (${selection.size})`, onLayMeld, !valid));
+    container.append(button('Extend meld', onExtendMode, selection.size === 0));
+    container.append(button('Discard…', onDiscardMode));
   }
+
+  // Always-on hand-sort toggle (persistent regardless of phase)
+  const sortBtn = button(sorted ? 'Sort: ON' : 'Sort: OFF', onToggleSort);
+  sortBtn.classList.add('btn-sort');
+  sortBtn.setAttribute('aria-pressed', String(!!sorted));
+  container.append(sortBtn);
 }
 
 function button(label, fn, disabled = false) {

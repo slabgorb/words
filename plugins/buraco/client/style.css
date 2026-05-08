@@ -57,6 +57,8 @@ header .player .score { font-weight: bold; }
   border-radius: 4px; cursor: pointer;
 }
 .action-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.action-bar .btn-sort { margin-left: auto; background: #2a5a3a; }
+.action-bar .btn-sort[aria-pressed="true"] { background: #d6a02a; color: #1a1a1a; }
 
 .overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.7);
