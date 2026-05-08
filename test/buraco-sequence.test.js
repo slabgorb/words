@@ -62,3 +62,32 @@ test('wild claiming wrong suit for the run is invalid', () => {
   // joker representing 6♣ placed in a hearts run
   assert.equal(isValidSequence([C('5','H'), W(J(0,'red'), '6', 'C'), C('7','H')]), false);
 });
+
+import { sequencePoints, isBuracoLimpo, isBuracoSujo } from '../plugins/buraco/server/sequence.js';
+
+test('sequencePoints sums per-card values: A=15, 2=20 (natural), 3-7=5, 8-K=10, joker=20', () => {
+  // A natural 2♠ in an A-2-3 sequence = 20pts (it's natural). A 4-5-6 has all 5pt cards.
+  assert.equal(sequencePoints([C('A','S'), C('2','S'), C('3','S')]), 15 + 20 + 5);
+  assert.equal(sequencePoints([C('4','H'), C('5','H'), C('6','H')]), 5 + 5 + 5);
+  assert.equal(sequencePoints([C('8','C'), C('9','C'), C('T','C'), C('J','C')]), 10 * 4);
+  // Joker = 20 regardless of slot
+  assert.equal(sequencePoints([C('5','H'), W(J(0,'red'), '6', 'H'), C('7','H')]), 5 + 20 + 5);
+});
+
+test('isBuracoLimpo: 7+ cards, no wild', () => {
+  const seq = [C('5','S'), C('6','S'), C('7','S'), C('8','S'), C('9','S'), C('T','S'), C('J','S')];
+  assert.equal(isBuracoLimpo(seq), true);
+  assert.equal(isBuracoSujo(seq), false);
+});
+
+test('isBuracoSujo: 7+ cards, with wild', () => {
+  const seq = [C('5','S'), W(J(0,'red'), '6', 'S'), C('7','S'), C('8','S'), C('9','S'), C('T','S'), C('J','S')];
+  assert.equal(isBuracoLimpo(seq), false);
+  assert.equal(isBuracoSujo(seq), true);
+});
+
+test('6-card meld is neither buraco', () => {
+  const seq = [C('5','S'), C('6','S'), C('7','S'), C('8','S'), C('9','S'), C('T','S')];
+  assert.equal(isBuracoLimpo(seq), false);
+  assert.equal(isBuracoSujo(seq), false);
+});

@@ -52,3 +52,33 @@ export function isValidSequence(cards) {
 
   return tryIndices(0) || tryIndices(13);
 }
+
+const POINT_VALUE = {
+  A: 15, '2': 20, '3': 5, '4': 5, '5': 5, '6': 5, '7': 5,
+  '8': 10, '9': 10, T: 10, J: 10, Q: 10, K: 10,
+};
+
+export function sequencePoints(cards) {
+  let total = 0;
+  for (const c of cards) {
+    if (isJoker(c)) total += 20;
+    else total += POINT_VALUE[c.rank] ?? 0;
+  }
+  return total;
+}
+
+function hasWild(cards) {
+  return cards.some(c => c.representsRank || isJoker(c));
+}
+
+export function isBuracoLimpo(cards) {
+  if (!isValidSequence(cards)) return false;
+  if (cards.length < 7) return false;
+  return !hasWild(cards);
+}
+
+export function isBuracoSujo(cards) {
+  if (!isValidSequence(cards)) return false;
+  if (cards.length < 7) return false;
+  return hasWild(cards);
+}
