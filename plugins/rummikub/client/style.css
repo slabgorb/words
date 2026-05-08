@@ -383,9 +383,9 @@ body[data-theme="walnut"] #opp-rack-section {
   overflow-y: auto;
   padding: 22px 20px 18px;
   display: grid;
-  /* Each column wide enough for the widest possible run (1–13, 13 tiles + gaps + padding ≈ 52rem).
-     Falls back to a single column on narrower viewports. */
-  grid-template-columns: repeat(auto-fit, minmax(52rem, 1fr));
+  /* Two columns at 1440px viewports; falls back to single column below ~1100px.
+     Long runs (≥ ~11 tiles) wrap inside their column via .set flex-wrap. */
+  grid-template-columns: repeat(auto-fit, minmax(41rem, 1fr));
   gap: 16px 18px;
   align-content: start;
   background: linear-gradient(180deg, rgba(0,0,0,0.20) 0%, rgba(0,0,0,0.10) 100%);
