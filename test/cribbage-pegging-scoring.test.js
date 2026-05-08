@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { scorePeggingPlay } from '../plugins/cribbage/server/scoring/pegging.js';
 
-const c = (rank, suit = 'S') => ({ rank, suit });
+const c = (rank, suit = 'S', deckIndex = 0) => ({ id: `${suit}-${rank}-${deckIndex}`, rank, suit, deckIndex });
 
 test('15-2: running becomes 15 → +2 fifteen', () => {
   const items = scorePeggingPlay([c('7'), c('8')], 15);

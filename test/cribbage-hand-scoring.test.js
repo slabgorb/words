@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { scoreHand } from '../plugins/cribbage/server/scoring/hand.js';
 
-const c = (rank, suit) => ({ rank, suit });
+const c = (rank, suit, deckIndex = 0) => ({ id: `${suit}-${rank}-${deckIndex}`, rank, suit, deckIndex });
 
 test('29 hand: J♠ 5♥ 5♦ 5♣ + 5♠ → 29', () => {
   const hand = [c('5','H'), c('5','D'), c('5','C'), c('J','S')];

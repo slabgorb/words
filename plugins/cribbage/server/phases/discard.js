@@ -1,4 +1,4 @@
-import { sameCard } from '../cards.js';
+import { sameCard } from '../../../../src/shared/cards/deck.js';
 
 export function applyDiscard({ state, action, player }) {
   const cards = action.payload?.cards;

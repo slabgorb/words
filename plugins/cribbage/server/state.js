@@ -1,4 +1,4 @@
-import { buildDeck, shuffle } from './cards.js';
+import { buildDeck, shuffle } from '../../../src/shared/cards/deck.js';
 
 const DEFAULT_MATCH_TARGET = 121;
 
@@ -6,7 +6,7 @@ export function buildInitialState({ participants, rng }) {
   const a = participants.find(p => p.side === 'a').userId;
   const b = participants.find(p => p.side === 'b').userId;
 
-  const deck = shuffle(buildDeck(), rng);
+  const deck = shuffle(buildDeck({ decks: 1, jokers: 0 }), rng);
   const hands = [deck.slice(0, 6), deck.slice(6, 12)];
   const remaining = deck.slice(12);
 
@@ -68,7 +68,7 @@ export function checkMatchWin(state) {
 // reshuffles, deals 6 cards each, resets per-deal state. Scores and
 // match progress (matchTarget, dealNumber++, prevScores) are preserved.
 export function startNextDeal(state, rng) {
-  const deck = shuffle(buildDeck(), rng);
+  const deck = shuffle(buildDeck({ decks: 1, jokers: 0 }), rng);
   const hands = [deck.slice(0, 6), deck.slice(6, 12)];
   const remaining = deck.slice(12);
   return {

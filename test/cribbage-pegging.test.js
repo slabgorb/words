@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyCribbageAction } from '../plugins/cribbage/server/actions.js';
 
-const c = (rank, suit = 'S') => ({ rank, suit });
+const c = (rank, suit = 'S', deckIndex = 0) => ({ id: `${suit}-${rank}-${deckIndex}`, rank, suit, deckIndex });
 
 function pegState(overrides = {}) {
   return {

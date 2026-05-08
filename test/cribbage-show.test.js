@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { applyCribbageAction } from '../plugins/cribbage/server/actions.js';
 import { tallyShow } from '../plugins/cribbage/server/phases/show.js';
 
-const c = (rank, suit) => ({ rank, suit });
+const c = (rank, suit, deckIndex = 0) => ({ id: `${suit}-${rank}-${deckIndex}`, rank, suit, deckIndex });
 
 function showState(overrides = {}) {
   return {

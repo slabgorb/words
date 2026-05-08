@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyCribbageAction } from '../plugins/cribbage/server/actions.js';
 import { buildInitialState } from '../plugins/cribbage/server/state.js';
-import { sameCard } from '../plugins/cribbage/server/cards.js';
+import { sameCard } from '../src/shared/cards/deck.js';
 
 const participants = [{ userId: 1, side: 'a' }, { userId: 2, side: 'b' }];
 function det(seed = 1) {
