@@ -1,3 +1,5 @@
+import { canLay } from './sequence-validator.js';
+
 export function renderActionBar(container, view, mySide, selection, callbacks) {
   container.innerHTML = '';
   const { onDrawStock, onTakeDiscard, onLayMeld, onExtendMode, onDiscardMode } = callbacks;
@@ -12,7 +14,9 @@ export function renderActionBar(container, view, mySide, selection, callbacks) {
     return;
   }
   if (view.phase === 'meld') {
-    const lay = button(`Lay meld (${selection.size})`, onLayMeld, selection.size < 3);
+    const selectedCards = view.hands[mySide].filter(c => selection.has(c.id));
+    const valid = canLay(selectedCards);
+    const lay = button(`Lay meld (${selection.size})`, onLayMeld, !valid);
     const ext = button('Extend meld', onExtendMode, selection.size === 0);
     const disc = button('Discard…', onDiscardMode);
     container.append(lay, ext, disc);
