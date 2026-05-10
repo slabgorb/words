@@ -151,6 +151,15 @@ main {
   .premium-sym  { font-size: 14px; }
 }
 
+/* Selected rack tile — magnetic pickup affordance */
+.rack-slot.tile.selected {
+  transform: translateY(-4px);
+  box-shadow:
+    0 0 0 2px var(--gold, #c9a050),
+    0 8px 12px rgba(34,22,8,0.45);
+  z-index: 2;
+}
+
 /* ----- board frame ----- */
 #board {
   position: relative;
@@ -283,6 +292,10 @@ main {
 .cell .tile {
   position: absolute;
   inset: 2px;
+  padding: 0;
+  border: 0;
+  gap: 0;
+  flex-direction: row;
   border-radius: 3px;
   background: var(--tile-texture) center/cover transparent;
   color: var(--tile-ink);
@@ -324,7 +337,7 @@ main {
 /* ----- rack ----- */
 #rack {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
   margin-top: 28px;
   padding: 10px 12px 14px;
@@ -361,10 +374,15 @@ main {
   box-shadow: inset 0 1px 3px rgba(34,22,8,0.55);
   padding: 2px;
   position: relative;
+  min-width: 0;
 }
 /* Rack slots that have a tile use the tile look. rack.js gives them
    `.rack-slot.tile` with a `.tile-letter` + (optional) `.tile-points` child. */
 .rack-slot.tile {
+  padding: 2px;
+  border: 0;
+  gap: 0;
+  flex-direction: row;
   background: var(--tile-texture) center/cover transparent;
   color: var(--tile-ink);
   font-family: var(--type-serif);
@@ -1134,3 +1152,64 @@ body.dragging .cell.drop-target {
   font-size: 0.9rem;
 }
 .history-list li:first-child { background: rgba(255,235,0,0.18); }
+
+/* ============ PHONE LAYOUT ============ */
+/* Page scrolls naturally; topbar pins at top so opponent name/score and turn
+   are always visible. Rack + controls live at the page bottom — player scrolls
+   down to reach them. Rack tiles allow vertical panning so the page can scroll
+   from any touch including a tile. */
+@media (max-width: 600px) {
+  body { display: block; }
+  main { padding: 0 8px 8px; max-width: none; }
+
+  #topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--page-bg);
+    padding: 4px 76px 4px 4px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(42,33,24,0.12);
+  }
+  .topbar-row { gap: 6px; }
+  .score { font-size: 12px; }
+  .turn-pill { font-size: 11px; padding: 2px 8px; }
+  .topbar-sub { margin-top: 2px; font-size: 10px; }
+
+  /* Shrink the three floating action circles so the topbar can be narrower. */
+  #btn-mute, #btn-theme, #btn-font {
+    width: 28px;
+    height: 28px;
+    top: 6px;
+    font-size: 13px;
+  }
+  #btn-mute  { right: 6px; }
+  #btn-theme { right: 38px; font-size: 12px; }
+  #btn-font  { right: 70px; font-size: 12px; }
+
+  #rack {
+    margin-top: 14px;
+    padding: 6px 6px 10px;
+    gap: 3px;
+  }
+
+  /* Allow the page to scroll from any touch, including on a rack tile.
+     The drag manager sets touch-action: none inline; this overrides for phone. */
+  .rack-slot.tile { touch-action: pan-y !important; }
+  .cell .tile      { touch-action: pan-y !important; }
+
+  /* Board tiles are ~24px square on phone — points pill crowds the letter
+     and the serif fallback was hard to read. Make the letter dominant and
+     hide the points entirely (the rack still shows them when picking up). */
+  .cell .tile {
+    inset: 1px;
+    font-family: var(--type-sans);
+  }
+  .cell .tile-letter {
+    font-size: clamp(15px, 4.2vw, 22px);
+    font-weight: 700;
+    margin-top: 0;
+    font-feature-settings: normal;
+  }
+  .cell .tile-points { display: none; }
+}

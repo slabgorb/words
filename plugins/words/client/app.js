@@ -34,6 +34,7 @@ function refresh() {
     onSlotClick: handleRackClick,
     onRecallDrop: handleRackRecall,
     onRackReorder: handleRackReorder,
+    selectedIdx: selectedRackIdx,
   });
   const scores = ui.server.scores;
   const current = ui.server.currentTurn;
@@ -116,9 +117,15 @@ function buildValidationPositions(v) {
 }
 
 function handleRackClick(idx, _letter) {
-  selectedRackIdx = idx;
-  $('#status').textContent = `Selected rack tile ${idx} — click a board cell to place.`;
-  $('#status').classList.add('show');
+  selectedRackIdx = selectedRackIdx === idx ? null : idx;
+  if (selectedRackIdx === null) {
+    $('#status').textContent = '';
+    $('#status').classList.remove('show');
+  } else {
+    $('#status').textContent = 'Tap a board cell to place.';
+    $('#status').classList.add('show');
+  }
+  refresh();
 }
 
 async function placeFromRack(r, c, idx) {
