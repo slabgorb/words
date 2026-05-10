@@ -4,7 +4,7 @@ import { applyTileTexture } from './themes.js';
 import { dragManager } from './drag.js';
 
 // Render the player's rack reflecting tiles already placed tentatively (those slots are empty).
-export function renderRack(root, { onSlotClick, onDragStart, onRecallDrop, onRackReorder } = {}) {
+export function renderRack(root, { onSlotClick, onDragStart, onRecallDrop, onRackReorder, selectedIdx = null } = {}) {
   const points = pointsFor(ui.server?.variant);
   root.innerHTML = '';
   const inUse = new Set();
@@ -16,6 +16,7 @@ export function renderRack(root, { onSlotClick, onDragStart, onRecallDrop, onRac
     slot.dataset.idx = idx;
     if (!inUse.has(idx)) {
       slot.classList.add('tile');
+      if (idx === selectedIdx) slot.classList.add('selected');
       const blank = letter === '_';
       const lt = document.createElement('span');
       lt.className = 'tile-letter';
