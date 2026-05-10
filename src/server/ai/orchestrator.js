@@ -22,7 +22,7 @@ function botPlayerIdxOf(state, botUserId) {
 export function createOrchestrator({ db, llm, sse, personas, adapters, logger = console }) {
   const inFlight = new Map();
 
-  async function _runOnce(gameId) {
+  async function _runOnce(gameId, depth = 0) {
     const session = getAiSession(db, gameId);
     if (!session) {
       logger.warn?.(`[ai] runTurn: no ai_sessions row for game ${gameId}`);
@@ -83,6 +83,16 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
           });
         }
         sse.broadcast(gameId, { type: 'update', payload: {} });
+
+        // If the bot is STILL active after this action (e.g., advancing
+        // through 'cut' as non-dealer, or multi-step show acks), recurse
+        // once more so the bot can act immediately. Depth is capped at 1 to
+        // prevent an unbounded chain (e.g., pegging → show → next-deal).
+        // Guard: phase must have changed so we don't loop on a partial-
+        // discard state where activeUserId is inherited unchanged.
+        if (!result.ended && newState.activeUserId === session.botUserId && newState.phase !== state.phase && depth === 0) {
+          await _runOnce(gameId, 1);
+        }
         return;
       } catch (err) {
         lastError = err;

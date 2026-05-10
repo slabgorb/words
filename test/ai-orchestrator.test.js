@@ -136,3 +136,58 @@ test('orchestrator: clears stall on next successful runTurn', async () => {
   await orch.runTurn(gameId);
   assert.equal(getAiSession(db, gameId).stalledAt, null);
 });
+
+test('orchestrator: scheduleTurn after _runOnce when bot remains active (instrumented)', async () => {
+  let callCount = 0;
+  const llm = {
+    calls: [],
+    async send(args) {
+      this.calls.push(args);
+      callCount++;
+      return { text: '{"moveId":"discard:0,1","banter":"x"}', sessionId: 'sid' };
+    },
+  };
+  const { gameId, orch } = setup(llm);
+  await orch.runTurn(gameId);
+  assert.equal(callCount, 1);
+});
+
+test('orchestrator: bot acts twice in a row when phase advance keeps it active', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-rec-'));
+  const db = openDb(join(dir, 'test.db'));
+  const now = Date.now();
+  const humanId = db.prepare("INSERT INTO users (email, friendly_name, color, created_at) VALUES ('h@x','H','#000',?) RETURNING id").get(now).id;
+  const botId = db.prepare("INSERT INTO users (email, friendly_name, color, is_bot, created_at) VALUES ('b@x','Bot','#fff',1,?) RETURNING id").get(now).id;
+  const aId = Math.min(humanId, botId), bId = Math.max(humanId, botId);
+  const botSide = botId === aId ? 'a' : 'b';
+  const botPlayerIdx = botSide === 'a' ? 0 : 1;
+  const dealerIdx = 1 - botPlayerIdx;
+
+  const participants = [{ userId: aId, side: 'a' }, { userId: bId, side: 'b' }];
+  const state = buildInitialState({ participants, rng: det(99) });
+  state.dealer = dealerIdx;
+  state.pendingDiscards[1 - botPlayerIdx] = state.hands[1 - botPlayerIdx].slice(0, 2).map(c => ({...c}));
+  state.activeUserId = botId;
+
+  const gameId = db.prepare(`
+    INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'cribbage', ?, ?, ?) RETURNING id`)
+    .get(aId, bId, JSON.stringify(state), now, now).id;
+  createAiSession(db, { gameId, botUserId: botId, personaId: 'hattie' });
+
+  const llm = new FakeLlmClient([
+    { text: '{"moveId":"discard:0,1","banter":"first"}', sessionId: 'sid' },
+    { text: '{"moveId":"cut","banter":"second"}', sessionId: 'sid' },
+  ]);
+  const events = [];
+  const sse = { broadcast: (gid, ev) => events.push(ev) };
+  const persona = { id: 'hattie', displayName: 'Hattie', color: '#ec4899', glyph: '♡', systemPrompt: 'p' };
+  const adapters = { cribbage: { plugin: cribbagePlugin, chooseAction: cribbageChoose } };
+  const orch = createOrchestrator({ db, llm, sse, personas: new Map([['hattie', persona]]), adapters });
+
+  await orch.runTurn(gameId);
+
+  assert.equal(llm.calls.length, 2, 'orchestrator recursed for the cut phase');
+  const banters = events.filter(e => e.type === 'banter').map(e => e.payload.text);
+  assert.deepEqual(banters, ['first', 'second']);
+});
