@@ -5,8 +5,9 @@ import { subscribe } from './sse.js';
 import { writeGameState } from './state.js';
 import { getPlugin } from './plugins.js';
 import { appendTurnEntry, listTurnEntries } from './history.js';
+import { createAiSession } from './ai/agent-session.js';
 
-export function mountRoutes(app, { db, registry, sse }) {
+export function mountRoutes(app, { db, registry, sse, ai = null }) {
   // Game-scoped middleware: validate id, load game, check membership.
   app.param('gameId', (req, res, next, gameId) => {
     if (!req.user) return res.status(401).json({ error: 'unauthenticated' });
@@ -84,8 +85,20 @@ export function mountRoutes(app, { db, registry, sse }) {
     if (variant !== undefined && typeof variant !== 'string') {
       return res.status(400).json({ error: 'invalid variant' });
     }
-    const opponent = db.prepare('SELECT id FROM users WHERE id = ?').get(opponentId);
-    if (!opponent) return res.status(400).json({ error: 'opponent not on roster' });
+    const opponentRow = db.prepare('SELECT id, is_bot FROM users WHERE id = ?').get(opponentId);
+    if (!opponentRow) return res.status(400).json({ error: 'opponent not on roster' });
+    const opponentIsBot = opponentRow.is_bot === 1;
+
+    let personaId = null;
+    if (opponentIsBot) {
+      personaId = req.body?.personaId;
+      if (typeof personaId !== 'string' || !personaId) {
+        return res.status(400).json({ error: 'personaId required for AI opponent' });
+      }
+      if (!ai?.personas?.has(personaId)) {
+        return res.status(400).json({ error: `unknown personaId: ${personaId}` });
+      }
+    }
 
     const plugin = registry[gameType];
     const aId = Math.min(req.user.id, opponentId);
@@ -109,6 +122,9 @@ export function mountRoutes(app, { db, registry, sse }) {
         VALUES (?, ?, 'active', ?, ?, ?, ?)
         RETURNING id
       `).get(aId, bId, gameType, JSON.stringify(initialState), now, now);
+      if (opponentIsBot && ai) {
+        createAiSession(db, { gameId: result.id, botUserId: opponentId, personaId });
+      }
       res.json({ id: result.id, gameType });
     } catch (err) {
       if (/UNIQUE constraint failed/.test(err.message)) {
