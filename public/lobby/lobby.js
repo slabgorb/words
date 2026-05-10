@@ -329,10 +329,20 @@ function renderBucket(sectionEl, listEl, countEl, items, builder) {
 }
 
 async function main() {
-  const [meRes, plugins] = await Promise.all([
-    fetchJson('/api/me').catch(() => null),
+  const [meResp, plugins] = await Promise.all([
+    fetch('/api/me'),
     fetchJson('/api/plugins').then(r => r.plugins).catch(() => []),
   ]);
+  if (meResp.status === 403) {
+    const body = await meResp.json().catch(() => ({}));
+    const email = body.email ?? '';
+    location.replace(`/lockout?email=${encodeURIComponent(email)}`);
+    return;
+  }
+  if (!meResp.ok) {
+    throw new Error(`/api/me: ${meResp.status}`);
+  }
+  const meRes = await meResp.json();
   const me = meRes?.user ?? null;
   if (!me) { document.getElementById('me-name').textContent = ''; return; }
 
