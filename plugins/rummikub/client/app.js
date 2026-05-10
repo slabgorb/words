@@ -1,7 +1,7 @@
 import { renderRack, toggleSortMode } from './rack.js';
 import { renderTable } from './table.js';
 import { beginTurn, getTentative, getSnapshot, resetTurn, hasPendingChanges } from './turn.js';
-import { attachDrag } from './drag.js';
+import { attachDrag, refreshSelection } from './drag.js';
 import { initJokerPicker } from './joker-picker.js';
 import { validateEndState } from './validate.js';
 import { setValue } from './sets.js';
@@ -93,9 +93,8 @@ function renderOppRack(count) {
   }
 }
 
-function setPlayerCard(prefix, name, score, tilesLeft, active) {
+function setPlayerCard(prefix, name, tilesLeft, active) {
   document.getElementById(`${prefix}-name`).textContent = name;
-  document.getElementById(`${prefix}-score`).textContent = score;
   document.getElementById(`${prefix}-tiles`).textContent = tilesLeft;
   document.getElementById(`${prefix}-card`).dataset.active = active ? 'true' : 'false';
 }
@@ -120,8 +119,8 @@ function render() {
   const myRackCount = (state.racks?.[mySide] ?? []).length;
   const oppRackCount = state.opponentRack.count;
 
-  setPlayerCard('me', myName, state.scores[mySide], myRackCount, myTurn);
-  setPlayerCard('opp', oppName, state.scores[oppSide], oppRackCount, !myTurn && !state.endedReason);
+  setPlayerCard('me', myName, myRackCount, myTurn);
+  setPlayerCard('opp', oppName, oppRackCount, !myTurn && !state.endedReason);
 
   document.getElementById('pool-count').textContent = state.pool.count;
   document.getElementById('opp-rack-count').textContent = oppRackCount;
@@ -147,7 +146,7 @@ function render() {
   const tableToRender = useTentative ? tent.table : state.table;
 
   document.getElementById('my-rack-count').textContent = rackToRender.length;
-  setPlayerCard('me', myName, state.scores[mySide], rackToRender.length, myTurn);
+  setPlayerCard('me', myName, rackToRender.length, myTurn);
 
   const tableEl = document.getElementById('table');
   renderTable(tableEl, tableToRender);
@@ -160,6 +159,7 @@ function render() {
 
   refreshEndButton();
   refreshMeldIndicator();
+  refreshSelection();
 
   // End-game screen
   if (state.endedReason) {
