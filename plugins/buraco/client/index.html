@@ -9,13 +9,21 @@
 </head>
 <body>
   <header>
-    <a class="back" href="/">← Lobby</a>
-    <button id="btn-mute" class="mute" type="button" aria-label="Toggle sound" title="Toggle sound">🔊</button>
+    <a class="back" href="/">←</a>
     <div class="players">
-      <div class="player" id="p-me"><span class="name" id="me-name">You</span><span class="score" id="me-score">0</span></div>
-      <span class="vs">vs</span>
-      <div class="player" id="p-opp"><span class="name" id="opp-name">Opponent</span><span class="score" id="opp-score">0</span></div>
+      <div class="player-card" id="p-me" data-active="false">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="name" id="me-name">You</span>
+        <span class="score" id="me-score">0</span>
+      </div>
+      <span class="vs" aria-hidden="true">vs</span>
+      <div class="player-card" id="p-opp" data-active="false">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="name" id="opp-name">Opponent</span>
+        <span class="score" id="opp-score">0</span>
+      </div>
     </div>
+    <button id="btn-mute" class="mute" type="button" aria-label="Toggle sound" title="Toggle sound">🔊</button>
   </header>
 
   <main id="board">
@@ -23,7 +31,11 @@
     <section id="opp-melds-row" class="zone zone--opp-melds"></section>
     <section id="table-center" class="zone zone--table"></section>
     <section id="my-melds-row" class="zone zone--my-melds"></section>
-    <div id="phase-banner" class="phase-banner"></div>
+    <section id="status-bar" class="status-bar">
+      <span class="status-bar__dot" aria-hidden="true"></span>
+      <span class="status-bar__text" id="status-text">…</span>
+      <button id="btn-sort" class="status-bar__sort" type="button" aria-pressed="false">Sort</button>
+    </section>
     <section id="my-hand-row" class="zone zone--my-hand"></section>
   </main>
 

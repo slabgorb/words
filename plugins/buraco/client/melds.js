@@ -2,13 +2,8 @@ import { renderCard } from '/shared/cards/card-element.js';
 
 export function renderMeldsZone(container, melds, { interactive, onPick } = {}) {
   container.innerHTML = '';
-  if (melds.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'melds-empty';
-    empty.textContent = '— no melds —';
-    container.append(empty);
-    return;
-  }
+  container.classList.toggle('zone--empty', melds.length === 0);
+  if (melds.length === 0) return;
   melds.forEach((meld, idx) => {
     const wrap = document.createElement('div');
     wrap.className = 'meld';

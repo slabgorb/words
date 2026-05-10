@@ -83,6 +83,12 @@ function render() {
   document.getElementById('me-score').textContent = state.scores[mySide]?.total ?? 0;
   document.getElementById('opp-score').textContent = state.scores[opp]?.total ?? 0;
 
+  const meCard = document.getElementById('p-me');
+  const oppCard = document.getElementById('p-opp');
+  const myTurn = state.currentTurn === mySide;
+  meCard.dataset.active = String(myTurn);
+  oppCard.dataset.active = String(!myTurn);
+
   // Opponent zone (hand is a number, melds is an array)
   renderOppHand(document.getElementById('opp-hand-row'), state.hands[opp]);
   renderMeldsZone(document.getElementById('opp-melds-row'), state.melds[opp]);
@@ -96,7 +102,18 @@ function render() {
     onPick: (idx) => onExtendPick(idx),
   });
 
-  document.getElementById('phase-banner').textContent = bannerText();
+  const statusBar = document.getElementById('status-bar');
+  const statusText = document.getElementById('status-text');
+  statusText.textContent = bannerText();
+  const myTurnNow = state.currentTurn === mySide;
+  statusBar.dataset.state =
+    state.phase === 'game-end' || state.phase === 'deal-end' ? 'end'
+    : myTurnNow ? 'my-turn' : 'waiting';
+
+  const sortBtn = document.getElementById('btn-sort');
+  sortBtn.setAttribute('aria-pressed', String(sorted));
+  sortBtn.textContent = sorted ? 'Sort ✓' : 'Sort';
+  sortBtn.onclick = () => { sorted = !sorted; render(); };
 
   const myHand = sorted ? sortHand(state.hands[mySide]) : state.hands[mySide];
   renderMyHand(document.getElementById('my-hand-row'), myHand, selection, {
@@ -113,8 +130,6 @@ function render() {
     onLayMeld,
     onExtendMode,
     onDiscardMode,
-    sorted,
-    onToggleSort: () => { sorted = !sorted; render(); },
   });
 }
 
