@@ -10,7 +10,7 @@ import { mountRoutes } from '../src/server/routes.js';
 import { buildRegistry } from '../src/server/plugins.js';
 import cribbagePlugin from '../plugins/cribbage/plugin.js';
 import { bootAiSubsystem } from '../src/server/ai/index.js';
-import { getAiSession } from '../src/server/ai/agent-session.js';
+import { getAiSession, markStalled } from '../src/server/ai/agent-session.js';
 
 function makeApp() {
   const dir = mkdtempSync(join(tmpdir(), 'ai-route-'));
@@ -107,6 +107,52 @@ test('POST /api/games: with human opponent, personaId is ignored (no ai_sessions
     const r = await POST(port, '/api/games', { opponentId: otherHumanId, gameType: 'cribbage' });
     assert.equal(r.status, 200);
     assert.equal(getAiSession(db, r.body.id), null);
+  } finally {
+    srv.close();
+  }
+});
+
+test('POST /api/games/:id/ai/retry: clears stall and re-runs orchestrator', async () => {
+  const { app, db, botId, orchestrator } = makeApp();
+  const { srv, port } = await listen(app);
+  try {
+    const create = await POST(port, '/api/games', { opponentId: botId, gameType: 'cribbage', personaId: 'hattie' });
+    const gameId = create.body.id;
+    markStalled(db, gameId, 'timeout');
+    const r = await POST(port, `/api/games/${gameId}/ai/retry`, {});
+    assert.equal(r.status, 200);
+    await new Promise(r => setImmediate(r));
+    const sess = getAiSession(db, gameId);
+    assert.equal(sess.stalledAt, null);
+  } finally {
+    srv.close();
+  }
+});
+
+test('POST /api/games/:id/ai/abandon: ends game with endedReason ai_stalled', async () => {
+  const { app, db, botId } = makeApp();
+  const { srv, port } = await listen(app);
+  try {
+    const create = await POST(port, '/api/games', { opponentId: botId, gameType: 'cribbage', personaId: 'hattie' });
+    const gameId = create.body.id;
+    markStalled(db, gameId, 'timeout');
+    const r = await POST(port, `/api/games/${gameId}/ai/abandon`, {});
+    assert.equal(r.status, 200);
+    const game = db.prepare("SELECT status, ended_reason FROM games WHERE id = ?").get(gameId);
+    assert.equal(game.status, 'ended');
+    assert.equal(game.ended_reason, 'ai_stalled');
+  } finally {
+    srv.close();
+  }
+});
+
+test('POST /api/games/:id/ai/retry: 422 if no stall pending', async () => {
+  const { app, botId } = makeApp();
+  const { srv, port } = await listen(app);
+  try {
+    const create = await POST(port, '/api/games', { opponentId: botId, gameType: 'cribbage', personaId: 'hattie' });
+    const r = await POST(port, `/api/games/${create.body.id}/ai/retry`, {});
+    assert.equal(r.status, 422);
   } finally {
     srv.close();
   }

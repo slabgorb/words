@@ -5,7 +5,7 @@ import { subscribe } from './sse.js';
 import { writeGameState } from './state.js';
 import { getPlugin } from './plugins.js';
 import { appendTurnEntry, listTurnEntries } from './history.js';
-import { createAiSession } from './ai/agent-session.js';
+import { createAiSession, getAiSession, clearStall } from './ai/agent-session.js';
 
 export function mountRoutes(app, { db, registry, sse, ai = null }) {
   // Game-scoped middleware: validate id, load game, check membership.
@@ -238,6 +238,27 @@ export function mountRoutes(app, { db, registry, sse, ai = null }) {
       }
     }
     res.status(out.http).json(out.body);
+  });
+
+  // -- AI stall resolution --
+  app.post('/api/games/:gameId/ai/retry', requireIdentity, (req, res) => {
+    if (!ai) return res.status(500).json({ error: 'ai subsystem not enabled' });
+    const sess = getAiSession(db, req.game.id);
+    if (!sess) return res.status(404).json({ error: 'no AI session' });
+    if (sess.stalledAt == null) return res.status(422).json({ error: 'not stalled' });
+    clearStall(db, req.game.id);
+    ai.orchestrator.scheduleTurn(req.game.id);
+    res.json({ ok: true });
+  });
+
+  app.post('/api/games/:gameId/ai/abandon', requireIdentity, (req, res) => {
+    if (!ai) return res.status(500).json({ error: 'ai subsystem not enabled' });
+    const sess = getAiSession(db, req.game.id);
+    if (!sess) return res.status(404).json({ error: 'no AI session' });
+    db.prepare("UPDATE games SET status='ended', ended_reason=?, winner_side=NULL, updated_at=? WHERE id=?")
+      .run('ai_stalled', Date.now(), req.game.id);
+    sse.broadcast(req.game.id, { type: 'ended', payload: { reason: 'ai_stalled' } });
+    res.json({ ok: true });
   });
 
   // Mount each plugin's auxiliary routes
