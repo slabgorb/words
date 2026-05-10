@@ -889,21 +889,22 @@ body[data-font="henny"]       { --type-display: 'Henny Penny', 'Iowan Old Style'
    short sets size to their content and pack greedily, two-or-more per row.
    Tiles shrink so the rack doesn't run away vertically. */
 @media (max-width: 600px) {
+  /* Table: grid with auto-fill so 3+ short sets pack per row when they fit. */
   #table {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+    gap: 6px;
     padding: 8px 8px 10px;
   }
   #table .set {
-    flex: 0 1 auto;
+    min-width: 0;
     max-width: 100%;
-    padding: 8px 10px;
+    padding: 6px 8px;
     min-height: 0;
     gap: 3px;
   }
   #table .new-set {
-    flex: 1 0 100%;
+    grid-column: 1 / -1;
     padding: 8px 10px;
     min-height: 0;
   }
@@ -920,7 +921,7 @@ body[data-font="henny"]       { --type-display: 'Henny Penny', 'Iowan Old Style'
   }
   #rack { gap: 4px; }
   #rack-section {
-    padding: 10px 10px;
+    padding: 8px 8px 10px;
     position: sticky;
     bottom: 0;
     z-index: 10;
@@ -938,11 +939,70 @@ body[data-font="henny"]       { --type-display: 'Henny Penny', 'Iowan Old Style'
   #table {
     overflow: visible;
     min-height: 0;
-    flex: none;
   }
+
+  /* Header: compact, single row, no fixed height. */
   header {
     position: sticky;
     top: 0;
     z-index: 10;
+    height: auto;
+    padding: 6px 8px;
+    gap: 6px;
   }
+  header .back { font-size: 16px; padding: 0 4px; }
+  .hdr-divider, .hdr-spacer { display: none; }
+  .players { gap: 6px; }
+  .players__vs { font-size: 14px; }
+  .player-card {
+    min-width: 0;
+    padding: 3px 8px 3px 8px;
+    flex: 1 1 0;
+  }
+  .player-card[data-active="true"]::before { left: 6px; width: 6px; height: 6px; }
+  .player-card[data-active="true"] .player-card__name,
+  .player-card[data-active="true"] .player-card__line { margin-left: 10px; }
+  .player-card__name { font-size: 9px; letter-spacing: 0.06em; }
+  .player-card__tiles { font-size: 10px; }
+
+  /* Pool: tight, right-edge. */
+  .pool { gap: 6px; }
+  .pool__pile { width: 24px; height: 30px; }
+  .pool__pile::before,
+  .pool__pile::after,
+  .pool__pile > .pool__pile-extra { width: 20px; height: 26px; }
+  .pool__pile::before { left: 0; top: 4px; }
+  .pool__pile::after  { left: 3px; top: 0; }
+  .pool__label { font-size: 9px; }
+  .pool__count { font-size: 16px; }
+
+  /* Turn banner: drop hint text + shrink meld bar so it fits one row. */
+  #turn-banner {
+    padding: 6px 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .turn-banner__left { gap: 8px; min-width: 0; }
+  .turn-banner__right { gap: 6px; }
+  .turn-banner__state { font-size: 13px; }
+  body[data-theme="walnut"] .turn-banner__state { font-size: 14px; }
+  .turn-banner__hint { display: none; }
+  .turn-banner__meld-label { font-size: 9px; }
+  .meld-bar { width: 56px; height: 5px; }
+  .meld-bar__counter { font-size: 11px; }
+
+  /* Rack header: smaller, no wrap. */
+  .rack-header { margin-bottom: 6px; gap: 6px; }
+  .rack-header__meta { gap: 6px; }
+  .rack-header__label { font-size: 10px; letter-spacing: 0.08em; }
+  .rack-header__count { font-size: 11px; }
+
+  /* Opponent rack section: compact, no oversized meta column. */
+  #opp-rack-section { padding: 6px 8px; gap: 8px; }
+  .opp-rack__meta { min-width: 0; gap: 1px; }
+  .opp-rack__label { font-size: 10px; letter-spacing: 0.08em; }
+  .opp-rack__count { font-size: 11px; }
+
+  /* Float buttons: hide on phones — settings live behind a desktop affordance. */
+  #btn-theme, #btn-font { display: none; }
 }
