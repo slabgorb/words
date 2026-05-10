@@ -21,6 +21,11 @@ export function loadPersonaCatalog(dir) {
     if (raw.id !== expectedId) {
       throw new Error(`persona ${file}: id '${raw.id}' does not match filename '${expectedId}'`);
     }
+    if (raw.voiceExamples !== undefined) {
+      if (!Array.isArray(raw.voiceExamples) || raw.voiceExamples.some(v => typeof v !== 'string' || v.length === 0)) {
+        throw new Error(`persona ${file}: voiceExamples must be an array of non-empty strings`);
+      }
+    }
     out.set(raw.id, {
       id: raw.id,
       displayName: raw.displayName,

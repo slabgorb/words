@@ -47,3 +47,10 @@ test('loadPersonaCatalog: ignores non-yaml files', () => {
   });
   assert.equal(loadPersonaCatalog(dir).size, 1);
 });
+
+test('loadPersonaCatalog: rejects voiceExamples with non-string element', () => {
+  const dir = makeDir({
+    'bad.yaml': 'id: bad\ndisplayName: Bad\ncolor: "#000000"\nglyph: "x"\nsystemPrompt: x\nvoiceExamples:\n  - "ok"\n  - 123\n',
+  });
+  assert.throws(() => loadPersonaCatalog(dir), /voiceExamples must be/);
+});
