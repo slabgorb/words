@@ -42,7 +42,7 @@ function setup(llm) {
   return { db, gameId, botId, humanId, events, orch };
 }
 
-test('orchestrator: happy path — chooses action, applies it, broadcasts banter+update, persists session id', async () => {
+test('orchestrator: happy path — chooses action, applies it, broadcasts banter+update', async () => {
   const llm = new FakeLlmClient([
     { text: '{"moveId":"discard:0,1","banter":"hello dear"}', sessionId: 'sid-A' },
   ]);
@@ -57,7 +57,6 @@ test('orchestrator: happy path — chooses action, applies it, broadcasts banter
   assert.ok(types.indexOf('banter') < types.indexOf('update'));
 
   const sess = getAiSession(db, gameId);
-  assert.equal(sess.claudeSessionId, 'sid-A');
   assert.equal(sess.stalledAt, null);
 
   const game = db.prepare("SELECT state FROM games WHERE id = ?").get(gameId);

@@ -174,6 +174,36 @@ test('GET /api/games/:id/events: replays current stall on subscribe', async () =
   }
 });
 
+test('GET /api/games/:id/events: kicks orchestrator when bot should act', async () => {
+  const { app, db, botId, events } = makeApp();
+  const { srv, port } = await listen(app);
+  try {
+    const create = await POST(port, '/api/games', { opponentId: botId, gameType: 'cribbage', personaId: 'hattie' });
+    const gameId = create.body.id;
+    // Set game state so it's clearly the bot's turn (non-dealer in cut phase).
+    const gameRow = db.prepare('SELECT state FROM games WHERE id = ?').get(gameId);
+    const state = JSON.parse(gameRow.state);
+    state.activeUserId = botId;
+    state.phase = 'cut';
+    db.prepare('UPDATE games SET state = ? WHERE id = ?').run(JSON.stringify(state), gameId);
+
+    events.length = 0;
+    const ctrl = new AbortController();
+    const resp = await fetch(`http://localhost:${port}/api/games/${gameId}/events`, { signal: ctrl.signal });
+    await new Promise(r => setTimeout(r, 100));
+    ctrl.abort();
+    try { await resp.body.cancel(); } catch {}
+
+    // Orchestrator was kicked → emitted bot_thinking on the broadcast bus.
+    assert.ok(
+      events.some(e => e.type === 'bot_thinking'),
+      `expected bot_thinking, got ${events.map(e => e.type).join(',')}`,
+    );
+  } finally {
+    srv.close();
+  }
+});
+
 test('GET /api/games/:id/events: no stall replay when AI session is healthy', async () => {
   const { app, botId } = makeApp();
   const { srv, port } = await listen(app);

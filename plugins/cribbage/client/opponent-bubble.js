@@ -56,6 +56,8 @@ function clearStall() {
 const es = new EventSource(ctx.sseUrl);
 es.addEventListener('bot_thinking', e => {
   const p = JSON.parse(e.data);
+  // Bot is alive again — clear any previous stall banner.
+  clearStall();
   showThinking(p.displayName);
 });
 es.addEventListener('banter', e => {

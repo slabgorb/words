@@ -1,4 +1,4 @@
-import { getAiSession, setClaudeSessionId, markStalled, clearStall } from './agent-session.js';
+import { getAiSession, markStalled, clearStall } from './agent-session.js';
 import { InvalidLlmResponse, InvalidLlmMove } from '../../../plugins/cribbage/server/ai/cribbage-player.js';
 import { TimeoutError, SubprocessFailed, ParseError, EmptyResponse } from './llm-client.js';
 
@@ -72,13 +72,14 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     let lastError;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
+        // Every turn is a fresh claude session. The bot has no need for
+        // cross-turn conversation memory — the full game state is in the
+        // prompt — and resuming caused long games to bloat the conversation
+        // until the CLI timed out.
         const r = await adapter.chooseAction({
-          llm, persona, sessionId: session.claudeSessionId,
+          llm, persona, sessionId: null,
           state, botPlayerIdx,
         });
-        if (r.sessionId && r.sessionId !== session.claudeSessionId) {
-          setClaudeSessionId(db, gameId, r.sessionId);
-        }
 
         const result = adapter.plugin.applyAction({
           state, action: r.action, actorId: session.botUserId, rng: rngFor(gameId),
@@ -141,6 +142,9 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     next.catch(() => {});
     const settled = new Promise(r => { release = r; });
     inFlight.set(gameId, settled);
+    settled.then(() => {
+      if (inFlight.get(gameId) === settled) inFlight.delete(gameId);
+    });
     return next;
   }
 
@@ -148,5 +152,9 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     runTurn(gameId).catch(err => logger.error?.(`[ai] runTurn(${gameId}) failed: ${err.stack || err}`));
   }
 
-  return { runTurn, scheduleTurn };
+  function isInFlight(gameId) {
+    return inFlight.has(gameId);
+  }
+
+  return { runTurn, scheduleTurn, isInFlight };
 }

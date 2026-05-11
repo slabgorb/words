@@ -164,22 +164,39 @@ export function mountRoutes(app, { db, registry, sse, ai = null }) {
 
   app.get('/api/games/:gameId/events', requireIdentity, (req, res) => {
     subscribe(req.game.id, req, res);
-    // Replay current AI stall state — without this, page reloads after a
-    // stall leave the user with no banner and no way to retry/abandon.
-    if (ai) {
-      const sess = getAiSession(db, req.game.id);
-      if (sess?.stalledAt != null) {
-        const persona = ai.personas.get(sess.personaId);
-        const state = req.game.state;
-        const botSide = state.sides?.a === sess.botUserId ? 'a' : 'b';
-        const payload = {
-          side: botSide,
-          personaId: sess.personaId,
-          displayName: persona?.displayName ?? 'AI',
-          reason: sess.stallReason ?? 'invalid_response',
-        };
-        res.write(`event: bot_stalled\ndata: ${JSON.stringify(payload)}\n\n`);
-      }
+    // Replay live AI status to a freshly-subscribed client. Without this,
+    // page reloads after a stall or while the bot is thinking leave the
+    // user with no UI indication of what's happening.
+    if (!ai) return;
+    const sess = getAiSession(db, req.game.id);
+    if (!sess) return;
+    const persona = ai.personas.get(sess.personaId);
+    const displayName = persona?.displayName ?? 'AI';
+    const state = req.game.state;
+    const botSide = state.sides?.a === sess.botUserId ? 'a' : 'b';
+
+    if (sess.stalledAt != null) {
+      const payload = { side: botSide, personaId: sess.personaId, displayName, reason: sess.stallReason ?? 'invalid_response' };
+      res.write(`event: bot_stalled\ndata: ${JSON.stringify(payload)}\n\n`);
+      return;
+    }
+
+    const botIdx = state.sides?.a === sess.botUserId ? 0 : 1;
+    const botShouldAct =
+      state.activeUserId === sess.botUserId ||
+      (state.activeUserId == null && (
+        (state.phase === 'discard' && state.pendingDiscards?.[botIdx] == null) ||
+        (state.phase === 'show' && state.acknowledged?.[botIdx] === false)
+      ));
+    if (!botShouldAct) return;
+
+    if (ai.orchestrator.isInFlight(req.game.id)) {
+      const payload = { side: botSide, personaId: sess.personaId, displayName };
+      res.write(`event: bot_thinking\ndata: ${JSON.stringify(payload)}\n\n`);
+    } else {
+      // Bot's turn but nothing in flight — kick the orchestrator.
+      // Idempotent: runTurn serializes per game.
+      ai.orchestrator.scheduleTurn(req.game.id);
     }
   });
 
