@@ -32,14 +32,16 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     if (!gameRow || gameRow.status !== 'active') return;
     const state = JSON.parse(gameRow.state);
     // Allow bot to act when activeUserId is explicitly theirs, OR when
-    // activeUserId is null (concurrent-discard phase) and the bot hasn't
-    // yet submitted their discard.
+    // activeUserId is null (concurrent phases: discard, show) and the bot
+    // hasn't yet submitted its half.
     const botPlayerIdx = botPlayerIdxOf(state, session.botUserId);
-    const botMustDiscard =
+    const botMustActConcurrently =
       state.activeUserId == null &&
-      state.phase === 'discard' &&
-      state.pendingDiscards?.[botPlayerIdx] == null;
-    if (state.activeUserId !== session.botUserId && !botMustDiscard) return;
+      (
+        (state.phase === 'discard' && state.pendingDiscards?.[botPlayerIdx] == null) ||
+        (state.phase === 'show' && state.acknowledged?.[botPlayerIdx] === false)
+      );
+    if (state.activeUserId !== session.botUserId && !botMustActConcurrently) return;
 
     const persona = personas.get(session.personaId);
     const adapter = adapters[gameRow.game_type];
