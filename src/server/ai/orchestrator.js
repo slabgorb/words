@@ -31,13 +31,20 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     const gameRow = db.prepare("SELECT * FROM games WHERE id = ?").get(gameId);
     if (!gameRow || gameRow.status !== 'active') return;
     const state = JSON.parse(gameRow.state);
-    if (state.activeUserId !== session.botUserId) return;
+    // Allow bot to act when activeUserId is explicitly theirs, OR when
+    // activeUserId is null (concurrent-discard phase) and the bot hasn't
+    // yet submitted their discard.
+    const botPlayerIdx = botPlayerIdxOf(state, session.botUserId);
+    const botMustDiscard =
+      state.activeUserId == null &&
+      state.phase === 'discard' &&
+      state.pendingDiscards?.[botPlayerIdx] == null;
+    if (state.activeUserId !== session.botUserId && !botMustDiscard) return;
 
     const persona = personas.get(session.personaId);
     if (!persona) throw new Error(`unknown persona ${session.personaId}`);
     const adapter = adapters[gameRow.game_type];
     if (!adapter) throw new Error(`no AI adapter for game_type ${gameRow.game_type}`);
-    const botPlayerIdx = botPlayerIdxOf(state, session.botUserId);
     const botSide = botPlayerIdx === 0 ? 'a' : 'b';
 
     sse.broadcast(gameId, {

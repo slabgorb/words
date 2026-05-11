@@ -157,3 +157,26 @@ test('POST /api/games/:id/ai/retry: 422 if no stall pending', async () => {
     srv.close();
   }
 });
+
+test('POST /action: when newState.activeUserId is a bot, orchestrator schedules turn', async () => {
+  const { app, db, humanId, botId, events } = makeApp();
+  const { srv, port } = await listen(app);
+  try {
+    const create = await POST(port, '/api/games', { opponentId: botId, gameType: 'cribbage', personaId: 'hattie' });
+    const gameId = create.body.id;
+
+    const game = db.prepare("SELECT * FROM games WHERE id = ?").get(gameId);
+    const state = JSON.parse(game.state);
+    const humanSide = state.sides.a === humanId ? 0 : 1;
+    const cards = state.hands[humanSide].slice(0, 2);
+
+    await POST(port, `/api/games/${gameId}/action`, { type: 'discard', payload: { cards } });
+
+    await new Promise(r => setTimeout(r, 50));
+
+    assert.ok(events.some(e => e.type === 'bot_thinking') || events.some(e => e.type === 'banter'),
+      'orchestrator was scheduled');
+  } finally {
+    srv.close();
+  }
+});

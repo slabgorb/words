@@ -224,6 +224,20 @@ export function mountRoutes(app, { db, registry, sse, ai = null }) {
     const out = txn();
     if (out.http === 200) {
       sse.broadcast(req.game.id, { type: 'update' });
+      // If the next active player is a bot (or it's a concurrent-discard phase
+      // where activeUserId is null and the bot may still need to act), schedule
+      // an AI turn.
+      if (ai) {
+        const nextActiveUserId = out.body?.state?.activeUserId;
+        if (typeof nextActiveUserId === 'number') {
+          const isBot = db.prepare("SELECT is_bot FROM users WHERE id = ?").get(nextActiveUserId)?.is_bot === 1;
+          if (isBot) ai.orchestrator.scheduleTurn(req.game.id);
+        } else if (nextActiveUserId == null) {
+          // Concurrent phase (e.g. discard): check if this game has a bot session.
+          const sess = db.prepare("SELECT bot_user_id FROM ai_sessions WHERE game_id = ?").get(req.game.id);
+          if (sess) ai.orchestrator.scheduleTurn(req.game.id);
+        }
+      }
       for (const row of out.turnRows ?? []) {
         sse.broadcast(req.game.id, {
           type: 'turn',
