@@ -26,6 +26,11 @@ export function loadPersonaCatalog(dir) {
         throw new Error(`persona ${file}: voiceExamples must be an array of non-empty strings`);
       }
     }
+    if (raw.games !== undefined) {
+      if (!Array.isArray(raw.games) || raw.games.some(g => typeof g !== 'string' || g.length === 0)) {
+        throw new Error(`persona ${file}: games must be an array of non-empty strings`);
+      }
+    }
     out.set(raw.id, {
       id: raw.id,
       displayName: raw.displayName,
@@ -33,6 +38,7 @@ export function loadPersonaCatalog(dir) {
       glyph: raw.glyph,
       systemPrompt: raw.systemPrompt,
       voiceExamples: Array.isArray(raw.voiceExamples) ? raw.voiceExamples : [],
+      games: Array.isArray(raw.games) ? raw.games : [],
     });
   }
   return out;

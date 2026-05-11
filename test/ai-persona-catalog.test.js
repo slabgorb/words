@@ -54,3 +54,39 @@ test('loadPersonaCatalog: rejects voiceExamples with non-string element', () => 
   });
   assert.throws(() => loadPersonaCatalog(dir), /voiceExamples must be/);
 });
+
+test('loadPersonaCatalog: reads optional games array', () => {
+  const dir = makeDir({
+    'hattie.yaml':
+      'id: hattie\ndisplayName: Hattie\ncolor: "#ec4899"\nglyph: "♡"\n' +
+      'systemPrompt: x\ngames:\n  - cribbage\n  - backgammon\n',
+  });
+  const p = loadPersonaCatalog(dir).get('hattie');
+  assert.deepEqual(p.games, ['cribbage', 'backgammon']);
+});
+
+test('loadPersonaCatalog: defaults games to empty array when omitted', () => {
+  const dir = makeDir({
+    'omni.yaml':
+      'id: omni\ndisplayName: Omni\ncolor: "#000000"\nglyph: "*"\nsystemPrompt: x\n',
+  });
+  assert.deepEqual(loadPersonaCatalog(dir).get('omni').games, []);
+});
+
+test('loadPersonaCatalog: rejects games with non-string element', () => {
+  const dir = makeDir({
+    'bad.yaml':
+      'id: bad\ndisplayName: Bad\ncolor: "#000000"\nglyph: "x"\n' +
+      'systemPrompt: x\ngames:\n  - cribbage\n  - 42\n',
+  });
+  assert.throws(() => loadPersonaCatalog(dir), /games must be/);
+});
+
+test('loadPersonaCatalog: rejects games when not an array', () => {
+  const dir = makeDir({
+    'bad.yaml':
+      'id: bad\ndisplayName: Bad\ncolor: "#000000"\nglyph: "x"\n' +
+      'systemPrompt: x\ngames: cribbage\n',
+  });
+  assert.throws(() => loadPersonaCatalog(dir), /games must be/);
+});
