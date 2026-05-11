@@ -44,6 +44,22 @@ main#board { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; paddin
   align-self: center; padding: 6px 12px; background: rgba(0,0,0,0.4);
   border-radius: 16px; font-weight: 700; margin-right: 8px;
 }
+.last-trick {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  margin-right: 12px; padding: 6px 8px;
+  background: rgba(0,0,0,0.25); border-radius: 8px;
+  opacity: 0.85;
+}
+.last-trick__label {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+  background: #f5c542; color: #1a1a1a;
+  padding: 2px 8px; border-radius: 10px;
+}
+.last-trick__cards { display: flex; gap: 2px; }
+.last-trick__cards .card {
+  width: 48px; height: 68px; cursor: default;
+  filter: grayscale(0.25) brightness(0.92);
+}
 .show-wrap {
   background: #fff; color: #111; border-radius: 12px;
   padding: 24px; max-width: 920px; max-height: 90vh; overflow: auto;

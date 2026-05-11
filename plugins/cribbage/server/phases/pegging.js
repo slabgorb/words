@@ -45,6 +45,8 @@ export function applyPlay({ state, action, player }) {
     pile,
     lastPlayer: player,
     next: 1 - player,
+    // Any prior lingering trick is wiped the moment a new card hits the table.
+    lastTrick: null,
   };
 
   if (running === 31) {
@@ -54,6 +56,7 @@ export function applyPlay({ state, action, player }) {
       history: [],
       saidGo: [false, false],
       next: 1 - player,
+      lastTrick: { cards: history, kind: '31', points: 2, by: player },
     };
   }
 
@@ -143,6 +146,7 @@ function autoGoLoop({ state, summary }) {
         history: [],
         saidGo: [false, false],
         next: 1 - lp,
+        lastTrick: { cards: peg.history, kind: 'go', points: 1, by: lp },
       },
     };
     if (st.hands[0].length === 0 && st.hands[1].length === 0) break;

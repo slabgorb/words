@@ -37,6 +37,7 @@ export function applyCut({ state, player, rng }) {
         next: nonDealer,
         lastPlayer: null,
         saidGo: [false, false],
+        lastTrick: null,
       },
       activeUserId: nonDealerUserId,
     },
