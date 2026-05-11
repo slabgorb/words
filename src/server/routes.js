@@ -56,11 +56,13 @@ export function mountRoutes(app, { db, registry, sse, ai = null }) {
     res.json(listUsers(db).map(u => ({ id: u.id, friendlyName: u.friendlyName, color: u.color, glyph: u.glyph, isBot: u.isBot })));
   });
 
-  app.get('/api/ai/personas', requireIdentity, (_req, res) => {
+  app.get('/api/ai/personas', requireIdentity, (req, res) => {
     if (!ai) return res.json({ personas: [] });
+    const game = typeof req.query.game === 'string' ? req.query.game : null;
     const out = [];
     for (const p of ai.personas.values()) {
-      out.push({ id: p.id, displayName: p.displayName, color: p.color, glyph: p.glyph });
+      if (game && p.games.length > 0 && !p.games.includes(game)) continue;
+      out.push({ id: p.id, displayName: p.displayName, color: p.color, glyph: p.glyph, games: p.games });
     }
     res.json({ personas: out });
   });
