@@ -9,7 +9,7 @@ function det(seed) {
   return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
 }
 
-test('full deal: deterministic seed → discard, cut, pegging through end, show, both ack → done', () => {
+test('full deal: deterministic seed → discard auto-cuts into pegging, through end, show, both ack → done', () => {
   let state = buildInitialState({ participants, rng: det(7) });
   let r = applyCribbageAction({ state, action: { type: 'discard', payload: { cards: state.hands[0].slice(0,2) } }, actorId: 1, rng: det(7) });
   assert.equal(r.error, undefined);
@@ -17,14 +17,9 @@ test('full deal: deterministic seed → discard, cut, pegging through end, show,
   r = applyCribbageAction({ state, action: { type: 'discard', payload: { cards: state.hands[1].slice(0,2) } }, actorId: 2, rng: det(7) });
   assert.equal(r.error, undefined);
   state = r.state;
-  assert.equal(state.phase, 'cut');
-
-  // Random initial dealer means non-dealer's actorId depends on the rng.
-  const nonDealerActor = state.dealer === 0 ? 2 : 1;
-  r = applyCribbageAction({ state, action: { type: 'cut' }, actorId: nonDealerActor, rng: det(7) });
-  assert.equal(r.error, undefined);
-  state = r.state;
+  // Second discard auto-cuts and jumps straight to pegging.
   assert.equal(state.phase, 'pegging');
+  assert.ok(state.starter, 'starter card was cut automatically');
 
   let safety = 64;
   while (state.phase === 'pegging' && safety-- > 0) {

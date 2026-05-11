@@ -133,6 +133,10 @@ export function mountRoutes(app, { db, registry, sse, ai = null }) {
       `).get(aId, bId, gameType, JSON.stringify(initialState), now, now);
       if (opponentIsBot && ai) {
         createAiSession(db, { gameId: result.id, botUserId: opponentId, personaId });
+        // Kick the bot immediately so it can be working on its first move
+        // while the human is still reading their hand. Without this the
+        // bot doesn't start thinking until the SSE subscribe lands.
+        ai.orchestrator.scheduleTurn(result.id);
       }
       res.json({ id: result.id, gameType });
     } catch (err) {

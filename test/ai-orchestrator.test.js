@@ -151,7 +151,7 @@ test('orchestrator: scheduleTurn after _runOnce when bot remains active (instrum
   assert.equal(callCount, 1);
 });
 
-test('orchestrator: bot acts twice in a row when phase advance keeps it active', async () => {
+test('orchestrator: bot acts twice in a row when discard auto-cuts into a pegging lead', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'orch-rec-'));
   const db = openDb(join(dir, 'test.db'));
   const now = Date.now();
@@ -162,11 +162,34 @@ test('orchestrator: bot acts twice in a row when phase advance keeps it active',
   const botPlayerIdx = botSide === 'a' ? 0 : 1;
   const dealerIdx = 1 - botPlayerIdx;
 
+  // Bot is non-dealer, so after auto-cut the bot leads pegging and the
+  // orchestrator should recurse once to make the bot play its first card.
+  // Hand-craft hands so we know exactly which card the bot will play.
+  const botHand = [
+    { id: 'C-A-0', rank: 'A', suit: 'C', deckIndex: 0 },
+    { id: 'C-2-0', rank: '2', suit: 'C', deckIndex: 0 },
+    { id: 'C-3-0', rank: '3', suit: 'C', deckIndex: 0 },
+    { id: 'C-4-0', rank: '4', suit: 'C', deckIndex: 0 },
+    { id: 'C-5-0', rank: '5', suit: 'C', deckIndex: 0 },
+    { id: 'C-6-0', rank: '6', suit: 'C', deckIndex: 0 },
+  ];
+  const humanHand = [
+    { id: 'D-A-0', rank: 'A', suit: 'D', deckIndex: 0 },
+    { id: 'D-2-0', rank: '2', suit: 'D', deckIndex: 0 },
+    { id: 'D-3-0', rank: '3', suit: 'D', deckIndex: 0 },
+    { id: 'D-4-0', rank: '4', suit: 'D', deckIndex: 0 },
+    { id: 'D-5-0', rank: '5', suit: 'D', deckIndex: 0 },
+    { id: 'D-6-0', rank: '6', suit: 'D', deckIndex: 0 },
+  ];
   const participants = [{ userId: aId, side: 'a' }, { userId: bId, side: 'b' }];
   const state = buildInitialState({ participants, rng: det(99) });
   state.dealer = dealerIdx;
-  state.pendingDiscards[1 - botPlayerIdx] = state.hands[1 - botPlayerIdx].slice(0, 2).map(c => ({...c}));
+  state.hands = botPlayerIdx === 0 ? [botHand, humanHand] : [humanHand, botHand];
+  state.pendingDiscards[1 - botPlayerIdx] = humanHand.slice(0, 2).map(c => ({...c}));
   state.activeUserId = botId;
+  // Pad the deck with non-J cards so auto-cut never grants nibs (which
+  // would end the match in a contrived 121-target scenario).
+  state.deck = [{ id: 'S-7-0', rank: '7', suit: 'S', deckIndex: 0 }];
 
   const gameId = db.prepare(`
     INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
@@ -174,9 +197,11 @@ test('orchestrator: bot acts twice in a row when phase advance keeps it active',
     .get(aId, bId, JSON.stringify(state), now, now).id;
   createAiSession(db, { gameId, botUserId: botId, personaId: 'hattie' });
 
+  // Bot discards C-A and C-2 (indexes 0,1); pegging hand becomes 3,4,5,6 of clubs.
+  // First card the bot can lead with: any of those — we mock 'play:3C'.
   const llm = new FakeLlmClient([
     { text: '{"moveId":"discard:0,1","banter":"first"}', sessionId: 'sid' },
-    { text: '{"moveId":"cut","banter":"second"}', sessionId: 'sid' },
+    { text: '{"moveId":"play:3C","banter":"second"}', sessionId: 'sid' },
   ]);
   const events = [];
   const sse = { broadcast: (gid, ev) => events.push(ev) };
@@ -186,7 +211,7 @@ test('orchestrator: bot acts twice in a row when phase advance keeps it active',
 
   await orch.runTurn(gameId);
 
-  assert.equal(llm.calls.length, 2, 'orchestrator recursed for the cut phase');
+  assert.equal(llm.calls.length, 2, 'orchestrator recursed for the pegging lead after auto-cut');
   const banters = events.filter(e => e.type === 'banter').map(e => e.payload.text);
   assert.deepEqual(banters, ['first', 'second']);
 });

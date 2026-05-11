@@ -1,6 +1,7 @@
 import { sameCard } from '../../../../src/shared/cards/deck.js';
+import { performCut } from './cut.js';
 
-export function applyDiscard({ state, action, player }) {
+export function applyDiscard({ state, action, player, rng }) {
   const cards = action.payload?.cards;
   if (!Array.isArray(cards) || cards.length !== 2) {
     return { error: 'discard requires two cards' };
@@ -22,25 +23,20 @@ export function applyDiscard({ state, action, player }) {
   const next = { ...state, pendingDiscards: pending };
 
   if (pending[0] && pending[1]) {
-    // Both submitted — build crib, shrink hands, advance to cut.
+    // Both submitted — build crib, shrink hands, auto-cut, jump straight
+    // to pegging. The manual cut is a no-decision round-trip; skipping it
+    // removes a needless wait for the non-dealer.
     const crib = [...pending[0], ...pending[1]];
     const newHands = state.hands.map((h, i) =>
       h.filter(c => !pending[i].some(d => sameCard(d, c)))
     );
-    const nonDealer = 1 - state.dealer;
-    const nonDealerUserId = nonDealer === 0 ? state.sides.a : state.sides.b;
-    return {
-      state: {
-        ...next,
-        hands: newHands,
-        crib,
-        pendingDiscards: [null, null],
-        phase: 'cut',
-        activeUserId: nonDealerUserId,
-      },
-      ended: false,
-      summary: { kind: 'discard' },
+    const intermediate = {
+      ...next,
+      hands: newHands,
+      crib,
+      pendingDiscards: [null, null],
     };
+    return performCut(intermediate, rng);
   }
   return { state: next, ended: false, summary: { kind: 'discard' } };
 }
