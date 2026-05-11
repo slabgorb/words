@@ -1,5 +1,5 @@
 import { getAiSession, markStalled, clearStall } from './agent-session.js';
-import { InvalidLlmResponse, InvalidLlmMove } from '../../../plugins/cribbage/server/ai/cribbage-player.js';
+import { InvalidLlmResponse, InvalidLlmMove } from './errors.js';
 import { TimeoutError, SubprocessFailed, ParseError, EmptyResponse } from './llm-client.js';
 import { appendTurnEntry } from '../history.js';
 

@@ -1,15 +1,8 @@
 import { enumerateLegalMoves } from './legal-moves.js';
 import { buildTurnPrompt, parseLlmResponse } from './prompts.js';
+import { InvalidLlmResponse, InvalidLlmMove } from '../../../../src/server/ai/errors.js';
 
-export class InvalidLlmResponse extends Error {
-  constructor(detail) { super(`LLM response invalid: ${detail}`); this.name = 'InvalidLlmResponse'; }
-}
-export class InvalidLlmMove extends Error {
-  constructor(moveId, legalIds) {
-    super(`LLM picked moveId '${moveId}' not in legal set [${legalIds.join(', ')}]`);
-    this.name = 'InvalidLlmMove';
-  }
-}
+export { InvalidLlmResponse, InvalidLlmMove };
 
 export async function chooseAction({ llm, persona, sessionId, state, botPlayerIdx }) {
   const legalMoves = enumerateLegalMoves(state, botPlayerIdx);
