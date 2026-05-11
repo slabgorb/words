@@ -7,6 +7,7 @@ function rowToSession(row) {
     claudeSessionId: row.claude_session_id,
     stalledAt: row.stalled_at,
     stallReason: row.stall_reason,
+    pendingSequence: row.pending_sequence ? JSON.parse(row.pending_sequence) : null,
     createdAt: row.created_at,
     lastUsedAt: row.last_used_at,
   };
@@ -31,7 +32,7 @@ export function setClaudeSessionId(db, gameId, claudeSessionId) {
 }
 
 export function markStalled(db, gameId, reason) {
-  db.prepare("UPDATE ai_sessions SET stalled_at = ?, stall_reason = ?, last_used_at = ? WHERE game_id = ?")
+  db.prepare("UPDATE ai_sessions SET stalled_at = ?, stall_reason = ?, pending_sequence = NULL, last_used_at = ? WHERE game_id = ?")
     .run(Date.now(), reason, Date.now(), gameId);
 }
 
@@ -53,4 +54,15 @@ export function listStalledOrInFlight(db) {
         OR json_extract(g.state, '$.activeUserId') IS NULL
       )
   `).all().map(rowToSession);
+}
+
+export function setPendingSequence(db, gameId, sequence) {
+  const value = (Array.isArray(sequence) && sequence.length > 0) ? JSON.stringify(sequence) : null;
+  db.prepare("UPDATE ai_sessions SET pending_sequence = ?, last_used_at = ? WHERE game_id = ?")
+    .run(value, Date.now(), gameId);
+}
+
+export function clearPendingSequence(db, gameId) {
+  db.prepare("UPDATE ai_sessions SET pending_sequence = NULL, last_used_at = ? WHERE game_id = ?")
+    .run(Date.now(), gameId);
 }

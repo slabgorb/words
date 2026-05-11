@@ -11,6 +11,8 @@ import {
   markStalled,
   clearStall,
   listStalledOrInFlight,
+  setPendingSequence,
+  clearPendingSequence,
 } from '../src/server/ai/agent-session.js';
 
 function tmpDb() {
@@ -74,4 +76,37 @@ test('listStalledOrInFlight: returns active games whose activeUserId is a bot or
   const rows = listStalledOrInFlight(db);
   assert.equal(rows.length, 1);
   assert.equal(rows[0].gameId, gameId);
+});
+
+test('setPendingSequence stores and clears a JSON-encoded tail', () => {
+  const { db, gameId } = tmpDb();
+  createAiSession(db, { gameId, botUserId: tmpDb().botUserId, personaId: 'hattie' });
+  setPendingSequence(db, gameId, [
+    { type: 'move', payload: { from: 13, to: 8, die: 5 } },
+    { type: 'move', payload: { from: 13, to: 10, die: 3 } },
+  ]);
+  let sess = getAiSession(db, gameId);
+  assert.deepEqual(sess.pendingSequence, [
+    { type: 'move', payload: { from: 13, to: 8, die: 5 } },
+    { type: 'move', payload: { from: 13, to: 10, die: 3 } },
+  ]);
+
+  setPendingSequence(db, gameId, []);
+  sess = getAiSession(db, gameId);
+  assert.equal(sess.pendingSequence, null,
+    'empty array stores as NULL');
+});
+
+test('clearPendingSequence sets the column to NULL', () => {
+  const { db, gameId } = tmpDb();
+  createAiSession(db, { gameId, botUserId: tmpDb().botUserId, personaId: 'hattie' });
+  setPendingSequence(db, gameId, [{ type: 'move', payload: { from: 1, to: 2, die: 1 } }]);
+  clearPendingSequence(db, gameId);
+  assert.equal(getAiSession(db, gameId).pendingSequence, null);
+});
+
+test('getAiSession exposes pendingSequence as null when never set', () => {
+  const { db, gameId } = tmpDb();
+  createAiSession(db, { gameId, botUserId: tmpDb().botUserId, personaId: 'hattie' });
+  assert.equal(getAiSession(db, gameId).pendingSequence, null);
 });
