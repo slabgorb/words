@@ -67,6 +67,110 @@ export function renderBoard(board, side) {
   return lines.join('\n');
 }
 
+function header(state, botSide) {
+  const sideLabel = botSide === 'a' ? 'side A (moving toward higher-indexed points)' : 'side B (moving toward lower-indexed points)';
+  const oppSide = botSide === 'a' ? 'b' : 'a';
+  const youScore = botSide === 'a' ? state.match.scoreA : state.match.scoreB;
+  const oppScore = botSide === 'a' ? state.match.scoreB : state.match.scoreA;
+  const cubeOwnerLabel = state.cube.owner == null
+    ? 'unowned'
+    : (state.cube.owner === botSide ? 'owned by you' : 'owned by opponent');
+  const crawford = state.match.crawford
+    ? 'Crawford: this is the Crawford leg (no doubling)'
+    : 'Crawford: not yet';
+  const youPip = pipCount(state.board, botSide);
+  const oppPip = pipCount(state.board, oppSide);
+  const diff = youPip - oppPip;
+  const pipLine = diff === 0
+    ? `Pip count — you: ${youPip}, opponent: ${oppPip}  (tied)`
+    : diff < 0
+      ? `Pip count — you: ${youPip}, opponent: ${oppPip}  (you lead by ${-diff})`
+      : `Pip count — you: ${youPip}, opponent: ${oppPip}  (you trail by ${diff})`;
+  return [
+    `You are playing ${sideLabel}.`,
+    `Match: ${youScore}–${oppScore} (target ${state.match.target}). Cube: ${state.cube.value}, ${cubeOwnerLabel}. ${crawford}.`,
+    pipLine,
+  ].join('\n');
+}
+
+function diceLine(dice) {
+  if (!dice) return 'Dice: not yet rolled.';
+  const arr = Array.isArray(dice) ? dice : (dice.remaining ?? dice.values ?? []);
+  if (arr.length === 4) return `Dice: ${arr[0]}-${arr[0]} (doubles, four moves)`;
+  if (arr.length === 2) return `Dice: ${arr[0]} and ${arr[1]}`;
+  if (arr.length === 1) return `Dice: ${arr[0]} (one die remaining)`;
+  return 'Dice: not yet rolled.';
+}
+
+function phaseBlock(state, botSide) {
+  switch (state.turn.phase) {
+    case 'initial-roll':
+      return 'Opening roll. No decisions to make.';
+    case 'pre-roll':
+      return [
+        diceLine(state.turn.dice),
+        'You may roll, or offer the cube if eligible.',
+      ].join('\n');
+    case 'moving': {
+      const bar = botSide === 'a' ? state.board.barA : state.board.barB;
+      const lines = [diceLine(state.turn.dice)];
+      if (bar > 0) lines.push(`You have ${bar} checker(s) on the bar — must re-enter before any other move.`);
+      return lines.join('\n');
+    }
+    case 'awaiting-double-response': {
+      const offerer = state.cube.pendingOffer?.from === botSide ? 'you' : 'Your opponent';
+      const cur = state.cube.value;
+      const next = cur * 2;
+      return [
+        `${offerer} has offered to double the cube.`,
+        `If you accept, the cube would go from ${cur} to ${next} and you would own it.`,
+        `If you decline you pay ${cur} points and the leg ends.`,
+      ].join('\n');
+    }
+    default:
+      return '';
+  }
+}
+
+function legalMovesBlock(legalMoves) {
+  const lines = legalMoves.map(m => `  - ${m.id}: ${m.summary}`);
+  return `Legal moves:\n${lines.join('\n')}`;
+}
+
+const RESPONSE_FOOTER = 'Respond with a single JSON object (and nothing else): {"moveId": "<one of the legal move ids above>", "banter": "<short in-character line, may be empty>"}';
+
+export function buildTurnPrompt({ state, legalMoves, botPlayerIdx }) {
+  const botSide = botPlayerIdx === 0 ? 'a' : 'b';
+  return [
+    header(state, botSide),
+    renderBoard(state.board, botSide),
+    phaseBlock(state, botSide),
+    legalMovesBlock(legalMoves),
+    RESPONSE_FOOTER,
+  ].join('\n\n');
+}
+
+function extractJson(text) {
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) return fenceMatch[1].trim();
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start >= 0 && end > start) return text.slice(start, end + 1);
+  throw new Error('no JSON object found in response');
+}
+
+export function parseLlmResponse(text) {
+  const json = extractJson(text);
+  let parsed;
+  try { parsed = JSON.parse(json); }
+  catch (e) { throw new Error(`response is not valid JSON: ${e.message}`); }
+  if (typeof parsed.moveId !== 'string') throw new Error('response missing moveId');
+  return {
+    moveId: parsed.moveId,
+    banter: typeof parsed.banter === 'string' ? parsed.banter : '',
+  };
+}
+
 export function pipCount(board, side) {
   // Pip = sum over all your checkers of "how far they have to travel to bear off".
   // For A: bearing off from pips 1..6 (state-indices 18..23); a checker at state
