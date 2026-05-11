@@ -48,11 +48,15 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     // activeUserId is null (concurrent phases: discard, show) and the bot
     // hasn't yet submitted its half.
     const botPlayerIdx = botPlayerIdxOf(state, session.botUserId);
+    const botSideKey = botPlayerIdx === 0 ? 'a' : 'b';
     const botMustActConcurrently =
       state.activeUserId == null &&
       (
+        // Cribbage concurrent phases
         (state.phase === 'discard' && state.pendingDiscards?.[botPlayerIdx] == null) ||
-        (state.phase === 'show' && state.acknowledged?.[botPlayerIdx] === false)
+        (state.phase === 'show' && state.acknowledged?.[botPlayerIdx] === false) ||
+        // Backgammon initial-roll: both sides roll; bot acts if its side hasn't rolled yet.
+        (state.turn?.phase === 'initial-roll' && state.initialRoll?.[botSideKey] == null)
       );
     if (state.activeUserId !== session.botUserId && !botMustActConcurrently) return;
 

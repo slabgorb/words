@@ -346,3 +346,53 @@ test('orchestrator: unknown persona stalls instead of throwing', async () => {
   assert.equal(sess.stallReason, 'invalid_response');
   assert.ok(events.some(e => e.type === 'bot_stalled'));
 });
+
+test('orchestrator: bot acts on backgammon initial-roll without explicit activeUserId', async () => {
+  // Regression test: verify the orchestrator's "should I act" gate lets the
+  // bot through when state.activeUserId is null (which is what deriveActiveUserId
+  // returns for backgammon's initial-roll phase). Without the fix, the bot
+  // silently no-ops and the game is stuck.
+  const { openDb } = await import('../src/server/db.js');
+  const { createAiSession } = await import('../src/server/ai/agent-session.js');
+  const { createOrchestrator } = await import('../src/server/ai/orchestrator.js');
+  const backgammonPlugin = (await import('../plugins/backgammon/plugin.js')).default;
+  const { chooseAction } = await import('../plugins/backgammon/server/ai/backgammon-player.js');
+  const { buildInitialState } = await import('../plugins/backgammon/server/state.js');
+
+  const dir = mkdtempSync(join(tmpdir(), 'orch-bg-initial-'));
+  const db = openDb(join(dir, 'test.db'));
+  const now = Date.now();
+  const humanId = db.prepare("INSERT INTO users (email,friendly_name,color,created_at) VALUES ('h','H','#000',?) RETURNING id").get(now).id;
+  const botId = db.prepare("INSERT INTO users (email,friendly_name,color,is_bot,created_at) VALUES ('b','Bot','#fff',1,?) RETURNING id").get(now).id;
+  const aId = Math.min(humanId, botId), bId = Math.max(humanId, botId);
+  const participants = [{ userId: aId, side: 'a' }, { userId: bId, side: 'b' }];
+
+  // Vanilla state — DO NOT inject activeUserId. This is what game creation
+  // produces in production.
+  const state = buildInitialState({ participants });
+  state.sides = { a: botId, b: humanId };
+  // state.activeUserId is intentionally absent/null here.
+
+  const gameId = db.prepare(`
+    INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'backgammon', ?, ?, ?) RETURNING id`)
+    .get(aId, bId, JSON.stringify(state), now, now).id;
+  createAiSession(db, { gameId, botUserId: botId, personaId: 'colonel-pip' });
+
+  const events = [];
+  const sse = { broadcast: (gid, ev) => events.push({ gid, ...ev }) };
+  const persona = { id: 'colonel-pip', displayName: 'Colonel Pip', color: '#445566', glyph: '▲', systemPrompt: 'x' };
+  const personas = new Map([['colonel-pip', persona]]);
+  const llm = new FakeLlmClient([]);  // no LLM calls expected — initial-roll is auto-action
+  const adapters = { backgammon: { plugin: backgammonPlugin, chooseAction } };
+  const orch = createOrchestrator({ db, llm, sse, personas, adapters });
+
+  await orch.runTurn(gameId);
+
+  // The bot should have rolled for its side. Check that initialRoll[botSide] is now set.
+  const after = JSON.parse(db.prepare("SELECT state FROM games WHERE id = ?").get(gameId).state);
+  const botSide = after.sides.a === botId ? 'a' : 'b';
+  assert.ok(after.initialRoll[botSide] != null,
+    `bot should have rolled for side ${botSide}; got initialRoll=${JSON.stringify(after.initialRoll)}`);
+  assert.equal(llm.calls.length, 0, 'no LLM call for auto-action');
+});
