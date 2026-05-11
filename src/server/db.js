@@ -163,6 +163,11 @@ export function openDb(filePath = 'game.db') {
     )
   `);
 
+  const aiCols = db.prepare("PRAGMA table_info(ai_sessions)").all().map(c => c.name);
+  if (!aiCols.includes('pending_sequence')) {
+    db.exec("ALTER TABLE ai_sessions ADD COLUMN pending_sequence TEXT");
+  }
+
   // --- Plugin host schema delta ---
   const gameCols = db.prepare("PRAGMA table_info(games)").all().map(c => c.name);
 

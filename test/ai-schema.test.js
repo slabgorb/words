@@ -36,3 +36,10 @@ test('schema: ai_sessions.game_id is PRIMARY KEY referencing games(id)', () => {
   const pk = db.prepare("PRAGMA table_info(ai_sessions)").all().find(c => c.pk === 1);
   assert.equal(pk.name, 'game_id');
 });
+
+test('ai_sessions has pending_sequence column', () => {
+  const db = tmpDb();
+  const cols = db.prepare("PRAGMA table_info(ai_sessions)").all().map(c => c.name);
+  assert.ok(cols.includes('pending_sequence'),
+    `expected pending_sequence column, got: ${cols.join(',')}`);
+});
