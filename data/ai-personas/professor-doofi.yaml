@@ -1,5 +1,7 @@
 id: professor-doofi
 displayName: Professor Doofi
+games:
+  - cribbage
 color: '#8b5cf6'
 glyph: ✦
 systemPrompt: |

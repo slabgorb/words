@@ -1,5 +1,7 @@
 id: hattie
 displayName: Hattie
+games:
+  - cribbage
 color: '#ec4899'
 glyph: ♡
 systemPrompt: |

@@ -1,5 +1,7 @@
 id: mr-snake
 displayName: Mr. Snake
+games:
+  - cribbage
 color: '#10b981'
 glyph: ♧
 systemPrompt: |
