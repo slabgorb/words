@@ -18,6 +18,18 @@
     </div>
   </header>
 
+  <div id="opponent-bubble" class="opp-bubble" hidden>
+    <span id="opp-bubble-text"></span>
+    <span id="opp-bubble-dots" class="opp-bubble__dots" hidden>
+      <span></span><span></span><span></span>
+    </span>
+  </div>
+  <div id="opp-stall-banner" class="opp-stall" hidden>
+    <span id="opp-stall-text"></span>
+    <button id="opp-stall-retry" type="button">Retry</button>
+    <button id="opp-stall-abandon" type="button">Abandon</button>
+  </div>
+
   <section id="peg-board" class="peg-board" aria-label="Cribbage board"></section>
   <div id="phase-banner" class="phase-banner"></div>
 
@@ -33,6 +45,7 @@
 
   <div id="show-overlay" class="show-overlay" hidden></div>
 
+  <script type="module" src="opponent-bubble.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
