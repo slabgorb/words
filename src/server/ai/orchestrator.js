@@ -1,6 +1,7 @@
 import { getAiSession, markStalled, clearStall } from './agent-session.js';
 import { InvalidLlmResponse, InvalidLlmMove } from '../../../plugins/cribbage/server/ai/cribbage-player.js';
 import { TimeoutError, SubprocessFailed, ParseError, EmptyResponse } from './llm-client.js';
+import { appendTurnEntry } from '../history.js';
 
 function rngFor(gameId) {
   let s = (Date.now() ^ (gameId * 9301 + 49297)) >>> 0;
@@ -91,8 +92,12 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
 
         const newState = result.state;
         const updateGame = db.prepare("UPDATE games SET state = ?, updated_at = ? WHERE id = ?");
+        let turnRow = null;
         const tx = db.transaction(() => {
           updateGame.run(JSON.stringify(newState), Date.now(), gameId);
+          if (result.summary) {
+            turnRow = appendTurnEntry(db, gameId, botSide, result.summary.kind, result.summary);
+          }
           if (result.ended) {
             db.prepare("UPDATE games SET status='ended', ended_reason=?, winner_side=? WHERE id=?")
               .run(newState.endedReason ?? 'plugin', newState.winnerSide ?? null, gameId);
@@ -108,6 +113,18 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
           });
         }
         sse.broadcast(gameId, { type: 'update', payload: {} });
+        if (turnRow) {
+          sse.broadcast(gameId, {
+            type: 'turn',
+            payload: {
+              turnNumber: turnRow.turnNumber,
+              side: turnRow.side,
+              kind: turnRow.kind,
+              summary: turnRow.summary,
+              createdAt: turnRow.createdAt,
+            },
+          });
+        }
 
         // If the bot is STILL active after this action (e.g., advancing
         // through 'cut' as non-dealer, or multi-step show acks), recurse
