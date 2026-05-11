@@ -216,6 +216,52 @@ test('orchestrator: bot acts twice in a row when discard auto-cuts into a peggin
   assert.deepEqual(banters, ['first', 'second']);
 });
 
+test('orchestrator: auto-executes initial-roll without an LLM call', async () => {
+  const backgammonPlugin = (await import('../plugins/backgammon/plugin.js')).default;
+  const { chooseAction } = await import('../plugins/backgammon/server/ai/backgammon-player.js');
+  const { buildInitialState: buildBgState } = await import('../plugins/backgammon/server/state.js');
+
+  const dir = mkdtempSync(join(tmpdir(), 'orch-bg-'));
+  const db = openDb(join(dir, 'test.db'));
+  const now = Date.now();
+  const humanId = db.prepare("INSERT INTO users (email,friendly_name,color,created_at) VALUES ('h','H','#000',?) RETURNING id").get(now).id;
+  const botId = db.prepare("INSERT INTO users (email,friendly_name,color,is_bot,created_at) VALUES ('b','Bot','#fff',1,?) RETURNING id").get(now).id;
+  const aId = Math.min(humanId, botId), bId = Math.max(humanId, botId);
+  const participants = [{ userId: aId, side: 'a' }, { userId: bId, side: 'b' }];
+
+  const state = buildBgState({ participants });
+  state.turn.phase = 'initial-roll';
+  state.activeUserId = botId;
+
+  const gameId = db.prepare(`
+    INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'backgammon', ?, ?, ?) RETURNING id`)
+    .get(aId, bId, JSON.stringify(state), now, now).id;
+  createAiSession(db, { gameId, botUserId: botId, personaId: 'colonel-pip' });
+
+  const events = [];
+  const sse = { broadcast: (gid, ev) => events.push({ gid, ...ev }) };
+  const persona = { id: 'colonel-pip', displayName: 'Colonel Pip', color: '#445566', glyph: 'A', systemPrompt: 'x' };
+  const personas = new Map([['colonel-pip', persona]]);
+
+  // FakeLlmClient with NO responses queued — if the orchestrator calls it, the test fails.
+  const llm = new FakeLlmClient([]);
+  const adapters = { backgammon: { plugin: backgammonPlugin, chooseAction } };
+  const orch = createOrchestrator({ db, llm, sse, personas, adapters, logger: { warn: () => {}, error: () => {} } });
+
+  await orch.runTurn(gameId);
+
+  assert.equal(llm.calls.length, 0, 'no LLM call for auto-action');
+
+  const game = db.prepare("SELECT state FROM games WHERE id = ?").get(gameId);
+  const newState = JSON.parse(game.state);
+  const sess = getAiSession(db, gameId);
+  assert.equal(sess.stalledAt, null, 'auto-action did not stall');
+  // The bot rolled at least one initial die; that side should have a recorded value.
+  const botSide = newState.sides.a === botId ? 'a' : 'b';
+  assert.ok(newState.initialRoll[botSide] !== null, 'bot recorded an initial roll');
+});
+
 test('orchestrator: unknown persona stalls instead of throwing', async () => {
   const llm = new FakeLlmClient([]);
   const dir = mkdtempSync(join(tmpdir(), 'orch-bad-'));

@@ -8,6 +8,18 @@ function rngFor(gameId) {
   return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
 }
 
+// Phases that have a single mechanical outcome — skip the LLM and apply
+// the action directly. The factory receives (state, rng) and must return a
+// full {type, payload?} action object.
+const autoActions = {
+  backgammon: {
+    'initial-roll': (state, rng) => ({
+      type: 'roll-initial',
+      payload: { value: Math.floor(rng() * 6) + 1, throwParams: [] },
+    }),
+  },
+};
+
 function stallReasonFor(err) {
   if (err instanceof TimeoutError) return 'timeout';
   if (err instanceof InvalidLlmMove) return 'illegal_move';
@@ -64,6 +76,64 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
       return;
     }
     const botSide = botPlayerIdx === 0 ? 'a' : 'b';
+
+    // Mechanical phases (e.g., backgammon initial-roll) bypass the LLM.
+    const phaseKey = state.turn?.phase ?? state.phase;
+    const autoForGame = autoActions[gameRow.game_type];
+    if (autoForGame && autoForGame[phaseKey]) {
+      const rng = rngFor(gameId);
+      const action = autoForGame[phaseKey](state, rng);
+      const result = adapter.plugin.applyAction({
+        state, action, actorId: session.botUserId, rng,
+      });
+      if (result.error) {
+        logger.warn?.(`[ai] game ${gameId} auto-action ${phaseKey} rejected: ${result.error}`);
+        markStalled(db, gameId, 'invalid_response');
+        sse.broadcast(gameId, {
+          type: 'bot_stalled',
+          payload: { side: botSide, personaId: persona.id, displayName: persona.displayName, reason: 'invalid_response' },
+        });
+        return;
+      }
+      const newState = result.state;
+      let turnRow = null;
+      const tx = db.transaction(() => {
+        db.prepare("UPDATE games SET state = ?, updated_at = ? WHERE id = ?")
+          .run(JSON.stringify(newState), Date.now(), gameId);
+        if (result.summary) {
+          turnRow = appendTurnEntry(db, gameId, botSide, result.summary.kind, result.summary);
+        }
+        if (result.ended) {
+          db.prepare("UPDATE games SET status='ended', ended_reason=?, winner_side=? WHERE id=?")
+            .run(newState.endedReason ?? 'plugin', newState.winnerSide ?? null, gameId);
+        }
+      });
+      tx();
+      clearStall(db, gameId);
+      sse.broadcast(gameId, { type: 'update', payload: {} });
+      if (turnRow) {
+        sse.broadcast(gameId, {
+          type: 'turn',
+          payload: {
+            turnNumber: turnRow.turnNumber,
+            side: turnRow.side,
+            kind: turnRow.kind,
+            summary: turnRow.summary,
+            createdAt: turnRow.createdAt,
+          },
+        });
+      }
+      // Recurse so the bot can act in the new phase (e.g. pre-roll) without
+      // waiting on an external SSE wake-up. Depth=0 guard prevents runaway:
+      // at most two consecutive auto-actions per external trigger (handles
+      // back-to-back initial-roll ties).
+      if (!result.ended &&
+          (newState.activeUserId === session.botUserId || newState.activeUserId == null) &&
+          depth === 0) {
+        await _runOnce(gameId, 1);
+      }
+      return;
+    }
 
     sse.broadcast(gameId, {
       type: 'bot_thinking',
