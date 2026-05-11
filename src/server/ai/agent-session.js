@@ -50,6 +50,7 @@ export function listStalledOrInFlight(db) {
       AND (
         s.stalled_at IS NOT NULL
         OR json_extract(g.state, '$.activeUserId') = s.bot_user_id
+        OR json_extract(g.state, '$.activeUserId') IS NULL
       )
   `).all().map(rowToSession);
 }
