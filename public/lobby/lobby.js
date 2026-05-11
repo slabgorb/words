@@ -485,8 +485,13 @@ function wireNewGame(me, plugins) {
         </span>
         <span class="ng-chev" aria-hidden="true">›</span>`;
       btn.onclick = () => {
-        if (PLUGIN_VARIANTS[p.id]) showVariantStep(opponent, p, plugins);
-        else startGame(opponent, p.id, null);
+        if (PLUGIN_VARIANTS[p.id]) {
+          showVariantStep(opponent, p, plugins);
+        } else if (opponent.isBot && p.id === 'cribbage') {
+          showPersonaStep(opponent, p.id, null);
+        } else {
+          startGame(opponent, p.id, null);
+        }
       };
       li.appendChild(btn);
       stepsEl.appendChild(li);
@@ -511,15 +516,47 @@ function wireNewGame(me, plugins) {
         <span class="ng-art">${boxArt(plugin.id, v.variant)}</span>
         <span class="ng-body" style="padding-left:0"><span class="ng-name">${escapeHtml(v.label)}</span></span>
         <span class="ng-chev" aria-hidden="true">›</span>`;
-      btn.onclick = () => startGame(opponent, plugin.id, v.variant);
+      btn.onclick = () => {
+        if (opponent.isBot && plugin.id === 'cribbage') {
+          showPersonaStep(opponent, plugin.id, v.variant);
+        } else {
+          startGame(opponent, plugin.id, v.variant);
+        }
+      };
       li.appendChild(btn);
       stepsEl.appendChild(li);
     }
   }
 
-  async function startGame(opponent, gameType, variant) {
+  async function showPersonaStep(opponent, gameType, variant) {
+    titleEl.textContent = `Choose your AI opponent`;
+    stepsEl.innerHTML = `<div class="ng-step">Final step — pick a persona</div>`;
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'ng-back';
+    back.textContent = 'back';
+    back.onclick = () => showGameStep(opponent, plugins);
+    stepsEl.appendChild(back);
+    const data = await fetchJson('/api/ai/personas');
+    for (const p of data.personas) {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ng-tile';
+      btn.innerHTML = `
+        <span class="ng-mono"${p.glyph ? ` data-glyph="${escapeAttr(p.glyph)}"` : ''} style="background:${escapeAttr(p.color || '#888')};margin-left:16px">${escapeHtml(avatarInitial(p.displayName))}</span>
+        <span class="ng-body"><span class="ng-name">${escapeHtml(p.displayName)}</span></span>
+        <span class="ng-chev" aria-hidden="true">›</span>`;
+      btn.onclick = () => startGame(opponent, gameType, variant, p.id);
+      li.appendChild(btn);
+      stepsEl.appendChild(li);
+    }
+  }
+
+  async function startGame(opponent, gameType, variant, personaId = null) {
     const body = { opponentId: opponent.id, gameType };
     if (variant) body.variant = variant;
+    if (personaId) body.personaId = personaId;
     const r = await fetch('/api/games', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

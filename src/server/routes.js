@@ -53,7 +53,16 @@ export function mountRoutes(app, { db, registry, sse, ai = null }) {
   });
 
   app.get('/api/users', requireIdentity, (_req, res) => {
-    res.json(listUsers(db).map(u => ({ id: u.id, friendlyName: u.friendlyName, color: u.color, glyph: u.glyph })));
+    res.json(listUsers(db).map(u => ({ id: u.id, friendlyName: u.friendlyName, color: u.color, glyph: u.glyph, isBot: u.isBot })));
+  });
+
+  app.get('/api/ai/personas', requireIdentity, (_req, res) => {
+    if (!ai) return res.json({ personas: [] });
+    const out = [];
+    for (const p of ai.personas.values()) {
+      out.push({ id: p.id, displayName: p.displayName, color: p.color, glyph: p.glyph });
+    }
+    res.json({ personas: out });
   });
 
   app.get('/api/plugins', requireIdentity, (_req, res) => {

@@ -158,6 +158,19 @@ test('POST /api/games/:id/ai/retry: 422 if no stall pending', async () => {
   }
 });
 
+test('GET /api/ai/personas: returns the catalog', async () => {
+  const { app } = makeApp();
+  const { srv, port } = await listen(app);
+  try {
+    const r = await fetch(`http://localhost:${port}/api/ai/personas`);
+    const body = await r.json();
+    assert.equal(r.status, 200);
+    assert.ok(body.personas.some(p => p.id === 'hattie'));
+  } finally {
+    srv.close();
+  }
+});
+
 test('POST /action: when newState.activeUserId is a bot, orchestrator schedules turn', async () => {
   const { app, db, humanId, botId, events } = makeApp();
   const { srv, port } = await listen(app);
