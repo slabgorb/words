@@ -1,5 +1,6 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
@@ -58,10 +59,15 @@ export class ClaudeCliClient {
       args.push('--session-id', randomUUID());
       if (systemPrompt) args.push('--system-prompt', systemPrompt);
     }
-    args.push('-p', prompt, '--output-format', 'json');
+    args.push('-p', prompt, '--output-format', 'json', '--setting-sources', 'user');
 
     const start = Date.now();
-    const proc = this._spawn(this._command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    // cwd is set to a neutral directory so the bot's claude subprocess
+    // does not auto-load this project's CLAUDE.md, .claude/agents,
+    // .claude/skills, or per-project auto-memory — all of which carry
+    // dev-side context (e.g. Pennyfarthing personas) that would leak
+    // into the bot's persona.
+    const proc = this._spawn(this._command, args, { stdio: ['ignore', 'pipe', 'pipe'], cwd: tmpdir() });
     let exitCode;
     try {
       exitCode = await Promise.race([
