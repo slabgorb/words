@@ -146,6 +146,62 @@ test('POST /api/games/:id/ai/abandon: ends game with endedReason ai_stalled', as
   }
 });
 
+test('GET /api/games/:id/events: replays current stall on subscribe', async () => {
+  const { app, db, botId } = makeApp();
+  const { srv, port } = await listen(app);
+  try {
+    const create = await POST(port, '/api/games', { opponentId: botId, gameType: 'cribbage', personaId: 'hattie' });
+    const gameId = create.body.id;
+    markStalled(db, gameId, 'timeout');
+
+    const ctrl = new AbortController();
+    const resp = await fetch(`http://localhost:${port}/api/games/${gameId}/events`, { signal: ctrl.signal });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    const deadline = Date.now() + 1000;
+    while (Date.now() < deadline && !buf.includes('event: bot_stalled')) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value);
+    }
+    ctrl.abort();
+    assert.match(buf, /event: bot_stalled/);
+    assert.match(buf, /"reason":"timeout"/);
+    assert.match(buf, /"displayName":"Hattie"/);
+  } finally {
+    srv.close();
+  }
+});
+
+test('GET /api/games/:id/events: no stall replay when AI session is healthy', async () => {
+  const { app, botId } = makeApp();
+  const { srv, port } = await listen(app);
+  try {
+    const create = await POST(port, '/api/games', { opponentId: botId, gameType: 'cribbage', personaId: 'hattie' });
+    const gameId = create.body.id;
+
+    const ctrl = new AbortController();
+    const resp = await fetch(`http://localhost:${port}/api/games/${gameId}/events`, { signal: ctrl.signal });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    // Read whatever's immediately available, then bail.
+    await new Promise(r => setTimeout(r, 100));
+    try {
+      const { value } = await Promise.race([
+        reader.read(),
+        new Promise(r => setTimeout(() => r({ value: undefined }), 50)),
+      ]);
+      if (value) buf += dec.decode(value);
+    } catch {}
+    ctrl.abort();
+    assert.equal(/event: bot_stalled/.test(buf), false);
+  } finally {
+    srv.close();
+  }
+});
+
 test('POST /api/games/:id/ai/retry: 422 if no stall pending', async () => {
   const { app, botId } = makeApp();
   const { srv, port } = await listen(app);

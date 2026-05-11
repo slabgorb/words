@@ -164,6 +164,23 @@ export function mountRoutes(app, { db, registry, sse, ai = null }) {
 
   app.get('/api/games/:gameId/events', requireIdentity, (req, res) => {
     subscribe(req.game.id, req, res);
+    // Replay current AI stall state — without this, page reloads after a
+    // stall leave the user with no banner and no way to retry/abandon.
+    if (ai) {
+      const sess = getAiSession(db, req.game.id);
+      if (sess?.stalledAt != null) {
+        const persona = ai.personas.get(sess.personaId);
+        const state = req.game.state;
+        const botSide = state.sides?.a === sess.botUserId ? 'a' : 'b';
+        const payload = {
+          side: botSide,
+          personaId: sess.personaId,
+          displayName: persona?.displayName ?? 'AI',
+          reason: sess.stallReason ?? 'invalid_response',
+        };
+        res.write(`event: bot_stalled\ndata: ${JSON.stringify(payload)}\n\n`);
+      }
+    }
   });
 
   app.post('/api/games/:gameId/action', requireIdentity, (req, res) => {
