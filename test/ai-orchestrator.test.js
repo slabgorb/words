@@ -191,3 +191,37 @@ test('orchestrator: bot acts twice in a row when phase advance keeps it active',
   const banters = events.filter(e => e.type === 'banter').map(e => e.payload.text);
   assert.deepEqual(banters, ['first', 'second']);
 });
+
+test('orchestrator: unknown persona stalls instead of throwing', async () => {
+  const llm = new FakeLlmClient([]);
+  const dir = mkdtempSync(join(tmpdir(), 'orch-bad-'));
+  const db = openDb(join(dir, 'test.db'));
+  const now = Date.now();
+  const humanId = db.prepare("INSERT INTO users (email, friendly_name, color, created_at) VALUES ('h@x','H','#000',?) RETURNING id").get(now).id;
+  const botId = db.prepare("INSERT INTO users (email, friendly_name, color, is_bot, created_at) VALUES ('b@x','Bot','#fff',1,?) RETURNING id").get(now).id;
+  const aId = Math.min(humanId, botId), bId = Math.max(humanId, botId);
+  const participants = [{ userId: aId, side: 'a' }, { userId: bId, side: 'b' }];
+  const state = buildInitialState({ participants, rng: det(42) });
+  state.activeUserId = botId;
+  const gameId = db.prepare(`
+    INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'cribbage', ?, ?, ?) RETURNING id`)
+    .get(aId, bId, JSON.stringify(state), now, now).id;
+  createAiSession(db, { gameId, botUserId: botId, personaId: 'ghost' });  // persona not in catalog
+
+  const events = [];
+  const sse = { broadcast: (gid, ev) => events.push({ gid, ...ev }) };
+  // Empty personas map — persona lookup will fail
+  const orch = createOrchestrator({
+    db, llm, sse,
+    personas: new Map(),
+    adapters: { cribbage: { plugin: cribbagePlugin, chooseAction: cribbageChoose } },
+    logger: { warn: () => {}, error: () => {} },
+  });
+
+  await orch.runTurn(gameId);  // should not throw
+
+  const sess = getAiSession(db, gameId);
+  assert.equal(sess.stallReason, 'invalid_response');
+  assert.ok(events.some(e => e.type === 'bot_stalled'));
+});

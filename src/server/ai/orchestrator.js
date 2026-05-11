@@ -42,9 +42,24 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     if (state.activeUserId !== session.botUserId && !botMustDiscard) return;
 
     const persona = personas.get(session.personaId);
-    if (!persona) throw new Error(`unknown persona ${session.personaId}`);
     const adapter = adapters[gameRow.game_type];
-    if (!adapter) throw new Error(`no AI adapter for game_type ${gameRow.game_type}`);
+    if (!persona || !adapter) {
+      const detail = !persona ? `unknown persona ${session.personaId}` : `no AI adapter for game_type ${gameRow.game_type}`;
+      logger.error?.(`[ai] game ${gameId}: ${detail}`);
+      markStalled(db, gameId, 'invalid_response');
+      // Compute bot side from state so the client knows where to render the banner.
+      const botSide = state.sides.a === session.botUserId ? 'a' : 'b';
+      sse.broadcast(gameId, {
+        type: 'bot_stalled',
+        payload: {
+          side: botSide,
+          personaId: session.personaId,
+          displayName: persona?.displayName ?? 'AI',
+          reason: 'invalid_response',
+        },
+      });
+      return;
+    }
     const botSide = botPlayerIdx === 0 ? 'a' : 'b';
 
     sse.broadcast(gameId, {
