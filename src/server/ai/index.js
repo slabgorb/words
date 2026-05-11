@@ -7,6 +7,8 @@ import { listStalledOrInFlight } from './agent-session.js';
 import { ClaudeCliClient } from './llm-client.js';
 import cribbagePlugin from '../../../plugins/cribbage/plugin.js';
 import { chooseAction as cribbageChoose } from '../../../plugins/cribbage/server/ai/cribbage-player.js';
+import backgammonPlugin from '../../../plugins/backgammon/plugin.js';
+import { chooseAction as backgammonChoose } from '../../../plugins/backgammon/server/ai/backgammon-player.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..', '..', '..');
@@ -34,7 +36,8 @@ export function bootAiSubsystem({ db, sse, llm, personaDir = DEFAULT_PERSONA_DIR
 
   const client = llm ?? new ClaudeCliClient({});
   const adapters = {
-    cribbage: { plugin: cribbagePlugin, chooseAction: cribbageChoose },
+    cribbage:   { plugin: cribbagePlugin,   chooseAction: cribbageChoose },
+    backgammon: { plugin: backgammonPlugin, chooseAction: backgammonChoose },
   };
   const orchestrator = createOrchestrator({
     db, llm: client, sse, personas: catalog, adapters,

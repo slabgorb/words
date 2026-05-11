@@ -7,7 +7,8 @@ import { openDb } from '../src/server/db.js';
 import { bootAiSubsystem } from '../src/server/ai/index.js';
 import { createAiSession } from '../src/server/ai/agent-session.js';
 import cribbagePlugin from '../plugins/cribbage/plugin.js';
-import { buildInitialState } from '../plugins/cribbage/server/state.js';
+import { buildInitialState as cribbageBuildInitialState } from '../plugins/cribbage/server/state.js';
+import { buildInitialState as backgammonBuildInitialState } from '../plugins/backgammon/server/state.js';
 
 function det(seed = 1) {
   let s = seed;
@@ -54,7 +55,7 @@ test('bootAiSubsystem: schedules pending bot turns from listStalledOrInFlight', 
   const botId = botRow.id;
   const aId = Math.min(humanId, botId), bId = Math.max(humanId, botId);
   const participants = [{ userId: aId, side: 'a' }, { userId: bId, side: 'b' }];
-  const state = buildInitialState({ participants, rng: det(7) });
+  const state = cribbageBuildInitialState({ participants, rng: det(7) });
   state.activeUserId = botId;
   const gameId = db.prepare(`
     INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
@@ -70,4 +71,34 @@ test('bootAiSubsystem: schedules pending bot turns from listStalledOrInFlight', 
   await new Promise(r => setImmediate(r));
   await orchestrator.runTurn(gameId);
   assert.ok(scheduled >= 1);
+});
+
+test('bootAiSubsystem: registers backgammon adapter', async () => {
+  const { openDb: openDbFunc } = await import('../src/server/db.js');
+  const { bootAiSubsystem: bootFunc } = await import('../src/server/ai/index.js');
+  const { createAiSession: createSessionFunc } = await import('../src/server/ai/agent-session.js');
+  const { buildInitialState: bgBuildInitialState } = await import('../plugins/backgammon/server/state.js');
+
+  const dir = mkdtempSync(join(tmpdir(), 'boot-bg-'));
+  const db = openDbFunc(join(dir, 'test.db'));
+  const llm = { send: async () => ({ text: '{"moveId":"x","banter":""}' }) };
+
+  // Use the real persona dir; we just need it to load.
+  const personaDir = join(process.cwd(), 'data', 'ai-personas');
+  const { orchestrator } = bootFunc({ db, sse: { broadcast() {} }, llm, personaDir });
+
+  const now = Date.now();
+  const h = db.prepare("INSERT INTO users (email,friendly_name,color,created_at) VALUES ('h','H','#000',?) RETURNING id").get(now).id;
+  const bot = db.prepare("SELECT id FROM users WHERE is_bot = 1 LIMIT 1").get().id;
+  const aId = Math.min(h, bot), bId = Math.max(h, bot);
+  const state = bgBuildInitialState({ participants: [{ userId: aId, side: 'a' }, { userId: bId, side: 'b' }] });
+  const gameId = db.prepare(`
+    INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'backgammon', ?, ?, ?) RETURNING id`)
+    .get(aId, bId, JSON.stringify(state), now, now).id;
+  createSessionFunc(db, { gameId, botUserId: bot, personaId: 'colonel-pip' });
+
+  // No throw means the adapter is registered. scheduleTurn would otherwise
+  // stall with "no AI adapter for game_type backgammon".
+  assert.doesNotThrow(() => orchestrator.scheduleTurn(gameId));
 });
