@@ -8,6 +8,7 @@ import { plugins } from '../plugins/index.js';
 import { buildRegistry } from './plugins.js';
 import { attachIdentity } from './identity.js';
 import { broadcast } from './sse.js';
+import { bootAiSubsystem } from './ai/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..', '..');
@@ -29,8 +30,9 @@ app.use(express.json());
 app.use(attachIdentity({ db, isProd, devUser }));
 
 const registry = buildRegistry(plugins);
-mountRoutes(app, { db, registry, sse: { broadcast } });
-mountPluginClients(app, { db, registry });
+const ai = bootAiSubsystem({ db, sse: { broadcast } });
+mountRoutes(app, { db, registry, sse: { broadcast }, ai });
+mountPluginClients(app, { db, registry, ai });
 
 const PUBLIC = resolve(PROJECT_ROOT, 'public');
 const LOBBY = resolve(PUBLIC, 'lobby');

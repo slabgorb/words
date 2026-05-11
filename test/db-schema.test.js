@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openDb } from '../src/server/db.js';
 
-test('openDb creates users table with email/friendly_name/color/glyph', () => {
+test('openDb creates users table with email/friendly_name/color/glyph/is_bot', () => {
   const db = openDb(':memory:');
   const cols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
-  assert.deepEqual(cols.sort(), ['color', 'created_at', 'email', 'friendly_name', 'glyph', 'id']);
+  assert.deepEqual(cols.sort(), ['color', 'created_at', 'email', 'friendly_name', 'glyph', 'id', 'is_bot']);
 });
 
 test('openDb creates games table with pair canonicalization check', () => {

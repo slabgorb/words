@@ -145,6 +145,24 @@ export function openDb(filePath = 'game.db') {
     db.exec("ALTER TABLE users ADD COLUMN glyph TEXT");
   }
 
+  // --- AI players schema delta (story: 2026-05-10-ai-players-cribbage) ---
+  if (!userCols.includes('is_bot')) {
+    db.exec("ALTER TABLE users ADD COLUMN is_bot INTEGER NOT NULL DEFAULT 0");
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_sessions (
+      game_id           INTEGER PRIMARY KEY REFERENCES games(id) ON DELETE CASCADE,
+      bot_user_id       INTEGER NOT NULL REFERENCES users(id),
+      persona_id        TEXT NOT NULL,
+      claude_session_id TEXT,
+      stalled_at        INTEGER,
+      stall_reason      TEXT,
+      created_at        INTEGER NOT NULL,
+      last_used_at      INTEGER NOT NULL
+    )
+  `);
+
   // --- Plugin host schema delta ---
   const gameCols = db.prepare("PRAGMA table_info(games)").all().map(c => c.name);
 

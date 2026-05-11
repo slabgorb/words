@@ -5,8 +5,9 @@ import { subscribe } from './sse.js';
 import { writeGameState } from './state.js';
 import { getPlugin } from './plugins.js';
 import { appendTurnEntry, listTurnEntries } from './history.js';
+import { createAiSession, getAiSession, clearStall } from './ai/agent-session.js';
 
-export function mountRoutes(app, { db, registry, sse }) {
+export function mountRoutes(app, { db, registry, sse, ai = null }) {
   // Game-scoped middleware: validate id, load game, check membership.
   app.param('gameId', (req, res, next, gameId) => {
     if (!req.user) return res.status(401).json({ error: 'unauthenticated' });
@@ -52,7 +53,16 @@ export function mountRoutes(app, { db, registry, sse }) {
   });
 
   app.get('/api/users', requireIdentity, (_req, res) => {
-    res.json(listUsers(db).map(u => ({ id: u.id, friendlyName: u.friendlyName, color: u.color, glyph: u.glyph })));
+    res.json(listUsers(db).map(u => ({ id: u.id, friendlyName: u.friendlyName, color: u.color, glyph: u.glyph, isBot: u.isBot })));
+  });
+
+  app.get('/api/ai/personas', requireIdentity, (_req, res) => {
+    if (!ai) return res.json({ personas: [] });
+    const out = [];
+    for (const p of ai.personas.values()) {
+      out.push({ id: p.id, displayName: p.displayName, color: p.color, glyph: p.glyph });
+    }
+    res.json({ personas: out });
   });
 
   app.get('/api/plugins', requireIdentity, (_req, res) => {
@@ -84,8 +94,20 @@ export function mountRoutes(app, { db, registry, sse }) {
     if (variant !== undefined && typeof variant !== 'string') {
       return res.status(400).json({ error: 'invalid variant' });
     }
-    const opponent = db.prepare('SELECT id FROM users WHERE id = ?').get(opponentId);
-    if (!opponent) return res.status(400).json({ error: 'opponent not on roster' });
+    const opponentRow = db.prepare('SELECT id, is_bot FROM users WHERE id = ?').get(opponentId);
+    if (!opponentRow) return res.status(400).json({ error: 'opponent not on roster' });
+    const opponentIsBot = opponentRow.is_bot === 1;
+
+    let personaId = null;
+    if (opponentIsBot) {
+      personaId = req.body?.personaId;
+      if (typeof personaId !== 'string' || !personaId) {
+        return res.status(400).json({ error: 'personaId required for AI opponent' });
+      }
+      if (!ai?.personas?.has(personaId)) {
+        return res.status(400).json({ error: `unknown personaId: ${personaId}` });
+      }
+    }
 
     const plugin = registry[gameType];
     const aId = Math.min(req.user.id, opponentId);
@@ -109,6 +131,9 @@ export function mountRoutes(app, { db, registry, sse }) {
         VALUES (?, ?, 'active', ?, ?, ?, ?)
         RETURNING id
       `).get(aId, bId, gameType, JSON.stringify(initialState), now, now);
+      if (opponentIsBot && ai) {
+        createAiSession(db, { gameId: result.id, botUserId: opponentId, personaId });
+      }
       res.json({ id: result.id, gameType });
     } catch (err) {
       if (/UNIQUE constraint failed/.test(err.message)) {
@@ -208,6 +233,20 @@ export function mountRoutes(app, { db, registry, sse }) {
     const out = txn();
     if (out.http === 200) {
       sse.broadcast(req.game.id, { type: 'update' });
+      // If the next active player is a bot (or it's a concurrent-discard phase
+      // where activeUserId is null and the bot may still need to act), schedule
+      // an AI turn.
+      if (ai) {
+        const nextActiveUserId = out.body?.state?.activeUserId;
+        if (typeof nextActiveUserId === 'number') {
+          const isBot = db.prepare("SELECT is_bot FROM users WHERE id = ?").get(nextActiveUserId)?.is_bot === 1;
+          if (isBot) ai.orchestrator.scheduleTurn(req.game.id);
+        } else if (nextActiveUserId == null) {
+          // Concurrent phase (e.g. discard): check if this game has a bot session.
+          const sess = db.prepare("SELECT bot_user_id FROM ai_sessions WHERE game_id = ?").get(req.game.id);
+          if (sess) ai.orchestrator.scheduleTurn(req.game.id);
+        }
+      }
       for (const row of out.turnRows ?? []) {
         sse.broadcast(req.game.id, {
           type: 'turn',
@@ -222,6 +261,27 @@ export function mountRoutes(app, { db, registry, sse }) {
       }
     }
     res.status(out.http).json(out.body);
+  });
+
+  // -- AI stall resolution --
+  app.post('/api/games/:gameId/ai/retry', requireIdentity, (req, res) => {
+    if (!ai) return res.status(500).json({ error: 'ai subsystem not enabled' });
+    const sess = getAiSession(db, req.game.id);
+    if (!sess) return res.status(404).json({ error: 'no AI session' });
+    if (sess.stalledAt == null) return res.status(422).json({ error: 'not stalled' });
+    clearStall(db, req.game.id);
+    ai.orchestrator.scheduleTurn(req.game.id);
+    res.json({ ok: true });
+  });
+
+  app.post('/api/games/:gameId/ai/abandon', requireIdentity, (req, res) => {
+    if (!ai) return res.status(500).json({ error: 'ai subsystem not enabled' });
+    const sess = getAiSession(db, req.game.id);
+    if (!sess) return res.status(404).json({ error: 'no AI session' });
+    db.prepare("UPDATE games SET status='ended', ended_reason=?, winner_side=NULL, updated_at=? WHERE id=?")
+      .run('ai_stalled', Date.now(), req.game.id);
+    sse.broadcast(req.game.id, { type: 'ended', payload: { reason: 'ai_stalled' } });
+    res.json({ ok: true });
   });
 
   // Mount each plugin's auxiliary routes
