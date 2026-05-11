@@ -537,7 +537,7 @@ function wireNewGame(me, plugins) {
     back.textContent = 'back';
     back.onclick = () => showGameStep(opponent, plugins);
     stepsEl.appendChild(back);
-    const data = await fetchJson('/api/ai/personas');
+    const data = await fetchJson(`/api/ai/personas?game=${encodeURIComponent(gameType)}`);
     for (const p of data.personas) {
       const li = document.createElement('li');
       const btn = document.createElement('button');
