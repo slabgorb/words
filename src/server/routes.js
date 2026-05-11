@@ -222,7 +222,7 @@ export function mountRoutes(app, { db, registry, sse, ai = null }) {
         state: req.game.state,
         action,
         actorId: req.user.id,
-        rng: makeRng(req.game.id),
+        rng: makeRng(Date.now()),
       });
       if (result.error) return { http: 422, body: { error: result.error } };
 

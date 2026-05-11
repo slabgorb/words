@@ -86,6 +86,10 @@ function render() {
   banner.textContent = bannerText(state, mySide);
 
   if (state.phase === 'discard') {
+    // Clear table slots from the previous deal — starter card and pegging
+    // history persist in the DOM until a later phase repopulates them.
+    document.getElementById('starter').innerHTML = '';
+    document.getElementById('pegging-strip').innerHTML = '';
     const mySubmitted = state.pendingDiscards?.[mySide] != null;
     if (mySubmitted) {
       banner.textContent = 'Waiting for opponent to discard…';

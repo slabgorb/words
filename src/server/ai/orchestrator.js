@@ -3,7 +3,7 @@ import { InvalidLlmResponse, InvalidLlmMove } from '../../../plugins/cribbage/se
 import { TimeoutError, SubprocessFailed, ParseError, EmptyResponse } from './llm-client.js';
 
 function rngFor(gameId) {
-  let s = gameId * 9301 + 49297;
+  let s = (Date.now() ^ (gameId * 9301 + 49297)) >>> 0;
   return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
 }
 
