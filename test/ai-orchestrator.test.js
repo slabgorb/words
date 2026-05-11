@@ -262,6 +262,57 @@ test('orchestrator: auto-executes initial-roll without an LLM call', async () =>
   assert.ok(newState.initialRoll[botSide] !== null, 'bot recorded an initial roll');
 });
 
+test('orchestrator: caches sequenceTail, drains one move per wake-up', async () => {
+  const { openDb } = await import('../src/server/db.js');
+  const { createAiSession, getAiSession } = await import('../src/server/ai/agent-session.js');
+  const { createOrchestrator } = await import('../src/server/ai/orchestrator.js');
+  const backgammonPlugin = (await import('../plugins/backgammon/plugin.js')).default;
+  const { chooseAction } = await import('../plugins/backgammon/server/ai/backgammon-player.js');
+  const { buildInitialState } = await import('../plugins/backgammon/server/state.js');
+
+  const dir = mkdtempSync(join(tmpdir(), 'orch-bg-seq-'));
+  const db = openDb(join(dir, 'test.db'));
+  const now = Date.now();
+  const humanId = db.prepare("INSERT INTO users (email,friendly_name,color,created_at) VALUES ('h','H','#000',?) RETURNING id").get(now).id;
+  const botId = db.prepare("INSERT INTO users (email,friendly_name,color,is_bot,created_at) VALUES ('b','Bot','#fff',1,?) RETURNING id").get(now).id;
+  const aId = Math.min(humanId, botId), bId = Math.max(humanId, botId);
+  const participants = [{ userId: aId, side: 'a' }, { userId: bId, side: 'b' }];
+  const state = buildInitialState({ participants });
+  state.turn = { activePlayer: 'a', phase: 'moving', dice: { values: [5, 3], remaining: [5, 3], throwParams: [] } };
+  state.activeUserId = botId;
+  state.sides = { a: botId, b: humanId };
+
+  const gameId = db.prepare(`
+    INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'backgammon', ?, ?, ?) RETURNING id`)
+    .get(aId, bId, JSON.stringify(state), now, now).id;
+  createAiSession(db, { gameId, botUserId: botId, personaId: 'colonel-pip' });
+
+  const events = [];
+  const sse = { broadcast: (gid, ev) => events.push({ gid, ...ev }) };
+  const persona = { id: 'colonel-pip', displayName: 'Colonel Pip', color: '#445566', glyph: '▲', systemPrompt: 'x' };
+  const personas = new Map([['colonel-pip', persona]]);
+  // Only one LLM call expected — the first wake-up. The second drains cache.
+  const llm = new FakeLlmClient([{ text: '{"moveId":"seq:1","banter":"hmph"}' }]);
+  const adapters = { backgammon: { plugin: backgammonPlugin, chooseAction } };
+  const orch = createOrchestrator({ db, llm, sse, personas, adapters });
+
+  await orch.runTurn(gameId);
+
+  // After first turn: bot moved once, tail has 1 move queued.
+  let sess = getAiSession(db, gameId);
+  assert.ok(Array.isArray(sess.pendingSequence), 'pendingSequence stored');
+  assert.equal(sess.pendingSequence.length, 1);
+  assert.equal(llm.calls.length, 1, 'LLM called exactly once');
+
+  await orch.runTurn(gameId);
+
+  // After second turn: tail drained, LLM still only called once.
+  sess = getAiSession(db, gameId);
+  assert.equal(sess.pendingSequence, null);
+  assert.equal(llm.calls.length, 1, 'LLM still called exactly once — cache drained without LLM');
+});
+
 test('orchestrator: unknown persona stalls instead of throwing', async () => {
   const llm = new FakeLlmClient([]);
   const dir = mkdtempSync(join(tmpdir(), 'orch-bad-'));

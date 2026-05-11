@@ -1,4 +1,4 @@
-import { getAiSession, markStalled, clearStall } from './agent-session.js';
+import { getAiSession, markStalled, clearStall, setPendingSequence, clearPendingSequence } from './agent-session.js';
 import { InvalidLlmResponse, InvalidLlmMove } from './errors.js';
 import { TimeoutError, SubprocessFailed, ParseError, EmptyResponse } from './llm-client.js';
 import { appendTurnEntry } from '../history.js';
@@ -135,6 +135,60 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
       return;
     }
 
+    // Drain pending-sequence cache — no LLM call needed.
+    if (session.pendingSequence && session.pendingSequence.length > 0) {
+      const [head, ...rest] = session.pendingSequence;
+      const result = adapter.plugin.applyAction({
+        state, action: head, actorId: session.botUserId, rng: rngFor(gameId),
+      });
+      if (result.error) {
+        clearPendingSequence(db, gameId);
+        markStalled(db, gameId, 'illegal_move');
+        sse.broadcast(gameId, {
+          type: 'bot_stalled',
+          payload: { side: botSide, personaId: persona.id, displayName: persona.displayName, reason: 'illegal_move' },
+        });
+        return;
+      }
+      const newState = result.state;
+      let turnRow = null;
+      const tx = db.transaction(() => {
+        db.prepare("UPDATE games SET state = ?, updated_at = ? WHERE id = ?")
+          .run(JSON.stringify(newState), Date.now(), gameId);
+        if (result.summary) {
+          turnRow = appendTurnEntry(db, gameId, botSide, result.summary.kind, result.summary);
+        }
+        if (rest.length > 0 && newState.turn?.phase === 'moving') {
+          setPendingSequence(db, gameId, rest);
+        } else {
+          clearPendingSequence(db, gameId);
+        }
+        if (result.ended) {
+          db.prepare("UPDATE games SET status='ended', ended_reason=?, winner_side=? WHERE id=?")
+            .run(newState.endedReason ?? 'plugin', newState.winnerSide ?? null, gameId);
+        }
+      });
+      tx();
+      sse.broadcast(gameId, { type: 'update', payload: {} });
+      if (turnRow) {
+        sse.broadcast(gameId, {
+          type: 'turn',
+          payload: {
+            turnNumber: turnRow.turnNumber,
+            side: turnRow.side,
+            kind: turnRow.kind,
+            summary: turnRow.summary,
+            createdAt: turnRow.createdAt,
+          },
+        });
+      }
+      // Recurse to drain the next cached move immediately, if any.
+      if (!result.ended && rest.length > 0 && newState.activeUserId === session.botUserId && depth === 0) {
+        await _runOnce(gameId, 1);
+      }
+      return;
+    }
+
     sse.broadcast(gameId, {
       type: 'bot_thinking',
       payload: { side: botSide, personaId: persona.id, displayName: persona.displayName },
@@ -175,6 +229,9 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
         });
         tx();
         clearStall(db, gameId);
+        if (Array.isArray(r.sequenceTail) && r.sequenceTail.length > 0) {
+          setPendingSequence(db, gameId, r.sequenceTail);
+        }
 
         if (r.banter != null) {
           sse.broadcast(gameId, {
