@@ -4,7 +4,7 @@ Status: design approved 2026-05-12. Predecessors: `2026-05-10-ai-players-cribbag
 
 ## Goal
 
-Add a Claude-CLI-driven bot to the Words plugin. Bots play as a solid casual opponent: real Scrabble move generation against ENABLE2K, picking among an engine-built shortlist of stylistically diverse plays. Four personas span four play archetypes (bingo hunter, score maximizer, defender, word lover). The LLM picks one shortlisted play per turn and banters in persona voice.
+Add a Claude-CLI-driven bot to the Words plugin. Bots play as a solid casual opponent: real Scrabble move generation against ENABLE2K, picking among an engine-built shortlist of stylistically diverse plays. Three personas — Samantha, Suzie, Kurt — span three play archetypes (bingo hunter, defender, score maximizer). The LLM picks one shortlisted play per turn and banters in persona voice.
 
 ## Non-goals
 
@@ -134,16 +134,15 @@ Respond with a single JSON object (and nothing else):
 
 ## Personas
 
-Four new YAMLs under `data/ai-personas/`, each tagged `games: [words]`. One per archetype.
+Three new YAMLs under `data/ai-personas/`, each tagged `games: [words]`. One per archetype.
 
-| id | Voice | Archetype | Prompt bias |
+| id | Display | Archetype | Prompt bias |
 |---|---|---|---|
-| `doc-bingham` | Retired dictionary editor, fussy about etymology, mutters about "racks worth holding". | bingo hunter | "Favor `best-bingo` when shown. Trade short-term points for a balanced rack — S, R, T, L, N, E are sacred." |
-| `pat-spivak` | Hartford club regular, plays the timer, treats premium squares as moral obligations. | score maximizer | "Favor `top-score`. Premium squares exist to be used. Rack leave is for people who lose." |
-| `mrs-periwinkle` | Librarian, slow grind, never opens the board for an opponent. | defender | "Favor `best-defense`. A closed board is a winning board. Decline `top-score` when it opens a TW column." |
-| `vandermeer` | Retired poet, loves obscure and beautiful words, comments on the word rather than the score. | word lover (Sonia-friendly) | "Favor longer or less common words, even at a 10–15 point cost. Comment on the word, never crow." |
+| `samantha` | Samantha | bingo hunter | "Favor `best-bingo` when shown. Trade short-term points for a balanced rack — S, R, T, L, N, E are worth holding." |
+| `suzie` | Suzie | defender | "Favor `best-defense`. A closed board is a winning board. Decline `top-score` when it opens a triple-word column." |
+| `kurt` | Kurt | score maximizer | "Favor `top-score`. Premium squares exist to be used. Rack leave is for people who lose." |
 
-Each system prompt also includes the standard secrecy clause adapted for Words ("don't reveal your rack, don't telegraph your strategy, complain about the room instead") and the JSON-only contract.
+Each system prompt also includes the standard secrecy clause adapted for Words ("don't reveal your rack, don't telegraph your strategy") and the JSON-only contract.
 
 ## Orchestrator integration
 
@@ -194,9 +193,9 @@ Integration:
 | File | Subject |
 |---|---|
 | `test/ai-words.spec.js` | boot the AI subsystem with `FakeLlmClient`, drive a short game (a few plays, one swap, one pass, end on rack-empty); assert SSE `bot_thinking` / `banter` / `update` / `turn` event sequence; persona stall on garbage LLM output |
-| persona-scoping case in `test/ai-personas-route.spec.js` (extended) | `GET /api/ai/personas?game=words` returns only the four words personas |
+| persona-scoping case in `test/ai-personas-route.spec.js` (extended) | `GET /api/ai/personas?game=words` returns only the three words personas |
 
-Live, env-gated smoke test (parallel to existing live specs): one short game against the real Claude CLI with `doc-bingham`. Opt-in. Skipped in CI.
+Live, env-gated smoke test (parallel to existing live specs): one short game against the real Claude CLI with `samantha`. Opt-in. Skipped in CI.
 
 We do not test play strength.
 
@@ -209,10 +208,9 @@ We do not test play strength.
 | `plugins/words/server/ai/shortlist.js` | NEW |
 | `plugins/words/server/ai/prompts.js` | NEW |
 | `plugins/words/server/ai/config.js` | NEW |
-| `data/ai-personas/doc-bingham.yaml` | NEW |
-| `data/ai-personas/pat-spivak.yaml` | NEW |
-| `data/ai-personas/mrs-periwinkle.yaml` | NEW |
-| `data/ai-personas/vandermeer.yaml` | NEW |
+| `data/ai-personas/samantha.yaml` | NEW |
+| `data/ai-personas/suzie.yaml` | NEW |
+| `data/ai-personas/kurt.yaml` | NEW |
 | `src/server/ai/index.js` | register words adapter |
 | `package.json` | add `@scrabble-solver/solver`, `@scrabble-solver/types`, `@kamilmielnik/trie` |
 | `docs/games/words.md` | NEW (mirror structure of `docs/games/backgammon.md` AI section) |
