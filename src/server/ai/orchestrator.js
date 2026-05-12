@@ -9,8 +9,12 @@ function rngFor(gameId) {
 }
 
 // Phases that have a single mechanical outcome — skip the LLM and apply
-// the action directly. The factory receives (state, rng) and must return a
-// full {type, payload?} action object.
+// the action directly. Entries are either:
+//   - a (state, rng) => action factory (the action is deterministic and
+//     no banter is solicited), OR
+//   - an object { action, banter? } where `action` is the same factory
+//     and `banter: { hint }` opts into a non-blocking banter side-call
+//     fired after the action is applied.
 const autoActions = {
   backgammon: {
     'initial-roll': (state, rng) => ({
@@ -29,7 +33,21 @@ const autoActions = {
       },
     }),
   },
+  cribbage: {
+    // 'show' is mechanical: both players acknowledge to continue. A blocking
+    // LLM call here cost up to 2 round-trips per hand for no decision value.
+    // The optional banter side-call lets the bot still chirp at hand-count
+    // time without blocking the update broadcast.
+    show: {
+      action: () => ({ type: 'next' }),
+      banter: { hint: 'show-ack' },
+    },
+  },
 };
+
+function normalizeAutoEntry(entry) {
+  return typeof entry === 'function' ? { action: entry, banter: null } : entry;
+}
 
 function stallReasonFor(err) {
   if (err instanceof TimeoutError) return 'timeout';
@@ -96,8 +114,9 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     const phaseKey = state.turn?.phase ?? state.phase;
     const autoForGame = autoActions[gameRow.game_type];
     if (autoForGame && autoForGame[phaseKey]) {
+      const autoEntry = normalizeAutoEntry(autoForGame[phaseKey]);
       const rng = rngFor(gameId);
-      const action = autoForGame[phaseKey](state, rng);
+      const action = autoEntry.action(state, rng);
       const result = adapter.plugin.applyAction({
         state, action, actorId: session.botUserId, rng,
       });
@@ -137,6 +156,22 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
             createdAt: turnRow.createdAt,
           },
         });
+      }
+      // Optional fire-and-forget banter side-call. The auto-action and its
+      // update are already on the wire; banter floats in 1–10s later as a
+      // separate SSE event. Failures are logged, never surfaced.
+      if (autoEntry.banter && typeof adapter.chooseBanter === 'function') {
+        Promise.resolve()
+          .then(() => adapter.chooseBanter({
+            llm, persona, state: newState, botPlayerIdx, hint: autoEntry.banter.hint,
+          }))
+          .then(({ banter }) => {
+            if (banter) sse.broadcast(gameId, {
+              type: 'banter',
+              payload: { side: botSide, personaId: persona.id, displayName: persona.displayName, text: banter },
+            });
+          })
+          .catch(err => logger.warn?.(`[ai] game ${gameId} banter side-call failed: ${err.message}`));
       }
       // Recurse so the bot can act in the new phase (e.g. pre-roll) without
       // waiting on an external SSE wake-up. Depth=0 guard prevents runaway:

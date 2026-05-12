@@ -64,3 +64,39 @@ export function parseLlmResponse(text) {
     banter: typeof parsed.banter === 'string' ? parsed.banter : '',
   };
 }
+
+// Tiny banter-only prompts for non-decision moments (e.g. acknowledging the
+// hand count during 'show'). The orchestrator fires these as fire-and-forget
+// side-calls after a mechanical auto-action, so they never block the user.
+export function buildBanterPrompt({ state, botPlayerIdx, hint }) {
+  const opp = 1 - botPlayerIdx;
+  const myScore = state.scores?.[botPlayerIdx] ?? 0;
+  const oppScore = state.scores?.[opp] ?? 0;
+  switch (hint) {
+    case 'show-ack':
+      return [
+        `The hand counts have just been tallied. Score is ${myScore}-${oppScore} (you-opponent, target ${state.matchTarget ?? 121}).`,
+        'Give one short in-character line reacting to the count. No move decision needed.',
+        'Respond with a single JSON object (and nothing else): {"banter": "<one short line>"}',
+      ].join('\n\n');
+    default:
+      return [
+        `Score: ${myScore}-${oppScore} (you-opponent).`,
+        'Give one short in-character line.',
+        'Respond with a single JSON object (and nothing else): {"banter": "<one short line>"}',
+      ].join('\n\n');
+  }
+}
+
+// Permissive banter parser — accepts either a {"banter": "..."} object or
+// bare text. Side-calls can't fail user-visibly, so any string we can
+// extract is good enough.
+export function parseBanterOnly(text) {
+  if (typeof text !== 'string') return '';
+  try {
+    const json = extractJson(text);
+    const parsed = JSON.parse(json);
+    if (typeof parsed.banter === 'string') return parsed.banter.trim();
+  } catch { /* fall through to bare-text */ }
+  return text.trim();
+}
