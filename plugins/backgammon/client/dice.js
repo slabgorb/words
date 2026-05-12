@@ -44,8 +44,11 @@ function activeDiceTray({ count, themeKey, onRoll }) {
   tray.setAttribute('dice', `${count}d6`);
   tray.setAttribute('mode', 'active');
   tray.setAttribute('theme', themeKey);
-  tray.style.width = '180px';
-  tray.style.height = '120px';
+  // The bundled <dice-tray> renders its 3D scene with minHeight: 240 internally;
+  // tray must be at least that tall or the scene gets cropped and the dice
+  // don't paint until they're thrown. Width drives the throw surface area.
+  tray.style.width = '320px';
+  tray.style.height = '260px';
   tray.addEventListener('dice-settle', (e) => {
     const detail = e.detail || {};
     if (!Array.isArray(detail.values) || detail.values.length === 0) return;

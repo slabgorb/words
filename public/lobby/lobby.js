@@ -487,7 +487,7 @@ function wireNewGame(me, plugins) {
       btn.onclick = () => {
         if (PLUGIN_VARIANTS[p.id]) {
           showVariantStep(opponent, p, plugins);
-        } else if (opponent.isBot && p.id === 'cribbage') {
+        } else if (opponent.isBot && (p.id === 'cribbage' || p.id === 'backgammon')) {
           showPersonaStep(opponent, p.id, null);
         } else {
           startGame(opponent, p.id, null);
