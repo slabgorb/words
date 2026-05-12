@@ -275,19 +275,22 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
           session.resumeCount = 0;
         }
 
-        const result = adapter.plugin.applyAction({
-          state, action: r.action, actorId: session.botUserId, rng: rngFor(gameId),
-        });
-        if (result.error) {
-          lastError = new InvalidLlmMove(`engine rejected action: ${result.error}`, []);
-          logger.warn?.(`[ai] game ${gameId} attempt ${attempt + 1} engine-rejected ${JSON.stringify(r.action)}: ${result.error}`);
-          continue;
-        }
-
-        const newState = result.state;
+        // Re-read fresh state inside the write transaction and re-apply.
+        // Race-prone case: cribbage 'discard' (and other concurrent phases)
+        // — the human may have submitted while the LLM was in flight, and
+        // applying against the stale snapshot would clobber their entry.
+        // Re-applying against the freshest state lets both writes land.
+        let newState, result, freshState, turnRow = null;
         const updateGame = db.prepare("UPDATE games SET state = ?, updated_at = ? WHERE id = ?");
-        let turnRow = null;
         const tx = db.transaction(() => {
+          const freshRow = db.prepare("SELECT state, status FROM games WHERE id = ?").get(gameId);
+          if (!freshRow || freshRow.status !== 'active') { result = { error: 'game no longer active' }; return; }
+          freshState = JSON.parse(freshRow.state);
+          result = adapter.plugin.applyAction({
+            state: freshState, action: r.action, actorId: session.botUserId, rng: rngFor(gameId),
+          });
+          if (result.error) return;
+          newState = result.state;
           updateGame.run(JSON.stringify(newState), Date.now(), gameId);
           if (result.summary) {
             turnRow = appendTurnEntry(db, gameId, botSide, result.summary.kind, result.summary);
@@ -298,6 +301,11 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
           }
         });
         tx();
+        if (result.error) {
+          lastError = new InvalidLlmMove(`engine rejected action: ${result.error}`, []);
+          logger.warn?.(`[ai] game ${gameId} attempt ${attempt + 1} engine-rejected ${JSON.stringify(r.action)}: ${result.error}`);
+          continue;
+        }
         clearStall(db, gameId);
         if (Array.isArray(r.sequenceTail) && r.sequenceTail.length > 0) {
           setPendingSequence(db, gameId, r.sequenceTail);
@@ -329,7 +337,7 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
         // prevent an unbounded chain (e.g., pegging → show → next-deal).
         // Guard: phase must have changed so we don't loop on a partial-
         // discard state where activeUserId is inherited unchanged.
-        const prevPhase = state.phase ?? state.turn?.phase ?? null;
+        const prevPhase = freshState.phase ?? freshState.turn?.phase ?? null;
         const nextPhase = newState.phase ?? newState.turn?.phase ?? null;
         const phaseChanged = nextPhase !== prevPhase;
         const hasCachedTail = Array.isArray(r.sequenceTail) && r.sequenceTail.length > 0;
