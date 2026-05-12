@@ -64,7 +64,7 @@ test('bootAiSubsystem: schedules pending bot turns from listStalledOrInFlight', 
   createAiSession(db, { gameId, botUserId: botId, personaId: 'hattie' });
 
   let scheduled = 0;
-  const llm = { send: async () => { scheduled++; return { text: '{"moveId":"discard:0,1","banter":""}', sessionId: 'sid' }; } };
+  const llm = { send: async () => { scheduled++; return { text: '{"moveId":"discard:0,5","banter":""}', sessionId: 'sid' }; } };
   const { orchestrator } = bootAiSubsystem({
     db, sse: { broadcast: () => {} }, llm, personaDir,
   });

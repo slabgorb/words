@@ -24,11 +24,17 @@ function makeApp() {
   const humanId = db.prepare("INSERT INTO users (email, friendly_name, color, created_at) VALUES ('h@x','H','#000',?) RETURNING id").get(now).id;
   const events = [];
   const sse = { broadcast: (g, ev) => events.push({ g, ...ev }) };
-  const bootResult = bootAiSubsystem({
-    db, sse,
-    llm: { send: async () => ({ text: '{"moveId":"discard:0,1","banter":""}', sessionId: 'sid' }) },
-    personaDir,
-  });
+  // Smart-enough LLM mock: pick the first legal move id mentioned in the
+  // prompt. With Phase 3's shortlist, the legal ids vary by deal, so a
+  // hard-coded moveId would flake on the random shuffle.
+  const llm = {
+    send: async ({ prompt }) => {
+      const ids = [...prompt.matchAll(/(discard:\d+,\d+|play:[^\s]+|cut|next|seq:\d+|roll[\w-]*|accept-double|decline-double|offer-double:\d+)/g)].map(m => m[1]);
+      const moveId = ids[0] ?? 'cut';
+      return { text: `{"moveId":"${moveId}","banter":""}`, sessionId: 'sid' };
+    },
+  };
+  const bootResult = bootAiSubsystem({ db, sse, llm, personaDir });
   const { orchestrator } = bootResult;
   const botId = db.prepare("SELECT id FROM users WHERE is_bot = 1").get().id;
 

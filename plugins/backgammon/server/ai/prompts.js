@@ -132,9 +132,30 @@ function phaseBlock(state, botSide) {
   }
 }
 
+function rationaleFor(m) {
+  if (!m.evalBreakdown) return '';
+  const bits = [];
+  if (m.evalBreakdown.hitBonus > 0) bits.push(`hits ${m.evalBreakdown.hitBonus / 8}`);
+  if (m.evalBreakdown.primeBonus >= 10) bits.push('extends prime');
+  if (m.evalBreakdown.blotPenalty <= -4) bits.push('leaves blot(s)');
+  if (m.evalBreakdown.homeBoardBonus >= 9) bits.push('builds home');
+  return bits.length > 0 ? ` — ${bits.join(', ')}` : '';
+}
+
 function legalMovesBlock(legalMoves) {
-  const lines = legalMoves.map(m => `  - ${m.id}: ${m.summary}`);
-  return `Legal moves:\n${lines.join('\n')}`;
+  // If we've been handed a pre-scored shortlist, surface the eval delta
+  // and a one-line rationale so the LLM picks for style not arithmetic.
+  const scored = legalMoves.some(m => typeof m.evalDelta === 'number');
+  const heading = scored
+    ? 'Top candidate moves (pre-scored by board evaluation — pick the one that fits your style):'
+    : 'Legal moves:';
+  const lines = legalMoves.map(m => {
+    if (typeof m.evalDelta !== 'number') return `  - ${m.id}: ${m.summary}`;
+    const d = m.evalDelta;
+    const sign = d >= 0 ? '+' : '';
+    return `  - ${m.id}: ${m.summary} (Δ ${sign}${d.toFixed(1)})${rationaleFor(m)}`;
+  });
+  return `${heading}\n${lines.join('\n')}`;
 }
 
 const RESPONSE_FOOTER = 'Respond with a single JSON object (and nothing else): {"moveId": "<one of the legal move ids above>", "banter": "<short in-character line, may be empty>"}';

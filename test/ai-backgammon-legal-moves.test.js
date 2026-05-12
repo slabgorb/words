@@ -143,3 +143,55 @@ test('legal-moves moving: doubles produce sequences of 4 moves', () => {
     assert.equal(m.sequenceTail.length, 3, `4 dice → 1 head + 3 tail; got ${m.sequenceTail.length}`);
   }
 });
+
+import { formatSequence } from '../plugins/backgammon/server/ai/legal-moves.js';
+
+// Backgammon notation compression. Board indices are raw (0-23). Side 'b'
+// maps raw i → display point (i+1).
+test('formatSequence: identical pair on doubles → X/Y(2)', () => {
+  // 6/4(2) for side b: raw 5→3, twice.
+  const seq = [{from:5,to:3,die:2},{from:5,to:3,die:2}];
+  assert.equal(formatSequence(seq, 'b'), '6/4(2)');
+});
+
+test('formatSequence: four identical → X/Y(4)', () => {
+  const seq = Array.from({length:4}, () => ({from:5,to:3,die:2}));
+  assert.equal(formatSequence(seq, 'b'), '6/4(4)');
+});
+
+test('formatSequence: single-chequer chain collapses to start/end', () => {
+  // 13/11 11/9 9/7 7/5 → 13/5 (side b: raw 12,10,8,6 → display 13,11,9,7,5)
+  const seq = [
+    {from:12,to:10,die:2},
+    {from:10,to:8,die:2},
+    {from:8,to:6,die:2},
+    {from:6,to:4,die:2},
+  ];
+  assert.equal(formatSequence(seq, 'b'), '13/5');
+});
+
+test('formatSequence: two interleaved pairs collapse correctly', () => {
+  // 6/4 4/2 6/4 4/2 — two chequers each going 6→4→2. Chains build greedily:
+  // first chain consumes 6/4 then finds 4/2 → 6/2; second chain same → 6/2(2)
+  const seq = [
+    {from:5,to:3,die:2},{from:3,to:1,die:2},
+    {from:5,to:3,die:2},{from:3,to:1,die:2},
+  ];
+  assert.equal(formatSequence(seq, 'b'), '6/2(2)');
+});
+
+test('formatSequence: non-collapsible distinct moves preserved', () => {
+  // 6/4 8/6 — different chequers, different from-points, no chain
+  const seq = [{from:5,to:3,die:2},{from:7,to:5,die:2}];
+  // Greedy: first train 6→4, then second move has from=7≠4, separate train.
+  // BUT 8→6 has to=5 which equals 6→4's from? No, chain extends forward only.
+  // First train: 5→3 (no continuation, no remaining starts at 3).
+  // Second: 7→5. No continuation. Result: 6/4 8/6.
+  assert.equal(formatSequence(seq, 'b'), '6/4 8/6');
+});
+
+test('formatSequence: bar entry preserved as "bar"', () => {
+  // bar/22 6/2 (side b: raw bar→2 then 5→1)
+  const seq = [{from:'bar',to:2,die:3},{from:5,to:1,die:4}];
+  assert.equal(formatSequence(seq, 'b'), 'bar/3 6/2');
+});

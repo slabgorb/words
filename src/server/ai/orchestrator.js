@@ -1,4 +1,10 @@
-import { getAiSession, markStalled, clearStall, setPendingSequence, clearPendingSequence } from './agent-session.js';
+import { getAiSession, markStalled, clearStall, setPendingSequence, clearPendingSequence, setClaudeSessionId, bumpResumeCount, rotateClaudeSession } from './agent-session.js';
+
+// Resume the same claude CLI session this many times before rotating to a
+// fresh one. Resumes hit the prompt cache (huge latency win) but each one
+// appends the prior turn to the conversation, so input cost grows with
+// every resume. Rotating periodically caps the bloat.
+const MAX_RESUMES_PER_SESSION = 10;
 import { InvalidLlmResponse, InvalidLlmMove } from './errors.js';
 import { TimeoutError, SubprocessFailed, ParseError, EmptyResponse } from './llm-client.js';
 import { appendTurnEntry } from '../history.js';
@@ -9,16 +15,45 @@ function rngFor(gameId) {
 }
 
 // Phases that have a single mechanical outcome — skip the LLM and apply
-// the action directly. The factory receives (state, rng) and must return a
-// full {type, payload?} action object.
+// the action directly. Entries are either:
+//   - a (state, rng) => action factory (the action is deterministic and
+//     no banter is solicited), OR
+//   - an object { action, banter? } where `action` is the same factory
+//     and `banter: { hint }` opts into a non-blocking banter side-call
+//     fired after the action is applied.
 const autoActions = {
   backgammon: {
     'initial-roll': (state, rng) => ({
       type: 'roll-initial',
       payload: { value: Math.floor(rng() * 6) + 1, throwParams: [] },
     }),
+    // Auto-roll: skip the LLM "roll vs offer-double" decision. Tradeoff —
+    // the bot can no longer offer the cube, but it still accepts/declines
+    // doubles (awaiting-double-response is still LLM-driven). Saves one
+    // LLM round-trip per turn (~20–60s with sonnet).
+    'pre-roll': (state, rng) => ({
+      type: 'roll',
+      payload: {
+        values: [Math.floor(rng() * 6) + 1, Math.floor(rng() * 6) + 1],
+        throwParams: [],
+      },
+    }),
+  },
+  cribbage: {
+    // 'show' is mechanical: both players acknowledge to continue. A blocking
+    // LLM call here cost up to 2 round-trips per hand for no decision value.
+    // The optional banter side-call lets the bot still chirp at hand-count
+    // time without blocking the update broadcast.
+    show: {
+      action: () => ({ type: 'next' }),
+      banter: { hint: 'show-ack' },
+    },
   },
 };
+
+function normalizeAutoEntry(entry) {
+  return typeof entry === 'function' ? { action: entry, banter: null } : entry;
+}
 
 function stallReasonFor(err) {
   if (err instanceof TimeoutError) return 'timeout';
@@ -85,8 +120,9 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     const phaseKey = state.turn?.phase ?? state.phase;
     const autoForGame = autoActions[gameRow.game_type];
     if (autoForGame && autoForGame[phaseKey]) {
+      const autoEntry = normalizeAutoEntry(autoForGame[phaseKey]);
       const rng = rngFor(gameId);
-      const action = autoForGame[phaseKey](state, rng);
+      const action = autoEntry.action(state, rng);
       const result = adapter.plugin.applyAction({
         state, action, actorId: session.botUserId, rng,
       });
@@ -126,6 +162,22 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
             createdAt: turnRow.createdAt,
           },
         });
+      }
+      // Optional fire-and-forget banter side-call. The auto-action and its
+      // update are already on the wire; banter floats in 1–10s later as a
+      // separate SSE event. Failures are logged, never surfaced.
+      if (autoEntry.banter && typeof adapter.chooseBanter === 'function') {
+        Promise.resolve()
+          .then(() => adapter.chooseBanter({
+            llm, persona, state: newState, botPlayerIdx, hint: autoEntry.banter.hint,
+          }))
+          .then(({ banter }) => {
+            if (banter) sse.broadcast(gameId, {
+              type: 'banter',
+              payload: { side: botSide, personaId: persona.id, displayName: persona.displayName, text: banter },
+            });
+          })
+          .catch(err => logger.warn?.(`[ai] game ${gameId} banter side-call failed: ${err.message}`));
       }
       // Recurse so the bot can act in the new phase (e.g. pre-roll) without
       // waiting on an external SSE wake-up. Depth=0 guard prevents runaway:
@@ -186,9 +238,10 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
           },
         });
       }
-      // Recurse to drain the next cached move immediately, if any.
-      if (!result.ended && rest.length > 0 && newState.activeUserId === session.botUserId && depth === 0) {
-        await _runOnce(gameId, 1);
+      // Recurse to drain the next cached move immediately, if any. Bounded
+      // by the tail length (drain shrinks the cache each call).
+      if (!result.ended && rest.length > 0 && newState.activeUserId === session.botUserId) {
+        await _runOnce(gameId, depth + 1);
       }
       return;
     }
@@ -201,27 +254,43 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     let lastError;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        // Every turn is a fresh claude session. The bot has no need for
-        // cross-turn conversation memory — the full game state is in the
-        // prompt — and resuming caused long games to bloat the conversation
-        // until the CLI timed out.
+        // Resume the prior claude session for this game so the CLI hits
+        // its prompt cache (persona system prompt + prior turns), dropping
+        // per-turn latency from ~80s to a few seconds. Rotate after
+        // MAX_RESUMES_PER_SESSION turns to cap conversation bloat.
+        const resuming = session.claudeSessionId
+          && (session.resumeCount ?? 0) < MAX_RESUMES_PER_SESSION;
         const r = await adapter.chooseAction({
-          llm, persona, sessionId: null,
-          state, botPlayerIdx,
+          llm, persona, sessionId: resuming ? session.claudeSessionId : null,
+          state, botPlayerIdx, rng: rngFor(gameId),
         });
-
-        const result = adapter.plugin.applyAction({
-          state, action: r.action, actorId: session.botUserId, rng: rngFor(gameId),
-        });
-        if (result.error) {
-          lastError = new InvalidLlmMove(`engine rejected action: ${result.error}`, []);
-          continue;
+        if (resuming) {
+          bumpResumeCount(db, gameId);
+          session.resumeCount = (session.resumeCount ?? 0) + 1;
+        } else if (r.sessionId) {
+          // Fresh session — either no prior or just rotated. Reset counter.
+          if (session.claudeSessionId) rotateClaudeSession(db, gameId);
+          setClaudeSessionId(db, gameId, r.sessionId);
+          session.claudeSessionId = r.sessionId;
+          session.resumeCount = 0;
         }
 
-        const newState = result.state;
+        // Re-read fresh state inside the write transaction and re-apply.
+        // Race-prone case: cribbage 'discard' (and other concurrent phases)
+        // — the human may have submitted while the LLM was in flight, and
+        // applying against the stale snapshot would clobber their entry.
+        // Re-applying against the freshest state lets both writes land.
+        let newState, result, freshState, turnRow = null;
         const updateGame = db.prepare("UPDATE games SET state = ?, updated_at = ? WHERE id = ?");
-        let turnRow = null;
         const tx = db.transaction(() => {
+          const freshRow = db.prepare("SELECT state, status FROM games WHERE id = ?").get(gameId);
+          if (!freshRow || freshRow.status !== 'active') { result = { error: 'game no longer active' }; return; }
+          freshState = JSON.parse(freshRow.state);
+          result = adapter.plugin.applyAction({
+            state: freshState, action: r.action, actorId: session.botUserId, rng: rngFor(gameId),
+          });
+          if (result.error) return;
+          newState = result.state;
           updateGame.run(JSON.stringify(newState), Date.now(), gameId);
           if (result.summary) {
             turnRow = appendTurnEntry(db, gameId, botSide, result.summary.kind, result.summary);
@@ -232,6 +301,11 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
           }
         });
         tx();
+        if (result.error) {
+          lastError = new InvalidLlmMove(`engine rejected action: ${result.error}`, []);
+          logger.warn?.(`[ai] game ${gameId} attempt ${attempt + 1} engine-rejected ${JSON.stringify(r.action)}: ${result.error}`);
+          continue;
+        }
         clearStall(db, gameId);
         if (Array.isArray(r.sequenceTail) && r.sequenceTail.length > 0) {
           setPendingSequence(db, gameId, r.sequenceTail);
@@ -263,8 +337,20 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
         // prevent an unbounded chain (e.g., pegging → show → next-deal).
         // Guard: phase must have changed so we don't loop on a partial-
         // discard state where activeUserId is inherited unchanged.
-        if (!result.ended && newState.activeUserId === session.botUserId && newState.phase !== state.phase && depth === 0) {
-          await _runOnce(gameId, 1);
+        const prevPhase = freshState.phase ?? freshState.turn?.phase ?? null;
+        const nextPhase = newState.phase ?? newState.turn?.phase ?? null;
+        const phaseChanged = nextPhase !== prevPhase;
+        const hasCachedTail = Array.isArray(r.sequenceTail) && r.sequenceTail.length > 0;
+        // Two recurse triggers: (a) a cached sequence tail to drain — bounded
+        // by tail length, no depth cap; (b) a phase change that still has the
+        // bot active — depth-capped at 1 to avoid runaway chains in games
+        // like cribbage (pegging → show → next-deal).
+        if (!result.ended && newState.activeUserId === session.botUserId) {
+          if (hasCachedTail) {
+            await _runOnce(gameId, depth + 1);
+          } else if (phaseChanged && depth === 0) {
+            await _runOnce(gameId, 1);
+          }
         }
         return;
       } catch (err) {

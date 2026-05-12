@@ -53,10 +53,10 @@ function canonicalSig(b) {
   return `${pts}|A:${b.barA}/${b.bornOffA}|B:${b.barB}/${b.bornOffB}`;
 }
 
-// Returns an array of full-turn sequences. Each sequence is an array of
-// raw move objects {from, to, die}. Sequences are deduplicated by their
-// resulting (canonical) board signature so we don't show the LLM two
-// menu items that produce the same outcome.
+// Returns an array of full-turn sequences. Each entry is { seq, endBoard }
+// where seq is the array of raw move objects {from, to, die} and endBoard
+// is the post-turn board. Deduplicated by canonical end-board signature
+// so we don't surface two menu items with identical outcomes.
 function enumerateSequences(board, dice, side) {
   const target = maxConsumableDice(board, dice, side);
   if (target === 0) return [];
@@ -65,7 +65,7 @@ function enumerateSequences(board, dice, side) {
   function dfs(b, remaining, path) {
     if (path.length === target) {
       const sig = canonicalSig(b);
-      if (!seen.has(sig)) { seen.add(sig); out.push(path.slice()); }
+      if (!seen.has(sig)) { seen.add(sig); out.push({ seq: path.slice(), endBoard: b }); }
       return;
     }
     const moves = path.length === 0
@@ -82,32 +82,59 @@ function enumerateSequences(board, dice, side) {
   return out;
 }
 
-function formatMove(m, side) {
-  const point = (i) => {
-    if (i === 'bar') return 'bar';
-    if (i === 'off') return 'off';
-    return String(side === 'a' ? 24 - i : i + 1);
-  };
-  return `${point(m.from)}/${point(m.to)}`;
+function pointLabel(i, side) {
+  if (i === 'bar') return 'bar';
+  if (i === 'off') return 'off';
+  return String(side === 'a' ? 24 - i : i + 1);
 }
 
-function formatSequence(seq, side) {
-  return seq.map(m => formatMove(m, side)).join(' ');
+// Standard backgammon notation: collapse single-chequer paths
+// (`13/11 11/9 9/7 7/5` → `13/5`) and group identical moves with `(n)`
+// (`6/4 6/4 6/4 6/4` → `6/4(4)`). The LLM reads this much faster and the
+// format matches written backgammon books.
+export function formatSequence(seq, side) {
+  // 1. Chain consecutive same-chequer hops by raw board index.
+  const rem = seq.map(m => ({ from: m.from, to: m.to }));
+  const trains = [];
+  while (rem.length) {
+    const t = rem.shift();
+    while (true) {
+      const idx = rem.findIndex(m => m.from === t.to);
+      if (idx < 0) break;
+      t.to = rem[idx].to;
+      rem.splice(idx, 1);
+    }
+    trains.push(t);
+  }
+  // 2. Bucket identical trains; preserve first-seen order.
+  const order = [];
+  const counts = new Map();
+  for (const t of trains) {
+    const key = `${t.from}|${t.to}`;
+    if (!counts.has(key)) { counts.set(key, { ...t, count: 0 }); order.push(key); }
+    counts.get(key).count++;
+  }
+  return order.map(k => {
+    const b = counts.get(k);
+    const s = `${pointLabel(b.from, side)}/${pointLabel(b.to, side)}`;
+    return b.count > 1 ? `${s}(${b.count})` : s;
+  }).join(' ');
 }
 
 function movingMoves(state, botSide) {
   const dice = state.turn.dice.remaining;
-  const seqs = enumerateSequences(state.board, dice, botSide);
-  if (seqs.length === 0) {
+  const sequences = enumerateSequences(state.board, dice, botSide);
+  if (sequences.length === 0) {
     return [{ id: 'pass-turn', action: { type: 'pass-turn' }, summary: 'No legal moves — pass the turn' }];
   }
-  return seqs.map((seq, i) => {
+  return sequences.map(({ seq, endBoard }, i) => {
     const [head, ...tail] = seq;
     return {
       id: `seq:${i + 1}`,
       action: { type: 'move', payload: { from: head.from, to: head.to, die: head.die } },
       sequenceTail: tail.map(m => ({ type: 'move', payload: { from: m.from, to: m.to, die: m.die } })),
       summary: formatSequence(seq, botSide),
+      endBoard,
     };
   });
 }

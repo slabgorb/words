@@ -44,7 +44,7 @@ function setup(llm) {
 
 test('orchestrator: happy path — chooses action, applies it, broadcasts banter+update', async () => {
   const llm = new FakeLlmClient([
-    { text: '{"moveId":"discard:0,1","banter":"hello dear"}', sessionId: 'sid-A' },
+    { text: '{"moveId":"discard:0,5","banter":"hello dear"}', sessionId: 'sid-A' },
   ]);
   const { db, gameId, botId, events, orch } = setup(llm);
 
@@ -69,7 +69,7 @@ test('orchestrator: happy path — chooses action, applies it, broadcasts banter
 test('orchestrator: invalid response → retry once → success on retry', async () => {
   const llm = new FakeLlmClient([
     { text: 'I dunno', sessionId: 'sid-B' },
-    { text: '{"moveId":"discard:0,1","banter":""}', sessionId: 'sid-B' },
+    { text: '{"moveId":"discard:0,5","banter":""}', sessionId: 'sid-B' },
   ]);
   const { db, gameId, events, orch } = setup(llm);
   await orch.runTurn(gameId);
@@ -116,7 +116,7 @@ test('orchestrator: timeout maps to stall reason "timeout"', async () => {
 
 test('orchestrator: serializes per-game — concurrent runTurn calls do not double-fire', async () => {
   const llm = new FakeLlmClient([
-    { text: '{"moveId":"discard:0,1","banter":"a"}', sessionId: 'sid-D' },
+    { text: '{"moveId":"discard:0,5","banter":"a"}', sessionId: 'sid-D' },
   ]);
   const { gameId, orch, events } = setup(llm);
   await Promise.all([orch.runTurn(gameId), orch.runTurn(gameId)]);
@@ -127,7 +127,7 @@ test('orchestrator: serializes per-game — concurrent runTurn calls do not doub
 test('orchestrator: clears stall on next successful runTurn', async () => {
   const llm = new FakeLlmClient([
     { text: 'nope', sessionId: 's' }, { text: 'still nope', sessionId: 's' },
-    { text: '{"moveId":"discard:0,1","banter":""}', sessionId: 's' },
+    { text: '{"moveId":"discard:0,5","banter":""}', sessionId: 's' },
   ]);
   const { db, gameId, orch } = setup(llm);
   await orch.runTurn(gameId);
@@ -143,7 +143,7 @@ test('orchestrator: scheduleTurn after _runOnce when bot remains active (instrum
     async send(args) {
       this.calls.push(args);
       callCount++;
-      return { text: '{"moveId":"discard:0,1","banter":"x"}', sessionId: 'sid' };
+      return { text: '{"moveId":"discard:0,5","banter":"x"}', sessionId: 'sid' };
     },
   };
   const { gameId, orch } = setup(llm);
@@ -200,7 +200,7 @@ test('orchestrator: bot acts twice in a row when discard auto-cuts into a peggin
   // Bot discards C-A and C-2 (indexes 0,1); pegging hand becomes 3,4,5,6 of clubs.
   // First card the bot can lead with: any of those — we mock 'play:3C'.
   const llm = new FakeLlmClient([
-    { text: '{"moveId":"discard:0,1","banter":"first"}', sessionId: 'sid' },
+    { text: '{"moveId":"discard:0,5","banter":"first"}', sessionId: 'sid' },
     { text: '{"moveId":"play:3C","banter":"second"}', sessionId: 'sid' },
   ]);
   const events = [];
@@ -262,7 +262,7 @@ test('orchestrator: auto-executes initial-roll without an LLM call', async () =>
   assert.ok(newState.initialRoll[botSide] !== null, 'bot recorded an initial roll');
 });
 
-test('orchestrator: caches sequenceTail, drains one move per wake-up', async () => {
+test('orchestrator: caches sequenceTail and drains the full tail in one wake-up', async () => {
   const { openDb } = await import('../src/server/db.js');
   const { createAiSession, getAiSession } = await import('../src/server/ai/agent-session.js');
   const { createOrchestrator } = await import('../src/server/ai/orchestrator.js');
@@ -293,24 +293,27 @@ test('orchestrator: caches sequenceTail, drains one move per wake-up', async () 
   const persona = { id: 'colonel-pip', displayName: 'Colonel Pip', color: '#445566', glyph: '▲', systemPrompt: 'x' };
   const personas = new Map([['colonel-pip', persona]]);
   // Only one LLM call expected — the first wake-up. The second drains cache.
-  const llm = new FakeLlmClient([{ text: '{"moveId":"seq:1","banter":"hmph"}' }]);
+  // Echo back whichever seq id appears first in the prompt (the shortlist's
+  // top pick varies by board position after Phase 4).
+  const sends = [];
+  const llm = {
+    send: async ({ prompt, sessionId }) => {
+      sends.push({ prompt, sessionId });
+      const m = prompt.match(/seq:\d+/);
+      return { text: `{"moveId":"${m[0]}","banter":"hmph"}` };
+    },
+    calls: sends,
+  };
   const adapters = { backgammon: { plugin: backgammonPlugin, chooseAction } };
   const orch = createOrchestrator({ db, llm, sse, personas, adapters });
 
   await orch.runTurn(gameId);
 
-  // After first turn: bot moved once, tail has 1 move queued.
-  let sess = getAiSession(db, gameId);
-  assert.ok(Array.isArray(sess.pendingSequence), 'pendingSequence stored');
-  assert.equal(sess.pendingSequence.length, 1);
-  assert.equal(llm.calls.length, 1, 'LLM called exactly once');
-
-  await orch.runTurn(gameId);
-
-  // After second turn: tail drained, LLM still only called once.
-  sess = getAiSession(db, gameId);
-  assert.equal(sess.pendingSequence, null);
-  assert.equal(llm.calls.length, 1, 'LLM still called exactly once — cache drained without LLM');
+  // After the single wake-up: the orchestrator stores the tail and
+  // immediately recurses to drain it without another LLM call.
+  const sess = getAiSession(db, gameId);
+  assert.equal(sess.pendingSequence, null, 'pendingSequence drained in same wake-up');
+  assert.equal(sends.length, 1, 'LLM called exactly once — cache drained without LLM');
 });
 
 test('orchestrator: unknown persona stalls instead of throwing', async () => {
