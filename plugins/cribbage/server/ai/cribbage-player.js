@@ -1,15 +1,29 @@
 import { enumerateLegalMoves } from './legal-moves.js';
 import { buildTurnPrompt, parseLlmResponse, buildBanterPrompt, parseBanterOnly } from './prompts.js';
+import { scoreDiscardCandidates } from './discard-scorer.js';
 import { InvalidLlmResponse, InvalidLlmMove } from '../../../../src/server/ai/errors.js';
 
 export { InvalidLlmResponse, InvalidLlmMove };
 
 export async function chooseAction({ llm, persona, sessionId, state, botPlayerIdx }) {
-  const legalMoves = enumerateLegalMoves(state, botPlayerIdx);
+  // Phase-specific: discard uses a pre-scored shortlist (15 → top 4) so
+  // the LLM picks for style instead of counting fifteens. Other phases
+  // pass the raw legal-moves list as before.
+  let legalMoves;
+  let discardCandidates = null;
+  if (state.phase === 'discard') {
+    discardCandidates = scoreDiscardCandidates(state.hands[botPlayerIdx], {
+      isDealer: state.dealer === botPlayerIdx,
+      topN: 4,
+    });
+    legalMoves = discardCandidates.map(c => ({ id: c.id, action: c.action, summary: c.rationale }));
+  } else {
+    legalMoves = enumerateLegalMoves(state, botPlayerIdx);
+  }
   if (legalMoves.length === 0) {
     throw new Error(`no legal moves for phase '${state.phase}'`);
   }
-  const prompt = buildTurnPrompt({ state, legalMoves, botPlayerIdx });
+  const prompt = buildTurnPrompt({ state, legalMoves, botPlayerIdx, discardCandidates });
 
   const r = await llm.send({
     prompt,

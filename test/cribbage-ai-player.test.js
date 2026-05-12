@@ -24,7 +24,7 @@ function discardState() {
 
 test('chooseAction: returns matching action when LLM picks a valid moveId', async () => {
   const llm = new FakeLlmClient([
-    { text: '{"moveId":"discard:0,1","banter":"oh dear"}', sessionId: 'sid-1' },
+    { text: '{"moveId":"discard:0,2","banter":"oh dear"}', sessionId: 'sid-1' },
   ]);
   const r = await chooseAction({
     llm, persona, sessionId: null,
@@ -38,7 +38,7 @@ test('chooseAction: returns matching action when LLM picks a valid moveId', asyn
 
 test('chooseAction: passes systemPrompt only on first call (sessionId=null)', async () => {
   const llm = new FakeLlmClient([
-    { text: '{"moveId":"discard:0,1","banter":""}', sessionId: 'sid-1' },
+    { text: '{"moveId":"discard:0,2","banter":""}', sessionId: 'sid-1' },
   ]);
   await chooseAction({ llm, persona, sessionId: null, state: discardState(), botPlayerIdx: 0 });
   assert.equal(llm.calls[0].systemPrompt, 'you are hattie');
@@ -46,7 +46,7 @@ test('chooseAction: passes systemPrompt only on first call (sessionId=null)', as
 
 test('chooseAction: omits systemPrompt on resume (sessionId set)', async () => {
   const llm = new FakeLlmClient([
-    { text: '{"moveId":"discard:0,1","banter":""}', sessionId: 'sid-1' },
+    { text: '{"moveId":"discard:0,2","banter":""}', sessionId: 'sid-1' },
   ]);
   await chooseAction({ llm, persona, sessionId: 'sid-1', state: discardState(), botPlayerIdx: 0 });
   assert.equal(llm.calls[0].sessionId, 'sid-1');

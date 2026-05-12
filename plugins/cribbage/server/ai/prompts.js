@@ -17,9 +17,22 @@ function legalMovesBlock(legalMoves) {
   return `Legal moves:\n${lines.join('\n')}`;
 }
 
+function discardShortlistBlock(candidates) {
+  const lines = candidates.map(c => {
+    const keepStr = c.keep.map(fmtCard).join(', ');
+    const throwStr = c.throwPair.map(fmtCard).join(', ');
+    const ev = c.totalEV.toFixed(1);
+    return `  - ${c.id}: keep [${keepStr}]; throw [${throwStr}] (EV ${ev >= 0 ? '+' : ''}${ev})`;
+  });
+  return [
+    'Top candidate discards (pre-scored by expected points — pick the one that fits your style):',
+    lines.join('\n'),
+  ].join('\n');
+}
+
 const RESPONSE_FOOTER = 'Respond with a single JSON object (and nothing else): {"moveId": "<one of the legal move ids above>", "banter": "<short in-character line, may be empty>"}';
 
-export function buildTurnPrompt({ state, legalMoves, botPlayerIdx }) {
+export function buildTurnPrompt({ state, legalMoves, botPlayerIdx, discardCandidates = null }) {
   const blocks = [commonHeader(state, botPlayerIdx)];
   const hand = state.hands[botPlayerIdx];
 
@@ -39,7 +52,11 @@ export function buildTurnPrompt({ state, legalMoves, botPlayerIdx }) {
     blocks.push('The hand counts have been tallied. Acknowledge to continue.');
   }
 
-  blocks.push(legalMovesBlock(legalMoves));
+  if (state.phase === 'discard' && Array.isArray(discardCandidates) && discardCandidates.length > 0) {
+    blocks.push(discardShortlistBlock(discardCandidates));
+  } else {
+    blocks.push(legalMovesBlock(legalMoves));
+  }
   blocks.push(RESPONSE_FOOTER);
   return blocks.join('\n\n');
 }

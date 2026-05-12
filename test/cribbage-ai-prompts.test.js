@@ -28,6 +28,28 @@ test('buildTurnPrompt: discard phase — includes hand, scores, legal moves with
   assert.match(prompt, /JSON.*moveId.*banter/);
 });
 
+test('buildTurnPrompt: discard phase with shortlist — uses shortlist block, not full enumeration', () => {
+  const state = {
+    phase: 'discard',
+    dealer: 1,
+    hands: [[CARD('A','H'), CARD('5','H'), CARD('K','D'), CARD('7','S'), CARD('3','C'), CARD('Q','H')], []],
+    scores: [12, 19],
+    sides: { a:1, b:2 },
+  };
+  const candidates = [
+    { id: 'discard:0,2', keep: [CARD('5','H'), CARD('7','S'), CARD('3','C'), CARD('Q','H')], throwPair: [CARD('A','H'), CARD('K','D')], totalEV: 7.4 },
+    { id: 'discard:0,4', keep: [CARD('5','H'), CARD('K','D'), CARD('7','S'), CARD('Q','H')], throwPair: [CARD('A','H'), CARD('3','C')], totalEV: 6.1 },
+  ];
+  const legalMoves = candidates.map(c => ({ id: c.id, summary: 'x' }));
+  const prompt = buildTurnPrompt({ state, legalMoves, botPlayerIdx: 0, discardCandidates: candidates });
+  assert.match(prompt, /Top candidate discards/i, 'shortlist block heading present');
+  assert.match(prompt, /EV \+7\.4/);
+  assert.match(prompt, /EV \+6\.1/);
+  // No noise from a 15-line enumeration.
+  const lines = prompt.split('\n').filter(l => /discard:\d/.test(l));
+  assert.ok(lines.length <= 4, `prompt should reference at most 4 candidate lines, saw ${lines.length}`);
+});
+
 test('buildTurnPrompt: pegging phase — shows running total and pile', () => {
   const state = {
     phase: 'pegging',
