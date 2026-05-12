@@ -8,6 +8,7 @@ function rowToSession(row) {
     stalledAt: row.stalled_at,
     stallReason: row.stall_reason,
     pendingSequence: row.pending_sequence ? JSON.parse(row.pending_sequence) : null,
+    resumeCount: row.resume_count ?? 0,
     createdAt: row.created_at,
     lastUsedAt: row.last_used_at,
   };
@@ -29,6 +30,21 @@ export function getAiSession(db, gameId) {
 export function setClaudeSessionId(db, gameId, claudeSessionId) {
   db.prepare("UPDATE ai_sessions SET claude_session_id = ?, last_used_at = ? WHERE game_id = ?")
     .run(claudeSessionId, Date.now(), gameId);
+}
+
+// Called when we resume an existing claude session — bumps the counter so
+// the orchestrator can cap context bloat by rotating to a fresh session
+// after N consecutive resumes.
+export function bumpResumeCount(db, gameId) {
+  db.prepare("UPDATE ai_sessions SET resume_count = resume_count + 1, last_used_at = ? WHERE game_id = ?")
+    .run(Date.now(), gameId);
+}
+
+// Rotates to a fresh claude session: drops the prior session id and resets
+// the resume counter.
+export function rotateClaudeSession(db, gameId) {
+  db.prepare("UPDATE ai_sessions SET claude_session_id = NULL, resume_count = 0, last_used_at = ? WHERE game_id = ?")
+    .run(Date.now(), gameId);
 }
 
 export function markStalled(db, gameId, reason) {

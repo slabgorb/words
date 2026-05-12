@@ -1,4 +1,10 @@
-import { getAiSession, markStalled, clearStall, setPendingSequence, clearPendingSequence } from './agent-session.js';
+import { getAiSession, markStalled, clearStall, setPendingSequence, clearPendingSequence, setClaudeSessionId, bumpResumeCount, rotateClaudeSession } from './agent-session.js';
+
+// Resume the same claude CLI session this many times before rotating to a
+// fresh one. Resumes hit the prompt cache (huge latency win) but each one
+// appends the prior turn to the conversation, so input cost grows with
+// every resume. Rotating periodically caps the bloat.
+const MAX_RESUMES_PER_SESSION = 10;
 import { InvalidLlmResponse, InvalidLlmMove } from './errors.js';
 import { TimeoutError, SubprocessFailed, ParseError, EmptyResponse } from './llm-client.js';
 import { appendTurnEntry } from '../history.js';
@@ -248,14 +254,26 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
     let lastError;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        // Every turn is a fresh claude session. The bot has no need for
-        // cross-turn conversation memory — the full game state is in the
-        // prompt — and resuming caused long games to bloat the conversation
-        // until the CLI timed out.
+        // Resume the prior claude session for this game so the CLI hits
+        // its prompt cache (persona system prompt + prior turns), dropping
+        // per-turn latency from ~80s to a few seconds. Rotate after
+        // MAX_RESUMES_PER_SESSION turns to cap conversation bloat.
+        const resuming = session.claudeSessionId
+          && (session.resumeCount ?? 0) < MAX_RESUMES_PER_SESSION;
         const r = await adapter.chooseAction({
-          llm, persona, sessionId: null,
+          llm, persona, sessionId: resuming ? session.claudeSessionId : null,
           state, botPlayerIdx, rng: rngFor(gameId),
         });
+        if (resuming) {
+          bumpResumeCount(db, gameId);
+          session.resumeCount = (session.resumeCount ?? 0) + 1;
+        } else if (r.sessionId) {
+          // Fresh session — either no prior or just rotated. Reset counter.
+          if (session.claudeSessionId) rotateClaudeSession(db, gameId);
+          setClaudeSessionId(db, gameId, r.sessionId);
+          session.claudeSessionId = r.sessionId;
+          session.resumeCount = 0;
+        }
 
         const result = adapter.plugin.applyAction({
           state, action: r.action, actorId: session.botUserId, rng: rngFor(gameId),
