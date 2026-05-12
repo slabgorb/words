@@ -108,17 +108,20 @@ plugin in `GET /api/plugins`.
 
 ## Shipped plugins
 
-| plugin   | id         | description                                                         |
-| -------- | ---------- | ------------------------------------------------------------------- |
-| Words    | `words`    | Words With Friends clone, ENABLE2K dict                             |
-| Rummikub | `rummikub` | Sabra rules, 2 jokers, 30-pt initial meld, structured-rows table UI |
-| Cribbage | `cribbage` | 2-player, 121-pt match, pegging + show, walnut peg board            |
-| Buraco   | `buraco`   | 2-player Buraco Brasileiro, 2 decks + 4 jokers, 3000-pt match       |
+| plugin     | id           | description                                                                     |
+| ---------- | ------------ | ------------------------------------------------------------------------------- |
+| Words      | `words`      | Words With Friends (+ Scrabble variant), ENABLE2K dict — [docs](docs/games/words.md) |
+| Rummikub   | `rummikub`   | 1998 Pressman American Edition, 2 jokers, 30-pt initial meld — [docs](docs/games/rummikub.md) |
+| Cribbage   | `cribbage`   | 2-player, 121-pt match, pegging + show, walnut peg board — [docs](docs/games/cribbage.md) |
+| Backgammon | `backgammon` | Standard match play, doubling cube + Crawford — [docs](docs/games/backgammon.md) |
+| Buraco     | `buraco`     | 2-player Buraco Brasileiro, 2 decks + 4 jokers, 3000-pt match — [docs](docs/games/buraco.md) |
 
-- **Rummikub** (`plugins/rummikub/`) — Sabra rules, 2 jokers, 30-pt initial
-  meld, structured-rows table UI. Player commits a turn-end state via
-  `commit-turn`; server validates multiset balance + set legality + initial
-  meld + joker harvest atomically.
+Each game has a per-game rules + implementation page under [`docs/games/`](docs/games/README.md).
+
+- **Rummikub** (`plugins/rummikub/`) — 1998 Pressman American Edition,
+  2 jokers, 30-pt initial meld, structured-rows table UI. Player commits a
+  turn-end state via `commit-turn`; server validates multiset balance + set
+  legality + initial meld + joker harvest atomically.
 - **Buraco** (`plugins/buraco/`) — 2-player Brazilian rules: sequences only
   (no sets), wilds are jokers and off-suit 2s, going out requires at least
   one buraco (≥7 cards), match ends at 3000. Shares card primitives with
