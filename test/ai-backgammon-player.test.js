@@ -37,8 +37,15 @@ test('chooseAction: picks a sequence in moving phase and returns sequenceTail', 
   const state = preRoll();
   state.turn.phase = 'moving';
   state.turn.dice = { values: [5, 3], remaining: [5, 3], throwParams: [] };
-  // Pick whichever id is the first legal seq; we know there's at least one.
-  const llm = new FakeLlmClient([{ text: '{"moveId":"seq:1","banter":""}' }]);
+  // Phase 4: the adapter now hands the LLM a top-N shortlist scored by
+  // board-eval, so seq numbers don't necessarily start at 1. Echo back
+  // whichever id appears first in the prompt.
+  const llm = {
+    send: async ({ prompt }) => {
+      const m = prompt.match(/seq:\d+/);
+      return { text: `{"moveId":"${m[0]}","banter":""}` };
+    },
+  };
   const r = await chooseAction({ llm, persona, sessionId: null, state, botPlayerIdx: 0 });
   assert.equal(r.action.type, 'move');
   assert.ok(Array.isArray(r.sequenceTail));
