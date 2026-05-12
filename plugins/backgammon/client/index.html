@@ -7,20 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=JetBrains+Mono:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/shared/opponent-card.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-theme="inlay-marble">
-<div id="opponent-bubble" class="opp-bubble" hidden>
-  <span id="opp-bubble-text"></span>
-  <span id="opp-bubble-dots" class="opp-bubble__dots" hidden>
-    <span></span><span></span><span></span>
-  </span>
-</div>
-<div id="opp-stall-banner" class="opp-stall" hidden>
-  <span id="opp-stall-text"></span>
-  <button id="opp-stall-retry" type="button">Retry</button>
-  <button id="opp-stall-abandon" type="button">Abandon</button>
-</div>
 <div id="page">
   <header id="topbar">
     <a class="back" href="/">← Lobby</a>
@@ -75,7 +65,7 @@
   </aside>
 </div>
 <script type="module" src="/shared/dice.js"></script>
-<script type="module" src="opponent-bubble.js"></script>
+<script type="module" src="/shared/opponent-card.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>
