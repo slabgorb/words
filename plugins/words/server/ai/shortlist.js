@@ -14,6 +14,9 @@ import {
   placementFromResult,
 } from './config.js';
 
+// Cap on solver results we enrich/rank. The solver can return thousands of
+// plays; the top 50 by score is more than enough to populate the 7 slots
+// and bounds per-call CPU.
 const TOP_RESULTS_KEEP = 50;
 const SWAP_TRIGGER_TOP_SCORE = 12;
 // Even when a decent score is available, the bot will offer a swap if its
@@ -22,6 +25,13 @@ const SWAP_TRIGGER_TOP_SCORE = 12;
 const SWAP_TRIGGER_LEAVE_SCORE = -10;
 const LEAVE_DEFENSE_TIER_FRACTION = 0.25;
 const LEAVE_DEFENSE_TIER_MIN = 3;
+// safe-medium slot: plays in the 60–80% of top-score band, where the LLM
+// might prefer them for non-score reasons (lower exposure, better leave,
+// nicer board shape).
+const SAFE_MEDIUM_MIN_RATIO = 0.6;
+const SAFE_MEDIUM_MAX_RATIO = 0.8;
+// Number of worst-retention tiles offered to the engine when swapping.
+const SWAP_TILE_COUNT = 3;
 
 // Per-letter retention weights for leaveScore.
 const RETENTION = {
@@ -48,7 +58,11 @@ function leaveScore(remaining) {
     if ('AEIOU'.includes(letter)) vowels++;
     else if (letter !== '_') consonants++;
   }
+  // Duplicate penalty: each excess copy beyond two of the same letter is
+  // worth -2 (triples and quads are sticky).
   for (const n of Object.values(counts)) if (n > 2) s -= 2 * (n - 2);
+  // Vowel/consonant balance: tight balance (diff ≤ 1) is rewarded; a heavy
+  // skew (diff ≥ 4) is penalised.
   const diff = Math.abs(vowels - consonants);
   if (diff <= 1) s += 2;
   else if (diff >= 4) s -= 3;
@@ -121,7 +135,7 @@ function coord(cell) {
 function pickSwapTiles(rack) {
   return rack.slice()
     .sort((a, b) => (RETENTION[a] ?? 0) - (RETENTION[b] ?? 0))
-    .slice(0, 3);
+    .slice(0, SWAP_TILE_COUNT);
 }
 
 export function buildShortlist(state, botSide) {
@@ -177,7 +191,7 @@ export function buildShortlist(state, botSide) {
   const slots = [];
   const used = new Set();
 
-  function take(entry, slot) {
+  function take(entry, slotId) {
     if (!entry || used.has(entry.sig)) return false;
     used.add(entry.sig);
     const word = entry.result.cells.map((c) => c.tile?.character ?? '?').join('');
@@ -187,8 +201,8 @@ export function buildShortlist(state, botSide) {
     const leaveStr = entry.leave.length ? entry.leave.join('') : 'nothing';
     const bingoMark = entry.isBingo ? '; bingo' : '';
     slots.push({
-      id: slot,
-      slot,
+      id: slotId,
+      slot: slotId,
       action: placementFromResult(entry.result),
       summary: `${word} ${range}; ${entry.result.points} pts${bingoMark}; leaves ${leaveStr}`,
     });
@@ -215,8 +229,8 @@ export function buildShortlist(state, botSide) {
 
   const topPts = enriched[0].result.points;
   const safe = enriched
-    .filter((e) => e.result.points >= topPts * 0.6
-      && e.result.points <= topPts * 0.8
+    .filter((e) => e.result.points >= topPts * SAFE_MEDIUM_MIN_RATIO
+      && e.result.points <= topPts * SAFE_MEDIUM_MAX_RATIO
       && e.exposure === 0)
     .sort((a, b) => b.leaveScore - a.leaveScore)[0];
   take(safe, 'safe-medium');

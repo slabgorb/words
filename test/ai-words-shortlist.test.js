@@ -86,6 +86,41 @@ test('buildShortlist: swap omitted when bag < 7', () => {
   assert.equal(swap, undefined);
 });
 
+test('buildShortlist: safe-medium fires when a low-exposure 60–80% play exists', () => {
+  // Six-tile rack rules out bingos; with a single 'E' anchor at the center
+  // the engine finds OCTAD (16 pts, top-score) and a tidy COG play (10 pts ≈
+  // 62% of top, zero exposure) — exactly the safe-medium band.
+  const state = emptyState();
+  state.racks.a = ['C','A','T','D','O','G'];
+  state.board[7][7] = { letter: 'E', byPlayer: 'b', blank: false };
+  state.initialMoveDone = true;
+  const list = buildShortlist(state, 'a');
+  const safe = list.find(e => e.slot === 'safe-medium');
+  assert.ok(safe, `safe-medium slot present; got slots ${list.map(e => e.slot).join(',')}`);
+  assert.equal(safe.action.type, 'move');
+  assert.ok(safe.action.payload.placement.length > 0);
+});
+
+test('buildShortlist: best-defense picks a placement distinct from top-score', () => {
+  // Mid-game state with a 'B' anchor on row 7: the top-score (BLANDEST
+  // through row 8) reaches lots of premium squares, while the best-defense
+  // choice (DENTALS on row 9) shifts off the densest premium band. The two
+  // slots must have distinct placement signatures.
+  const state = emptyState();
+  state.racks.a = ['D','E','N','T','A','L','S'];
+  state.board[7][5] = { letter: 'B', byPlayer: 'b', blank: false };
+  state.initialMoveDone = true;
+  const list = buildShortlist(state, 'a');
+  const top = list.find(e => e.slot === 'top-score');
+  const defense = list.find(e => e.slot === 'best-defense');
+  assert.ok(top, 'top-score slot present');
+  assert.ok(defense, `best-defense slot present; got slots ${list.map(e => e.slot).join(',')}`);
+  const sig = (e) => JSON.stringify(
+    e.action.payload.placement.map(p => [p.r, p.c, p.letter]).sort(),
+  );
+  assert.notEqual(sig(top), sig(defense), 'best-defense placement differs from top-score');
+});
+
 test('buildShortlist: every entry has id, action, summary, slot', () => {
   const state = emptyState();
   state.racks.a = ['C','A','T','S','D','O','G'];
