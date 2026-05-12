@@ -102,3 +102,34 @@ test('bootAiSubsystem: registers backgammon adapter', async () => {
   // stall with "no AI adapter for game_type backgammon".
   assert.doesNotThrow(() => orchestrator.scheduleTurn(gameId));
 });
+
+test('bootAiSubsystem: registers words adapter', async () => {
+  const { openDb: openDbFunc } = await import('../src/server/db.js');
+  const { bootAiSubsystem: bootFunc } = await import('../src/server/ai/index.js');
+  const { createAiSession: createSessionFunc } = await import('../src/server/ai/agent-session.js');
+  const { buildInitialState: wordsBuildInitialState } = await import('../plugins/words/server/state.js');
+
+  const dir = mkdtempSync(join(tmpdir(), 'boot-words-'));
+  const db = openDbFunc(join(dir, 'test.db'));
+  const llm = { send: async () => ({ text: '{"moveId":"x","banter":""}' }) };
+  const personaDir = join(process.cwd(), 'data', 'ai-personas');
+  const { orchestrator } = bootFunc({ db, sse: { broadcast() {} }, llm, personaDir });
+
+  const now = Date.now();
+  const h = db.prepare("INSERT INTO users (email,friendly_name,color,created_at) VALUES ('hw','Hw','#000',?) RETURNING id").get(now).id;
+  const bot = db.prepare("SELECT id FROM users WHERE is_bot = 1 LIMIT 1").get().id;
+  const aId = Math.min(h, bot), bId = Math.max(h, bot);
+  const seed = 7;
+  let s = seed;
+  const rng = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const state = wordsBuildInitialState({ participants: [{ userId: aId, side: 'a' }, { userId: bId, side: 'b' }], rng });
+  const gameId = db.prepare(`
+    INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
+    VALUES (?, ?, 'active', 'words', ?, ?, ?) RETURNING id`)
+    .get(aId, bId, JSON.stringify(state), now, now).id;
+  createSessionFunc(db, { gameId, botUserId: bot, personaId: 'samantha' });
+
+  // No throw = adapter registered. scheduleTurn would otherwise stall
+  // with "no AI adapter for game_type words".
+  assert.doesNotThrow(() => orchestrator.scheduleTurn(gameId));
+});

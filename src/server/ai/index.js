@@ -9,6 +9,8 @@ import cribbagePlugin from '../../../plugins/cribbage/plugin.js';
 import { chooseAction as cribbageChoose, chooseBanter as cribbageBanter } from '../../../plugins/cribbage/server/ai/cribbage-player.js';
 import backgammonPlugin from '../../../plugins/backgammon/plugin.js';
 import { chooseAction as backgammonChoose } from '../../../plugins/backgammon/server/ai/backgammon-player.js';
+import wordsPlugin from '../../../plugins/words/plugin.js';
+import { chooseAction as wordsChoose } from '../../../plugins/words/server/ai/words-player.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..', '..', '..');
@@ -38,6 +40,7 @@ export function bootAiSubsystem({ db, sse, llm, personaDir = DEFAULT_PERSONA_DIR
   const adapters = {
     cribbage:   { plugin: cribbagePlugin,   chooseAction: cribbageChoose, chooseBanter: cribbageBanter },
     backgammon: { plugin: backgammonPlugin, chooseAction: backgammonChoose },
+    words:      { plugin: wordsPlugin,      chooseAction: wordsChoose },
   };
   const orchestrator = createOrchestrator({
     db, llm: client, sse, personas: catalog, adapters,
