@@ -65,6 +65,29 @@ test('personas route: filters by ?game=backgammon', async () => {
   assert.deepEqual(ids, ['colonel-pip', 'omni']);
 });
 
+test('GET /api/ai/personas?game=words returns only words-scoped personas', async () => {
+  const personas = makeCatalog({
+    'samantha.yaml':   'id: samantha\ndisplayName: Samantha\ncolor: "#ec4899"\nglyph: "S"\nsystemPrompt: x\ngames:\n  - words\n',
+    'suzie.yaml':      'id: suzie\ndisplayName: Suzie\ncolor: "#10b981"\nglyph: "Z"\nsystemPrompt: x\ngames:\n  - words\n',
+    'kurt.yaml':       'id: kurt\ndisplayName: Kurt\ncolor: "#f59e0b"\nglyph: "K"\nsystemPrompt: x\ngames:\n  - words\n',
+    'hattie.yaml':     'id: hattie\ndisplayName: Hattie\ncolor: "#ec4899"\nglyph: "♡"\nsystemPrompt: x\ngames:\n  - cribbage\n',
+    'mr-snake.yaml':   'id: mr-snake\ndisplayName: Mr. Snake\ncolor: "#22c55e"\nglyph: "~"\nsystemPrompt: x\ngames:\n  - cribbage\n',
+    'colonel-pip.yaml':'id: colonel-pip\ndisplayName: Colonel Pip\ncolor: "#445566"\nglyph: "▲"\nsystemPrompt: x\ngames:\n  - backgammon\n',
+    'aunt-irene.yaml': 'id: aunt-irene\ndisplayName: Aunt Irene\ncolor: "#a855f7"\nglyph: "I"\nsystemPrompt: x\ngames:\n  - backgammon\n',
+  });
+  const app = mountPersonasRoute({ ai: { personas } });
+  const body = await fetchPersonas(app, '?game=words');
+  const ids = body.personas.map(p => p.id).sort();
+  // The three words personas should all appear; no cribbage/backgammon
+  // personas should leak through.
+  for (const id of ['samantha', 'suzie', 'kurt']) {
+    assert.ok(ids.includes(id), `expected '${id}' in ${ids.join(',')}`);
+  }
+  for (const id of ['hattie', 'mr-snake', 'colonel-pip', 'aunt-irene']) {
+    assert.equal(ids.includes(id), false, `'${id}' should not appear in words scope`);
+  }
+});
+
 test('personas route: empty when AI not booted', async () => {
   const app = mountPersonasRoute({ ai: null });
   const body = await fetchPersonas(app);

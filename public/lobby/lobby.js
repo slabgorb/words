@@ -517,7 +517,7 @@ function wireNewGame(me, plugins) {
         <span class="ng-body" style="padding-left:0"><span class="ng-name">${escapeHtml(v.label)}</span></span>
         <span class="ng-chev" aria-hidden="true">›</span>`;
       btn.onclick = () => {
-        if (opponent.isBot && plugin.id === 'cribbage') {
+        if (opponent.isBot && (plugin.id === 'cribbage' || plugin.id === 'words')) {
           showPersonaStep(opponent, plugin.id, v.variant);
         } else {
           startGame(opponent, plugin.id, v.variant);

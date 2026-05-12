@@ -149,3 +149,92 @@ On end-of-game adjustment, leftover rack tile values are subtracted from each pl
 
 - **Dictionary** — ENABLE2K is the legacy WwF/Lexulous lexicon. The plugin uses the same list for both variants; classic Scrabble's TWL/SOWPODS are not bundled.
 - **Two variants in one plugin** — the host treats `variant` as game-creation metadata; UI selection lives in the client.
+
+## AI players
+
+A Claude-CLI-driven bot opponent is available, using the shared AI
+infrastructure under `src/server/ai/` and a per-game adapter at
+`plugins/words/server/ai/`.
+
+Full design rationale: [`docs/superpowers/specs/2026-05-12-ai-players-words-design.md`](../superpowers/specs/2026-05-12-ai-players-words-design.md).
+
+### Adapter files
+
+| File | Responsibility |
+|---|---|
+| `trie.js` | Memoised ENABLE2K trie built from `data/enable2k.txt` via `@kamilmielnik/trie`. |
+| `config.js` | Translates Words plugin state ↔ `@scrabble-solver/types` (Board, Config, Tile); maps WwF/Scrabble premium grids to `BONUS_CHARACTER` / `BONUS_WORD`; converts solver `ResultJson` cells back to Words `move` actions (preserving blanks). |
+| `shortlist.js` | Runs the solver, dedups by placement signature, fills up to 5 diverse slots (top-score, best-bingo, best-leave, best-defense, safe-medium) plus optional pass/swap-worst. |
+| `prompts.js` | Builds a 5-block prompt (header / ASCII board / rack / shortlist / JSON contract footer); parses LLM JSON replies (fenced or bare). |
+| `words-player.js` | `chooseAction({ llm, persona, sessionId, state, botPlayerIdx })` — orchestrator's entry point. |
+
+### Move generation
+
+Uses `@scrabble-solver/solver` with an ENABLE2K trie. Both `wwf` and
+`scrabble` variants are supported via `buildSolverConfig(variant)`, which
+reads `state.variant`. The engine slices to the top 50 results by points
+before running rack-leave and opponent-exposure heuristics; the final
+shortlist passed to the LLM is 1–7 entries.
+
+### Shortlist slots
+
+| Slot | Selection |
+|---|---|
+| `top-score` | Highest-points play in the result set. |
+| `best-bingo` | Highest-points play using all 7 rack tiles. |
+| `best-leave` | Best rack-leave score among the top 25% by points. |
+| `best-defense` | Lowest opponent-exposure score among the top 25%. |
+| `safe-medium` | 60–80% of top-score, zero exposure, best leave. |
+| `pass` | Included when no legal plays exist. |
+| `swap-worst` | Included when the bag has ≥ 7 tiles **and** top-score is low (or the best leave is bad). |
+
+### Variants
+
+Both `wwf` (default — 35-point bingo, WwF premium grid, WwF letter
+values) and `scrabble` (50-point bingo, standard Scrabble premium grid
+and values) are supported. The variant is read from `state.variant` and
+flows through to the solver config and the shortlist's bingo / score
+thresholds.
+
+### Personas
+
+Words personas live in `data/ai-personas/` with a `games: [words]` scope.
+Initial roster:
+
+| id | flavor |
+|---|---|
+| `samantha` | Bingo hunter — trades short-term points for rack balance and bingo potential. |
+| `suzie` | Defender — plays patiently, favors `best-defense`, avoids opening premium lanes. |
+| `kurt` | Score maximizer — plays for points, favors `top-score`, takes bingos when offered. |
+
+The lobby's persona picker filters by game via
+`GET /api/ai/personas?game=words`.
+
+### Stall behavior
+
+Mirrors cribbage and backgammon. On an LLM parse error or unknown
+`moveId`, the orchestrator retries once; on a second failure it
+broadcasts a `bot_stalled` SSE with a reason code (e.g.
+`invalid_response`, `illegal_move`). Words has no auto-actions and no
+pending-sequence cache — every turn is a single LLM call.
+
+### Testing
+
+End-to-end and unit coverage lives in `test/ai-words-*.test.js`:
+
+| File | Covers |
+|---|---|
+| `ai-words-trie.test.js` | ENABLE2K trie load and memoisation. |
+| `ai-words-config.test.js` | State ↔ solver type conversion, premium grid mapping, blank round-trip. |
+| `ai-words-shortlist.test.js` | Slot selection, dedup, pass/swap fallback. |
+| `ai-words-prompts.test.js` | Prompt rendering and JSON reply parsing. |
+| `ai-words-player.test.js` | `chooseAction` orchestration with a fake LLM. |
+| `ai-words-deps-smoke.test.js` | Sanity check that the solver and trie deps load. |
+
+### Limitations
+
+- The bot reasons over the rendered board plus a shortlist of pre-scored
+  candidate moves; it does not consult a probabilistic rack-evaluation
+  table or simulate opponent draws.
+- The shortlist is capped at 7 entries; very rich positions are not
+  fully exposed to the LLM.
