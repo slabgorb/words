@@ -82,17 +82,43 @@ function enumerateSequences(board, dice, side) {
   return out;
 }
 
-function formatMove(m, side) {
-  const point = (i) => {
-    if (i === 'bar') return 'bar';
-    if (i === 'off') return 'off';
-    return String(side === 'a' ? 24 - i : i + 1);
-  };
-  return `${point(m.from)}/${point(m.to)}`;
+function pointLabel(i, side) {
+  if (i === 'bar') return 'bar';
+  if (i === 'off') return 'off';
+  return String(side === 'a' ? 24 - i : i + 1);
 }
 
-function formatSequence(seq, side) {
-  return seq.map(m => formatMove(m, side)).join(' ');
+// Standard backgammon notation: collapse single-chequer paths
+// (`13/11 11/9 9/7 7/5` → `13/5`) and group identical moves with `(n)`
+// (`6/4 6/4 6/4 6/4` → `6/4(4)`). The LLM reads this much faster and the
+// format matches written backgammon books.
+export function formatSequence(seq, side) {
+  // 1. Chain consecutive same-chequer hops by raw board index.
+  const rem = seq.map(m => ({ from: m.from, to: m.to }));
+  const trains = [];
+  while (rem.length) {
+    const t = rem.shift();
+    while (true) {
+      const idx = rem.findIndex(m => m.from === t.to);
+      if (idx < 0) break;
+      t.to = rem[idx].to;
+      rem.splice(idx, 1);
+    }
+    trains.push(t);
+  }
+  // 2. Bucket identical trains; preserve first-seen order.
+  const order = [];
+  const counts = new Map();
+  for (const t of trains) {
+    const key = `${t.from}|${t.to}`;
+    if (!counts.has(key)) { counts.set(key, { ...t, count: 0 }); order.push(key); }
+    counts.get(key).count++;
+  }
+  return order.map(k => {
+    const b = counts.get(k);
+    const s = `${pointLabel(b.from, side)}/${pointLabel(b.to, side)}`;
+    return b.count > 1 ? `${s}(${b.count})` : s;
+  }).join(' ');
 }
 
 function movingMoves(state, botSide) {

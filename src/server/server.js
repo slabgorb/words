@@ -1,6 +1,14 @@
 import express from 'express';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// Prepend an ISO timestamp to every console line so launchd's tail-log is
+// readable when scanning days of stalls/retries. Wrap once at process start.
+for (const m of ['log', 'warn', 'error', 'info']) {
+  const orig = console[m].bind(console);
+  console[m] = (...args) => orig(new Date().toISOString(), ...args);
+}
+
 import { openDb } from './db.js';
 import { mountRoutes } from './routes.js';
 import { mountPluginClients } from './plugin-clients.js';

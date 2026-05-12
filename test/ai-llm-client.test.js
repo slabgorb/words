@@ -42,7 +42,7 @@ test('ClaudeCliClient.send: builds command, parses JSON envelope, returns text +
   assert.equal(r.text, 'hello world');
   assert.equal(r.sessionId, 'abc-123');
   assert.equal(captured.cmd, 'claude');
-  assert.deepEqual(captured.args.slice(0, 2), ['--model', 'claude-sonnet-4-6']);
+  assert.deepEqual(captured.args.slice(0, 2), ['--model', 'claude-haiku-4-5-20251001']);
   assert.ok(captured.args.includes('--system-prompt'));
   assert.ok(captured.args.includes('--session-id'));
   assert.ok(captured.args.includes('-p'));

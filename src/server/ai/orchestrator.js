@@ -17,6 +17,17 @@ const autoActions = {
       type: 'roll-initial',
       payload: { value: Math.floor(rng() * 6) + 1, throwParams: [] },
     }),
+    // Auto-roll: skip the LLM "roll vs offer-double" decision. Tradeoff —
+    // the bot can no longer offer the cube, but it still accepts/declines
+    // doubles (awaiting-double-response is still LLM-driven). Saves one
+    // LLM round-trip per turn (~20–60s with sonnet).
+    'pre-roll': (state, rng) => ({
+      type: 'roll',
+      payload: {
+        values: [Math.floor(rng() * 6) + 1, Math.floor(rng() * 6) + 1],
+        throwParams: [],
+      },
+    }),
   },
 };
 
@@ -186,9 +197,10 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
           },
         });
       }
-      // Recurse to drain the next cached move immediately, if any.
-      if (!result.ended && rest.length > 0 && newState.activeUserId === session.botUserId && depth === 0) {
-        await _runOnce(gameId, 1);
+      // Recurse to drain the next cached move immediately, if any. Bounded
+      // by the tail length (drain shrinks the cache each call).
+      if (!result.ended && rest.length > 0 && newState.activeUserId === session.botUserId) {
+        await _runOnce(gameId, depth + 1);
       }
       return;
     }
@@ -207,7 +219,7 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
         // until the CLI timed out.
         const r = await adapter.chooseAction({
           llm, persona, sessionId: null,
-          state, botPlayerIdx,
+          state, botPlayerIdx, rng: rngFor(gameId),
         });
 
         const result = adapter.plugin.applyAction({
@@ -215,6 +227,7 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
         });
         if (result.error) {
           lastError = new InvalidLlmMove(`engine rejected action: ${result.error}`, []);
+          logger.warn?.(`[ai] game ${gameId} attempt ${attempt + 1} engine-rejected ${JSON.stringify(r.action)}: ${result.error}`);
           continue;
         }
 
@@ -263,8 +276,20 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
         // prevent an unbounded chain (e.g., pegging → show → next-deal).
         // Guard: phase must have changed so we don't loop on a partial-
         // discard state where activeUserId is inherited unchanged.
-        if (!result.ended && newState.activeUserId === session.botUserId && newState.phase !== state.phase && depth === 0) {
-          await _runOnce(gameId, 1);
+        const prevPhase = state.phase ?? state.turn?.phase ?? null;
+        const nextPhase = newState.phase ?? newState.turn?.phase ?? null;
+        const phaseChanged = nextPhase !== prevPhase;
+        const hasCachedTail = Array.isArray(r.sequenceTail) && r.sequenceTail.length > 0;
+        // Two recurse triggers: (a) a cached sequence tail to drain — bounded
+        // by tail length, no depth cap; (b) a phase change that still has the
+        // bot active — depth-capped at 1 to avoid runaway chains in games
+        // like cribbage (pegging → show → next-deal).
+        if (!result.ended && newState.activeUserId === session.botUserId) {
+          if (hasCachedTail) {
+            await _runOnce(gameId, depth + 1);
+          } else if (phaseChanged && depth === 0) {
+            await _runOnce(gameId, 1);
+          }
         }
         return;
       } catch (err) {

@@ -2,8 +2,8 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 
-const DEFAULT_TIMEOUT_MS = 60_000;
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_TIMEOUT_MS = 180_000;
+const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 const DEFAULT_COMMAND = 'claude';
 
 export class LlmClientError extends Error {}
@@ -28,12 +28,20 @@ export class ParseError extends LlmClientError {
 }
 
 function defaultSpawn(command, args, options) {
+  const t0 = Date.now();
   const proc = nodeSpawn(command, args, options);
   const stdoutChunks = [];
   const stderrChunks = [];
-  proc.stdout.on('data', c => stdoutChunks.push(c.toString('utf8')));
+  let firstByteAt = null;
+  proc.stdout.on('data', c => {
+    if (firstByteAt == null) firstByteAt = Date.now();
+    stdoutChunks.push(c.toString('utf8'));
+  });
   proc.stderr.on('data', c => stderrChunks.push(c.toString('utf8')));
   return {
+    pid: proc.pid,
+    spawnedAt: t0,
+    get firstByteAt() { return firstByteAt; },
     stdoutChunks,
     stderrChunks,
     wait() { return new Promise(resolve => proc.on('close', code => resolve(code))); },
@@ -59,7 +67,21 @@ export class ClaudeCliClient {
       args.push('--session-id', randomUUID());
       if (systemPrompt) args.push('--system-prompt', systemPrompt);
     }
-    args.push('-p', prompt, '--output-format', 'json', '--setting-sources', 'user');
+    // The bot is pure text-in/text-out — no Bash/Edit/Read tools needed.
+    // --tools "" disables all built-in tools (drops ~30k tokens of tool
+    // schemas from every prompt). --effort low caps thinking time.
+    // --strict-mcp-config blocks ad-hoc MCP servers; the inline --settings
+    // override disables plugin-bundled MCPs (Playwright et al.).
+    const overrides = JSON.stringify({ enabledPlugins: {} });
+    args.push(
+      '-p', prompt,
+      '--output-format', 'json',
+      '--setting-sources', 'user',
+      '--strict-mcp-config',
+      '--effort', 'low',
+      '--tools', '',
+      '--settings', overrides,
+    );
 
     const start = Date.now();
     // cwd is set to a neutral directory so the bot's claude subprocess
@@ -68,6 +90,9 @@ export class ClaudeCliClient {
     // dev-side context (e.g. Pennyfarthing personas) that would leak
     // into the bot's persona.
     const proc = this._spawn(this._command, args, { stdio: ['ignore', 'pipe', 'pipe'], cwd: tmpdir() });
+    // INSTRUMENTATION: dump the actual argv claude sees so we can verify
+    // that --settings overrides + --strict-mcp-config are present.
+    console.log(`[llm] spawn pid=${proc.pid} args=${JSON.stringify(args.map(a => a.length > 80 ? a.slice(0,80)+`…(${a.length})` : a))}`);
     let exitCode;
     try {
       exitCode = await Promise.race([
@@ -83,6 +108,15 @@ export class ClaudeCliClient {
 
     const stdout = proc.stdoutChunks.join('');
     const stderr = proc.stderrChunks.join('');
+    const elapsed = Date.now() - start;
+    const ttfb = proc.firstByteAt ? proc.firstByteAt - proc.spawnedAt : null;
+    // Extract claude's own API timing from the envelope so we can separate
+    // Anthropic-side latency from CLI/local overhead.
+    let apiMs = null, cacheRead = null, cacheCreate = null;
+    try { const j = JSON.parse(stdout); apiMs = j.duration_api_ms ?? null;
+          cacheRead = j.usage?.cache_read_input_tokens ?? null;
+          cacheCreate = j.usage?.cache_creation_input_tokens ?? null; } catch {}
+    console.log(`[llm] done pid=${proc.pid} exit=${exitCode} elapsed=${elapsed}ms ttfb=${ttfb}ms api_ms=${apiMs} cache_read=${cacheRead} cache_create=${cacheCreate} stdout=${stdout.length}B stderr=${stderr.length}B${stderr.length ? ' stderr_head=' + JSON.stringify(stderr.slice(0,400)) : ''}`);
     if (exitCode !== 0) throw new SubprocessFailed(exitCode, stderr);
     const trimmed = stdout.trim();
     if (!trimmed) throw new EmptyResponse();

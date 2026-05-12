@@ -18,10 +18,17 @@ function preRoll() {
 
 const persona = { id: 'colonel-pip', displayName: 'Colonel Pip', systemPrompt: 'you are colonel pip' };
 
-test('chooseAction: picks roll, returns action + banter, no sequenceTail', async () => {
+test('chooseAction: picks roll, materializes dice payload from rng, no sequenceTail', async () => {
   const llm = new FakeLlmClient([{ text: '{"moveId":"roll","banter":"steady"}' }]);
-  const r = await chooseAction({ llm, persona, sessionId: null, state: preRoll(), botPlayerIdx: 0 });
-  assert.deepEqual(r.action, { type: 'roll' });
+  // Deterministic rng so the test asserts exact dice; values come from
+  // floor(rng()*6)+1, so 0.0 → 1 and 0.5 → 4.
+  const seq = [0.0, 0.5];
+  let i = 0;
+  const rng = () => seq[i++];
+  const r = await chooseAction({ llm, persona, sessionId: null, state: preRoll(), botPlayerIdx: 0, rng });
+  assert.equal(r.action.type, 'roll');
+  assert.deepEqual(r.action.payload.values, [1, 4]);
+  assert.deepEqual(r.action.payload.throwParams, []);
   assert.equal(r.banter, 'steady');
   assert.deepEqual(r.sequenceTail, []);
 });
