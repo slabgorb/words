@@ -94,16 +94,25 @@ export class ClaudeCliClient {
     // that --settings overrides + --strict-mcp-config are present.
     console.log(`[llm] spawn pid=${proc.pid} args=${JSON.stringify(args.map(a => a.length > 80 ? a.slice(0,80)+`…(${a.length})` : a))}`);
     let exitCode;
+    let timeoutHandle;
     try {
       exitCode = await Promise.race([
         proc.wait(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new TimeoutError(Date.now() - start)), this._timeoutMs)
-        ),
+        new Promise((_, reject) => {
+          timeoutHandle = setTimeout(
+            () => reject(new TimeoutError(Date.now() - start)),
+            this._timeoutMs,
+          );
+        }),
       ]);
     } catch (err) {
       proc.kill();
       throw err;
+    } finally {
+      // Without this, every successful send leaves a pending timeout that
+      // pins the event loop alive for the full timeoutMs — turning a
+      // suite of fast unit tests into a 180-second wait.
+      if (timeoutHandle) clearTimeout(timeoutHandle);
     }
 
     const stdout = proc.stdoutChunks.join('');
