@@ -205,14 +205,28 @@ const expectedFaceCount = proceduralNormals.length;
 const faces = fbxFacesCentered.slice(0, expectedFaceCount);
 console.log(`extracted ${fbxFacesCentered.length} clusters, kept top ${faces.length}`);
 
-// Build the per-face FBX-normal → procedural-face-index lookup.
-function closestProcIdx(normal) {
-  let best = 0, bestDot = -Infinity;
-  for (let i = 0; i < proceduralNormals.length; i++) {
-    const d = proceduralNormals[i].dot(normal);
-    if (d > bestDot) { bestDot = d; best = i; }
+// Build a 1:1 FBX-face → procedural-face assignment by greedy maximum-dot
+// matching. Each FBX face gets a unique procedural index — prevents the
+// duplicate/missing issue when the FBX's polyhedron orientation differs
+// from the procedural one (e.g., d8: same shape, rotated axes).
+function buildAssignment(fbxFaces, procNormals) {
+  const candidates = [];
+  for (let i = 0; i < fbxFaces.length; i++) {
+    for (let j = 0; j < procNormals.length; j++) {
+      candidates.push({ f: i, p: j, dot: fbxFaces[i].normal.dot(procNormals[j]) });
+    }
   }
-  return best;
+  candidates.sort((a, b) => b.dot - a.dot);
+  const fbxToProc = new Array(fbxFaces.length).fill(-1);
+  const procTaken = new Set();
+  const fbxTaken = new Set();
+  for (const c of candidates) {
+    if (fbxTaken.has(c.f) || procTaken.has(c.p)) continue;
+    fbxToProc[c.f] = c.p;
+    fbxTaken.add(c.f);
+    procTaken.add(c.p);
+  }
+  return fbxToProc;
 }
 
 document.getElementById("title").textContent =
@@ -259,11 +273,12 @@ if (isD4) {
 
 const grid = document.getElementById("grid");
 const inputs = [];
+const fbxToProc = buildAssignment(faces, proceduralNormals);
 
 faces.forEach((face, i) => {
   const cell = document.createElement("div");
   cell.className = "cell";
-  const procIdx = closestProcIdx(face.normal);
+  const procIdx = fbxToProc[i];
   cell.innerHTML = `
     <h3>fbx face ${i} → proc face ${procIdx}</h3>
     <canvas width="200" height="200"></canvas>
