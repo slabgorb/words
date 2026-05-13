@@ -117,7 +117,17 @@ const proceduralNormals = PROCEDURAL[dieKind].faces.map((idx) => {
 // Load FBX + texture
 // ---------------------------------------------------------------------------
 
-const loader = new FBXLoader();
+// Swallow FBX-embedded texture probes (Devil's Workshop pack references
+// d{N}_LOD0_Base_Color.png / _Normal.png by their original filenames; we
+// override the material below so those textures are never used). Without
+// this, three.js auto-resolves them as 404s against our host.
+const TRANSPARENT_PIXEL_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
+const FBX_EMBEDDED_TEXTURE_RE = /_(LOD\d|Base_?Color|Normal|Roughness|Metallic)/i;
+const fbxManager = new THREE.LoadingManager();
+fbxManager.setURLModifier((url) =>
+  FBX_EMBEDDED_TEXTURE_RE.test(url) ? TRANSPARENT_PIXEL_PNG : url,
+);
+const loader = new FBXLoader(fbxManager);
 const fbx = await new Promise((res, rej) =>
   loader.load(`/shared/dice-asset-preview/${dieKind}.fbx`, res, undefined, (e) => rej(new Error(e?.message || "FBX load failed"))));
 const tex = await new Promise((res, rej) =>
