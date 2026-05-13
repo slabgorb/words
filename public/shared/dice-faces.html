@@ -7,40 +7,23 @@
   header p  { margin:0.2rem 0; font-size:13px; color:#bbb; }
   nav a { color:#9cf; margin-right:0.6rem; text-decoration:none; }
   nav a.active { color:#fff; font-weight:bold; }
-  main { display:flex; gap:1rem; align-items:flex-start; }
-  #viewer { flex:0 0 auto; }
-  #viewer canvas { background:#eee; border-radius:8px; display:block; cursor:grab; touch-action:none; }
-  #viewer canvas:active { cursor:grabbing; }
-  #live { font-family:monospace; font-size:13px; color:#9f9; margin-top:0.4rem; padding:0.4rem 0.6rem; background:#000; border-radius:4px; }
-  #panel { flex:1; min-width:0; }
-  #panel h3 { margin:0 0 0.5rem; font-size:14px; }
-  #faces { display:grid; grid-template-columns:repeat(auto-fit, 220px); gap:6px; margin-bottom:1rem; }
-  .row { background:#2a2a2d; padding:6px 8px; border-radius:6px; transition:background 0.1s; }
-  .row.up { background:#234023; outline:2px solid #5f5; }
-  .row label { display:block; font-size:11px; color:#aaa; font-family:monospace; margin-bottom:4px; }
-  .row input { width:54px; font-size:14px; padding:2px 4px; background:#1c1c1f; color:#eee; border:1px solid #444; border-radius:3px; }
-  .row button { font-size:11px; padding:2px 8px; cursor:pointer; margin-left:4px; background:#3a3a3d; color:#eee; border:1px solid #555; border-radius:3px; }
-  .row button:hover { background:#4a4a4d; }
-  #output { background:#000; color:#9f9; padding:8px; font-family:monospace; font-size:12px; user-select:all; border-radius:4px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, 220px); gap:8px; }
+  .cell { background:#2a2a2d; border-radius:8px; padding:6px; }
+  .cell h3 { margin:0 0 4px; font-size:13px; color:#eee; }
+  .cell canvas { background:#eee; display:block; border-radius:4px; width:200px; height:200px; }
+  .cell label { display:block; font-size:11px; color:#aaa; font-family:monospace; margin:4px 0 2px; }
+  .cell input { width:50px; font-size:14px; padding:2px 4px; background:#1c1c1f; color:#eee; border:1px solid #444; border-radius:3px; }
+  #output { background:#000; color:#9f9; padding:8px; font-family:monospace; font-size:12px; user-select:all; border-radius:4px; margin-top:1rem; max-width:900px; overflow:auto; }
 </style></head>
 <body>
 <header>
   <h1 id="title">Dice face mapping visualizer</h1>
-  <p>Drag the die to rotate (the die rotates, not the camera — like rolling it in your hand). The form row glowing green is the face currently <b>settled up</b> (or <b>settled down</b> for d4 — vertex points up). Type the painted number you see on that face into the input. Click <b>snap</b> to orient any face into its settled position. <code>FACE_NUMBERS</code> at the bottom updates live.</p>
+  <p>Each panel shows ONE face of the FBX rotated camera-front. Read the painted number that's centered, type it into the input below the canvas. Output at the bottom maps each face's normal direction → painted number, plus the suggested <code>FACE_NUMBERS</code> for the lib (matched by closest procedural normal).</p>
   <nav id="nav"></nav>
 </header>
-<main>
-  <div id="viewer">
-    <canvas id="main" width="500" height="500"></canvas>
-    <div id="live">settled face = ?</div>
-  </div>
-  <div id="panel">
-    <h3>Face → painted number</h3>
-    <div id="faces"></div>
-    <h3>FACE_NUMBERS</h3>
-    <pre id="output"></pre>
-  </div>
-</main>
+<div class="grid" id="grid"></div>
+<h3 style="margin-top:1rem">Mapping</h3>
+<pre id="output"></pre>
 <script type="importmap">
 { "imports": {
   "three": "https://unpkg.com/three@0.183.0/build/three.module.js",
@@ -51,33 +34,24 @@
 import * as THREE from "three";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 
+// ---------------------------------------------------------------------------
+// Lib procedural face normals (for post-hoc matching → FACE_NUMBERS array).
+// ---------------------------------------------------------------------------
+
 const PHI = (1 + Math.sqrt(5)) / 2;
 const INV_PHI = 1 / PHI;
 
-const DICE = {
-  d4: {
-    verts: [[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]],
-    faces: [[1,2,3],[0,3,2],[0,1,3],[0,2,1]],
-    // d4 settles vertex-up, face-down: read the face most aligned with WORLD DOWN.
-    settleDir: [0, -1, 0],
-  },
-  d8: {
-    verts: [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]],
-    faces: [[0,2,4],[0,2,5],[0,3,4],[0,3,5],[1,2,4],[1,2,5],[1,3,4],[1,3,5]],
-    settleDir: [0, 1, 0],
-  },
+const PROCEDURAL = {
+  d4: { verts: [[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]], faces: [[1,2,3],[0,3,2],[0,1,3],[0,2,1]] },
+  d8: { verts: [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]], faces: [[0,2,4],[0,2,5],[0,3,4],[0,3,5],[1,2,4],[1,2,5],[1,3,4],[1,3,5]] },
   d10: (() => {
     const APEX_Y = 1.0, RING_Y = 0.25, RING_R = 0.85;
-    const UPPER_ANGLE = (i) => (i * 2 * Math.PI) / 5;
-    const LOWER_ANGLE = (i) => ((i * 2 + 1) * Math.PI) / 5;
+    const upper = (i) => (i * 2 * Math.PI) / 5;
+    const lower = (i) => ((i * 2 + 1) * Math.PI) / 5;
     const verts = [[0, APEX_Y, 0], [0, -APEX_Y, 0]];
-    for (let i = 0; i < 5; i++) verts.push([RING_R * Math.cos(UPPER_ANGLE(i)),  RING_Y, RING_R * Math.sin(UPPER_ANGLE(i))]);
-    for (let i = 0; i < 5; i++) verts.push([RING_R * Math.cos(LOWER_ANGLE(i)), -RING_Y, RING_R * Math.sin(LOWER_ANGLE(i))]);
-    return {
-      verts,
-      faces: [[0,2,7,3],[0,3,8,4],[0,4,9,5],[0,5,10,6],[0,6,11,2],[1,7,3,8],[1,8,4,9],[1,9,5,10],[1,10,6,11],[1,11,2,7]],
-      settleDir: [0, 1, 0],
-    };
+    for (let i = 0; i < 5; i++) verts.push([RING_R * Math.cos(upper(i)),  RING_Y, RING_R * Math.sin(upper(i))]);
+    for (let i = 0; i < 5; i++) verts.push([RING_R * Math.cos(lower(i)), -RING_Y, RING_R * Math.sin(lower(i))]);
+    return { verts, faces: [[0,2,7,3],[0,3,8,4],[0,4,9,5],[0,5,10,6],[0,6,11,2],[1,7,3,8],[1,8,4,9],[1,9,5,10],[1,10,6,11],[1,11,2,7]] };
   })(),
   d12: {
     verts: [
@@ -91,7 +65,6 @@ const DICE = {
       [3,11,7,15,13],[2,10,6,14,12],[1,9,5,15,13],[0,8,4,14,12],
       [5,18,19,7,15],[1,16,17,3,13],[4,18,19,6,14],[0,16,17,2,12],
     ],
-    settleDir: [0, 1, 0],
   },
   d20: {
     verts: [
@@ -105,12 +78,11 @@ const DICE = {
       [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
       [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
     ],
-    settleDir: [0, 1, 0],
   },
 };
 
 const dieKind = new URLSearchParams(location.search).get("die") || "d20";
-if (!DICE[dieKind]) {
+if (!PROCEDURAL[dieKind]) {
   document.body.innerHTML = `<p>Unknown die: ${dieKind}. Try ?die=d4|d8|d10|d12|d20.</p>`;
   throw new Error("unknown die");
 }
@@ -129,19 +101,18 @@ for (const k of ["d4", "d6", "d8", "d10", "d12", "d20"]) {
   nav.appendChild(a);
 }
 
-const data = DICE[dieKind];
+// Lib procedural normals
 const v3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
-const verts = data.verts.map(v3);
-const faceNormals = data.faces.map((idx) => {
+const procVerts = PROCEDURAL[dieKind].verts.map(v3);
+const proceduralNormals = PROCEDURAL[dieKind].faces.map((idx) => {
   const c = new THREE.Vector3();
-  for (const i of idx) c.add(verts[i]);
-  c.divideScalar(idx.length);
-  return c.normalize();
+  for (const i of idx) c.add(procVerts[i]);
+  return c.divideScalar(idx.length).normalize();
 });
-const settleDir = v3(data.settleDir);
 
-document.getElementById("title").textContent =
-  `Dice face mapping — ${dieKind} (${faceNormals.length} faces, settles ${data.settleDir[1] > 0 ? "face-up" : "vertex-up / face-down"})`;
+// ---------------------------------------------------------------------------
+// Load FBX + texture
+// ---------------------------------------------------------------------------
 
 const loader = new FBXLoader();
 const fbx = await new Promise((res, rej) =>
@@ -152,13 +123,109 @@ const tex = await new Promise((res, rej) =>
 const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.05 });
 fbx.traverse((c) => { if (c.isMesh) c.material = mat; });
 
+// ---------------------------------------------------------------------------
+// Extract face normals from the FBX mesh by clustering coplanar triangles.
+// ---------------------------------------------------------------------------
+
+function extractFaceNormals(root) {
+  const tris = [];
+  root.updateWorldMatrix(true, true);
+  root.traverse((c) => {
+    if (!c.isMesh) return;
+    const geom = c.geometry;
+    const pos = geom.attributes.position.array;
+    const idx = geom.index ? geom.index.array : null;
+    const triCount = idx ? idx.length / 3 : pos.length / 9;
+    const matWorld = c.matrixWorld;
+    for (let i = 0; i < triCount; i++) {
+      const ai = idx ? idx[3*i]   : 3*i;
+      const bi = idx ? idx[3*i+1] : 3*i+1;
+      const ci = idx ? idx[3*i+2] : 3*i+2;
+      const va = new THREE.Vector3(pos[3*ai], pos[3*ai+1], pos[3*ai+2]).applyMatrix4(matWorld);
+      const vb = new THREE.Vector3(pos[3*bi], pos[3*bi+1], pos[3*bi+2]).applyMatrix4(matWorld);
+      const vc = new THREE.Vector3(pos[3*ci], pos[3*ci+1], pos[3*ci+2]).applyMatrix4(matWorld);
+      const ab = vb.clone().sub(va);
+      const ac = vc.clone().sub(va);
+      const normal = ab.cross(ac);
+      const area = normal.length();
+      if (area < 1e-9) continue;
+      normal.divideScalar(area);
+      const center = va.clone().add(vb).add(vc).divideScalar(3);
+      tris.push({ normal, center, area });
+    }
+  });
+
+  // Cluster by coplanar normal (dot > threshold means same face).
+  const THRESH = 0.985;
+  const groups = [];
+  for (const t of tris) {
+    let found = null;
+    for (const g of groups) {
+      if (g.normal.dot(t.normal) > THRESH) { found = g; break; }
+    }
+    if (found) {
+      found.normalSum.add(t.normal.clone().multiplyScalar(t.area));
+      found.centerSum.add(t.center.clone().multiplyScalar(t.area));
+      found.areaSum += t.area;
+    } else {
+      groups.push({
+        normal: t.normal.clone(),
+        normalSum: t.normal.clone().multiplyScalar(t.area),
+        centerSum: t.center.clone().multiplyScalar(t.area),
+        areaSum: t.area,
+      });
+    }
+  }
+  return groups
+    .map((g) => ({
+      normal: g.normalSum.divideScalar(g.areaSum).normalize(),
+      center: g.centerSum.divideScalar(g.areaSum),
+      area: g.areaSum,
+    }))
+    // Drop tiny clusters (rounding noise / small bevel triangles).
+    .filter((f) => f.area > 0.01)
+    .sort((a, b) => b.area - a.area);
+}
+
+const fbxFaces = extractFaceNormals(fbx);
+
+// Recenter the model so its bounding-box center is at the world origin
 const bbox = new THREE.Box3().setFromObject(fbx);
+const center = new THREE.Vector3(); bbox.getCenter(center);
+fbx.position.sub(center);
 const size = new THREE.Vector3(); bbox.getSize(size);
 const radius = Math.max(size.x, size.y, size.z) / 2;
 
-const canvas = document.getElementById("main");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setSize(500, 500);
+// Re-extract face normals after recentering, so face.center is in
+// post-recenter local coords (so rotation around origin behaves correctly).
+const fbxFacesCentered = extractFaceNormals(fbx);
+// Keep just the top N largest-area clusters as "real" faces (rest are bevel
+// noise). Already sorted largest-first by extractFaceNormals.
+const expectedFaceCount = proceduralNormals.length;
+const faces = fbxFacesCentered.slice(0, expectedFaceCount);
+console.log(`extracted ${fbxFacesCentered.length} clusters, kept top ${faces.length}`);
+
+// Build the per-face FBX-normal → procedural-face-index lookup.
+function closestProcIdx(normal) {
+  let best = 0, bestDot = -Infinity;
+  for (let i = 0; i < proceduralNormals.length; i++) {
+    const d = proceduralNormals[i].dot(normal);
+    if (d > bestDot) { bestDot = d; best = i; }
+  }
+  return best;
+}
+
+document.getElementById("title").textContent =
+  `Dice face mapping — ${dieKind} (${faces.length} extracted faces, expected ${expectedFaceCount})`;
+
+// ---------------------------------------------------------------------------
+// Single shared offscreen renderer (avoids WebGL context limit ~16).
+// ---------------------------------------------------------------------------
+
+const offscreen = document.createElement("canvas");
+offscreen.width = 200; offscreen.height = 200;
+const renderer = new THREE.WebGLRenderer({ canvas: offscreen, antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(200, 200);
 renderer.setClearColor(0xeeeeee);
 
 const scene = new THREE.Scene();
@@ -169,108 +236,63 @@ scene.add(dl);
 scene.add(fbx);
 
 const dist = radius * 4;
-// Camera positioned so world +Y is up on screen and we look slightly down at the die,
-// approximating a tabletop view.
 const camera = new THREE.PerspectiveCamera(35, 1, 0.1, dist * 5);
-camera.position.set(0, dist * 0.4, dist);
+camera.position.set(0, 0, dist);
 camera.lookAt(0, 0, 0);
 
 // ---------------------------------------------------------------------------
-// Drag to rotate the DIE (not the camera). World Y axis = yaw (twirl). Screen
-// X axis (rotated by camera) = pitch (tip toward / away from viewer).
+// Render one panel per extracted FBX face. For each, rotate FBX so that
+// face's normal points at the camera (+Z in world).
 // ---------------------------------------------------------------------------
 
-let isDragging = false;
-let lastX = 0, lastY = 0;
-
-canvas.addEventListener("pointerdown", (e) => {
-  isDragging = true; lastX = e.clientX; lastY = e.clientY;
-  canvas.setPointerCapture(e.pointerId);
-});
-canvas.addEventListener("pointerup",   (e) => { isDragging = false; canvas.releasePointerCapture(e.pointerId); });
-canvas.addEventListener("pointermove", (e) => {
-  if (!isDragging) return;
-  const dx = e.clientX - lastX;
-  const dy = e.clientY - lastY;
-  lastX = e.clientX; lastY = e.clientY;
-  const SENS = 0.01;
-  // Yaw: rotate around world Y
-  const yaw   = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dx * SENS);
-  // Pitch: rotate around camera-right axis (world X for our camera setup, close enough)
-  const pitch = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), dy * SENS);
-  // Pre-multiply so rotations compose in world frame (intuitive)
-  fbx.quaternion.premultiply(yaw).premultiply(pitch);
-});
-
-// ---------------------------------------------------------------------------
-// Per-face form
-// ---------------------------------------------------------------------------
-
-const facesDiv = document.getElementById("faces");
+const Z = new THREE.Vector3(0, 0, 1);
+const grid = document.getElementById("grid");
 const inputs = [];
-const rows = [];
 
-faceNormals.forEach((normal, i) => {
-  const row = document.createElement("div");
-  row.className = "row";
-  row.innerHTML = `
-    <label>face[${i}] · n=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)})</label>
+faces.forEach((face, i) => {
+  const cell = document.createElement("div");
+  cell.className = "cell";
+  const procIdx = closestProcIdx(face.normal);
+  cell.innerHTML = `
+    <h3>fbx face ${i} → proc face ${procIdx}</h3>
+    <canvas width="200" height="200"></canvas>
+    <label>n=(${face.normal.x.toFixed(2)}, ${face.normal.y.toFixed(2)}, ${face.normal.z.toFixed(2)})</label>
     <input type="number" min="0" placeholder="?">
-    <button>snap</button>
   `;
-  const input = row.querySelector("input");
-  const button = row.querySelector("button");
-  button.onclick = () => {
-    // Rotate the DIE so face[i]'s normal aligns with the settle direction.
-    fbx.quaternion.setFromUnitVectors(normal, settleDir);
-  };
+  grid.appendChild(cell);
+
+  // Snapshot
+  fbx.quaternion.setFromUnitVectors(face.normal, Z);
+  renderer.render(scene, camera);
+  cell.querySelector("canvas").getContext("2d").drawImage(offscreen, 0, 0);
+
+  const input = cell.querySelector("input");
+  input.dataset.procIdx = procIdx;
   input.oninput = updateOutput;
-  inputs.push(input);
-  rows.push(row);
-  facesDiv.appendChild(row);
+  inputs.push({ input, procIdx, fbxNormal: face.normal });
 });
+
+// Reset rotation so any future render isn't biased
+fbx.quaternion.identity();
+
+// ---------------------------------------------------------------------------
+// Output: build FACE_NUMBERS array indexed by procedural face index
+// ---------------------------------------------------------------------------
 
 const output = document.getElementById("output");
 function updateOutput() {
-  const values = inputs.map((i) => i.value || "?");
-  output.textContent = `const FACE_NUMBERS = [${values.join(", ")}];`;
+  const map = new Array(expectedFaceCount).fill("?");
+  for (const { input, procIdx } of inputs) {
+    if (input.value !== "") map[procIdx] = input.value;
+  }
+  const lines = [
+    `// Painted numbers per FBX face (in render order, largest-area first):`,
+    ...inputs.map((e, i) => `//   fbx[${i}] → proc[${e.procIdx}]: n=(${e.fbxNormal.x.toFixed(3)}, ${e.fbxNormal.y.toFixed(3)}, ${e.fbxNormal.z.toFixed(3)}) painted=${e.input.value || "?"}`),
+    ``,
+    `const FACE_NUMBERS = [${map.join(", ")}];`,
+  ];
+  output.textContent = lines.join("\n");
 }
 updateOutput();
-
-// ---------------------------------------------------------------------------
-// Live readout: which face is currently "settled" given the die's rotation.
-// ---------------------------------------------------------------------------
-
-const live = document.getElementById("live");
-let lastUpIdx = -1;
-
-function updateUpFace() {
-  let bestDot = -Infinity;
-  let bestIdx = 0;
-  for (let i = 0; i < faceNormals.length; i++) {
-    // Transform face normal from model-local into world space via current rotation.
-    const worldN = faceNormals[i].clone().applyQuaternion(fbx.quaternion);
-    const dot = worldN.dot(settleDir);
-    if (dot > bestDot) { bestDot = dot; bestIdx = i; }
-  }
-  if (bestIdx !== lastUpIdx) {
-    if (lastUpIdx >= 0) rows[lastUpIdx].classList.remove("up");
-    rows[bestIdx].classList.add("up");
-    lastUpIdx = bestIdx;
-    rows[bestIdx].scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }
-  const n = faceNormals[bestIdx];
-  const tag = settleDir.y > 0 ? "up" : "down";
-  live.textContent = `settled face ${tag} = face[${bestIdx}] · n=(${n.x.toFixed(2)}, ${n.y.toFixed(2)}, ${n.z.toFixed(2)})`;
-}
-
-(function animate() {
-  requestAnimationFrame(animate);
-  updateUpFace();
-  renderer.render(scene, camera);
-})();
-
-// Snap to face 0 on load so the user starts with a known orientation
-rows[0].querySelector("button").click();
 </script>
 </body></html>
