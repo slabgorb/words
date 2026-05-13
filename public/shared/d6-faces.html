@@ -1,0 +1,76 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>d6 face mapping</title>
+<style>
+  body { background:#1c1c1f; color:#eee; font-family:sans-serif; margin:1rem; }
+  .grid { display:grid; grid-template-columns:repeat(3, 220px); gap:8px; }
+  .cell { background:#2a2a2d; border-radius:8px; padding:6px; }
+  .cell h3 { margin:0 0 4px; font-size:14px; }
+  canvas { background:#3a3a3d; display:block; }
+</style></head>
+<body>
+<h2>d6 face mapping — each panel rotates the model so the named local axis points at the camera</h2>
+<div class="grid" id="grid"></div>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.183.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.183.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+
+const loader = new FBXLoader();
+const fbx = await new Promise((res, rej) => loader.load("/shared/dice-asset-preview/d6.fbx", res, undefined, rej));
+const tex = await new Promise((res, rej) => new THREE.TextureLoader().load("/shared/dice-asset-preview/d6-color.png", res, undefined, rej));
+
+const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.05 });
+fbx.traverse(c => { if (c.isMesh) c.material = mat; });
+
+// Get model native half-edge from bounding box.
+const bbox = new THREE.Box3().setFromObject(fbx);
+const size = new THREE.Vector3(); bbox.getSize(size);
+const halfEdge = Math.max(size.x, size.y, size.z) / 2;
+
+const Z = new THREE.Vector3(0, 0, 1);
+const orients = [
+  { label: "+X up", axis: new THREE.Vector3( 1, 0, 0) },
+  { label: "-X up", axis: new THREE.Vector3(-1, 0, 0) },
+  { label: "+Y up", axis: new THREE.Vector3( 0, 1, 0) },
+  { label: "-Y up", axis: new THREE.Vector3( 0,-1, 0) },
+  { label: "+Z up", axis: new THREE.Vector3( 0, 0, 1) },
+  { label: "-Z up", axis: new THREE.Vector3( 0, 0,-1) },
+];
+
+const grid = document.getElementById("grid");
+for (const o of orients) {
+  const cell = document.createElement("div"); cell.className = "cell";
+  cell.innerHTML = `<h3>${o.label}</h3>`;
+  const canvas = document.createElement("canvas");
+  canvas.width = 200; canvas.height = 200;
+  cell.appendChild(canvas);
+  grid.appendChild(cell);
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setSize(200, 200);
+  renderer.setClearColor(0xeeeeee);
+
+  const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.0); dl.position.set(2, 4, 3); scene.add(dl);
+
+  const dist = halfEdge * 4;
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, dist * 5);
+  camera.position.set(0, 0, dist);
+  camera.lookAt(0, 0, 0);
+
+  const clone = fbx.clone(true);
+  clone.traverse(c => { if (c.isMesh) c.material = mat; });
+  // Rotate so model-local axis o.axis becomes world +Z.
+  clone.quaternion.setFromUnitVectors(o.axis, Z);
+  scene.add(clone);
+
+  renderer.render(scene, camera);
+}
+</script>
+</body></html>
