@@ -241,11 +241,22 @@ camera.position.set(0, 0, dist);
 camera.lookAt(0, 0, 0);
 
 // ---------------------------------------------------------------------------
-// Render one panel per extracted FBX face. For each, rotate FBX so that
-// face's normal points at the camera (+Z in world).
+// Render one panel per extracted FBX face. d4 settles vertex-up (face-down),
+// so we orient face to world DOWN and tilt the camera up to see the visible
+// side faces. All other dice settle face-up: face's normal goes camera-front.
 // ---------------------------------------------------------------------------
 
-const Z = new THREE.Vector3(0, 0, 1);
+const isD4 = dieKind === "d4";
+const targetDir = isD4
+  ? new THREE.Vector3(0, -1, 0)  // d4: face down, vertex up
+  : new THREE.Vector3(0, 0, 1);  // others: face camera-front
+
+if (isD4) {
+  // Pull the camera up and tilt down so we look across the table at the d4.
+  camera.position.set(0, dist * 0.7, dist * 0.9);
+  camera.lookAt(0, 0, 0);
+}
+
 const grid = document.getElementById("grid");
 const inputs = [];
 
@@ -262,7 +273,7 @@ faces.forEach((face, i) => {
   grid.appendChild(cell);
 
   // Snapshot
-  fbx.quaternion.setFromUnitVectors(face.normal, Z);
+  fbx.quaternion.setFromUnitVectors(face.normal, targetDir);
   renderer.render(scene, camera);
   cell.querySelector("canvas").getContext("2d").drawImage(offscreen, 0, 0);
 
