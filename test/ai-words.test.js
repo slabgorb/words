@@ -14,7 +14,7 @@ function det(seed = 1) {
   return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
 }
 
-function setupGame(db, { rack, board = null, bag = null }) {
+function setupGame(db, { rack, board = null, bag = null, initialMoveDone = false }) {
   const now = Date.now();
   const human = db.prepare("INSERT INTO users (email,friendly_name,color,created_at) VALUES ('hw','Hw','#000',?) RETURNING id").get(now).id;
   const bot = db.prepare("SELECT id FROM users WHERE is_bot = 1 LIMIT 1").get().id;
@@ -25,6 +25,7 @@ function setupGame(db, { rack, board = null, bag = null }) {
   state.racks.a = rack;
   if (board) state.board = board;
   if (bag) state.bag = bag;
+  state.initialMoveDone = initialMoveDone;
   state.activeUserId = bot;
   const gameId = db.prepare(`
     INSERT INTO games (player_a_id, player_b_id, status, game_type, state, created_at, updated_at)
@@ -89,6 +90,48 @@ test('words bot: garbage LLM response stalls cleanly with bot_stalled SSE', asyn
   const stalled = events.filter(e => e.type === 'bot_stalled');
   assert.ok(stalled.length >= 1, 'bot_stalled fired');
   assert.equal(stalled[0].payload.reason, 'invalid_response');
+});
+
+test('words bot: extends an existing word without engine-rejection stall', async () => {
+  // Regression: placementFromResult used to include anchor cells (tiles
+  // already on the board). The engine rejects any placement on an occupied
+  // cell, so every cross-word/extension play stalled with reason
+  // 'illegal_move'. This test ensures the bot can successfully play through
+  // an existing tile.
+  const dir = mkdtempSync(join(tmpdir(), 'words-extend-'));
+  const db = openDb(join(dir, 'test.db'));
+  const events = [];
+  const sse = { broadcast: (gid, ev) => events.push({ gid, ...ev }) };
+  const llm = {
+    send: async ({ prompt }) => {
+      // Pick the first moveId offered — whatever the solver ranked top.
+      const m = prompt.match(/^ {2}([a-z-]+):/m);
+      return { text: `{"moveId":"${m[1]}","banter":""}`, sessionId: 'sess-x' };
+    },
+  };
+  const personaDir = join(process.cwd(), 'data', 'ai-personas');
+  bootAiSubsystem({ db, sse, llm, personaDir });
+
+  // Seed the board with "DOG" horizontally crossing the center (7,7).
+  const BOARD_SIZE = 15;
+  const board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+  board[7][7] = { letter: 'D' };
+  board[7][8] = { letter: 'O' };
+  board[7][9] = { letter: 'G' };
+
+  const { gameId } = setupGame(db, {
+    rack: ['S', 'A', 'E', 'R', 'T', 'I', 'N'],
+    board,
+    initialMoveDone: true,
+  });
+
+  const { orchestrator } = bootAiSubsystem({ db, sse, llm, personaDir });
+  await orchestrator.runTurn(gameId);
+
+  const stalled = events.filter(e => e.type === 'bot_stalled');
+  assert.equal(stalled.length, 0, `expected no stall; got ${JSON.stringify(stalled)}`);
+  const turns = events.filter(e => e.type === 'turn');
+  assert.ok(turns.length >= 1, 'expected at least one turn event');
 });
 
 test('words bot: forced pass when no plays exist (empty rack)', async () => {

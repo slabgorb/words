@@ -101,7 +101,7 @@ test('placementFromResult: translates result cells into a Words move action', ()
       { x: 9, y: 7, isEmpty: false, tile: { character: 'T', isBlank: false } },
     ],
   };
-  const action = placementFromResult(result);
+  const action = placementFromResult(result.cells);
   assert.equal(action.type, 'move');
   assert.equal(action.payload.placement.length, 3);
   const first = action.payload.placement[0];
@@ -119,7 +119,7 @@ test('placementFromResult: blank tile carries blank: true with the chosen letter
       { x: 6, y: 5, isEmpty: false, tile: { character: 'R', isBlank: false } },
     ],
   };
-  const action = placementFromResult(result);
+  const action = placementFromResult(result.cells);
   assert.equal(action.payload.placement[0].blank, true);
   assert.equal(action.payload.placement[0].letter, 'E');
   assert.equal(action.payload.placement[1].blank, false);
