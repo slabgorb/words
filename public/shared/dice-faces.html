@@ -22,6 +22,9 @@
   <nav id="nav"></nav>
 </header>
 <div class="grid" id="grid"></div>
+<h3 style="margin-top:1rem">Verify — panels in painted-number order</h3>
+<p style="font-size:12px;color:#bbb;margin:0.2rem 0 0.5rem">Once every panel above has a number entered, panels appear here sorted ascending by painted number. Scan top-to-bottom: each cell's header is the value you typed, and the rendered face should clearly show that same painted number.</p>
+<div class="grid" id="verifyGrid"></div>
 <h3 style="margin-top:1rem">Mapping</h3>
 <pre id="output"></pre>
 <script type="importmap">
@@ -306,6 +309,36 @@ fbx.quaternion.identity();
 // ---------------------------------------------------------------------------
 
 const output = document.getElementById("output");
+const verifyGrid = document.getElementById("verifyGrid");
+
+function renderVerifyGrid() {
+  // Only render once every face has a value entered.
+  const entries = [];
+  for (const { input, fbxNormal, procIdx } of inputs) {
+    const raw = input.value;
+    if (raw === "") { verifyGrid.innerHTML = ""; return; }
+    entries.push({ value: parseInt(raw, 10), fbxNormal, procIdx, raw });
+  }
+  entries.sort((a, b) => a.value - b.value);
+
+  verifyGrid.innerHTML = "";
+  for (const e of entries) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.innerHTML = `
+      <h3>painted ${e.raw} → proc face ${e.procIdx}</h3>
+      <canvas width="200" height="200"></canvas>
+      <label>n=(${e.fbxNormal.x.toFixed(2)}, ${e.fbxNormal.y.toFixed(2)}, ${e.fbxNormal.z.toFixed(2)})</label>
+    `;
+    verifyGrid.appendChild(cell);
+
+    fbx.quaternion.setFromUnitVectors(e.fbxNormal, targetDir);
+    renderer.render(scene, camera);
+    cell.querySelector("canvas").getContext("2d").drawImage(offscreen, 0, 0);
+  }
+  fbx.quaternion.identity();
+}
+
 function updateOutput() {
   const map = new Array(expectedFaceCount).fill("?");
   for (const { input, procIdx } of inputs) {
@@ -318,6 +351,7 @@ function updateOutput() {
     `const FACE_NUMBERS = [${map.join(", ")}];`,
   ];
   output.textContent = lines.join("\n");
+  renderVerifyGrid();
 }
 updateOutput();
 </script>
