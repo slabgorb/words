@@ -7,19 +7,37 @@
   header p  { margin:0.2rem 0; font-size:13px; color:#bbb; }
   nav a { color:#9cf; margin-right:0.6rem; text-decoration:none; }
   nav a.active { color:#fff; font-weight:bold; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit, 220px); gap:8px; }
-  .cell { background:#2a2a2d; border-radius:8px; padding:6px; }
-  .cell h3 { margin:0 0 4px; font-size:13px; }
-  .cell p { margin:4px 0 0; font-size:11px; color:#aaa; font-family:monospace; }
-  canvas { background:#eee; display:block; border-radius:4px; }
+  main { display:flex; gap:1rem; align-items:flex-start; }
+  #viewer canvas { background:#eee; border-radius:8px; display:block; cursor:grab; }
+  #viewer canvas:active { cursor:grabbing; }
+  #panel { flex:1; min-width:0; }
+  #panel h3 { margin:0 0 0.5rem; font-size:14px; }
+  #faces { display:grid; grid-template-columns:repeat(auto-fit, 240px); gap:6px; margin-bottom:1rem; }
+  .row { background:#2a2a2d; padding:8px; border-radius:6px; }
+  .row label { display:block; font-size:11px; color:#aaa; font-family:monospace; margin-bottom:4px; }
+  .row input { width:50px; font-size:14px; padding:2px 4px; background:#1c1c1f; color:#eee; border:1px solid #444; border-radius:3px; }
+  .row button { font-size:11px; padding:2px 8px; cursor:pointer; margin-left:4px; background:#3a3a3d; color:#eee; border:1px solid #555; border-radius:3px; }
+  .row button:hover { background:#4a4a4d; }
+  .row button.active { background:#9cf; color:#000; }
+  #output { background:#000; color:#9f9; padding:8px; font-family:monospace; font-size:12px; user-select:all; border-radius:4px; }
 </style></head>
 <body>
 <header>
-  <h1>Dice face mapping visualizer</h1>
-  <p>Each panel renders the FBX rotated so a procedural face's normal points at the camera. Read the painted number visible on each face → that's the value <code>FACE_NUMBERS[i]</code> should hold for that face index.</p>
+  <h1 id="title">Dice face mapping visualizer</h1>
+  <p>Drag the die to rotate, scroll to zoom. For each face index, click <b>snap</b> to point the camera at that face's procedural normal direction (note: FBX may not be aligned with lib coords — fine-tune by dragging). Read the painted number that's centered, type into the field. Copy <code>FACE_NUMBERS</code> at the bottom when done.</p>
   <nav id="nav"></nav>
 </header>
-<div class="grid" id="grid"></div>
+<main>
+  <div id="viewer">
+    <canvas id="main" width="500" height="500"></canvas>
+  </div>
+  <div id="panel">
+    <h3>Face → painted number</h3>
+    <div id="faces"></div>
+    <h3>FACE_NUMBERS</h3>
+    <pre id="output"></pre>
+  </div>
+</main>
 <script type="importmap">
 { "imports": {
   "three": "https://unpkg.com/three@0.183.0/build/three.module.js",
@@ -29,11 +47,10 @@
 <script type="module">
 import * as THREE from "three";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 // ---------------------------------------------------------------------------
-// Per-die geometry data (transcribed from ~/Projects/dice-lib/src/dN.ts).
-// Only normal directions matter — vertex magnitude / scale is irrelevant
-// because we normalize the centroid into a unit direction.
+// Per-die geometry data (transcribed from ~/Projects/dice-lib/src/dN.ts)
 // ---------------------------------------------------------------------------
 
 const PHI = (1 + Math.sqrt(5)) / 2;
@@ -41,136 +58,51 @@ const INV_PHI = 1 / PHI;
 
 const DICE = {
   d4: {
-    // d4.ts: 4 vertices (1,1,1),(1,-1,-1),(-1,1,-1),(-1,-1,1).
-    verts: [
-      [ 1,  1,  1],
-      [ 1, -1, -1],
-      [-1,  1, -1],
-      [-1, -1,  1],
-    ],
-    // FACE_INDICES (d4.ts:36-41). Face i is opposite vertex i.
-    faces: [
-      [1, 2, 3],
-      [0, 3, 2],
-      [0, 1, 3],
-      [0, 2, 1],
-    ],
+    verts: [[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]],
+    faces: [[1,2,3],[0,3,2],[0,1,3],[0,2,1]],
+    sides: 4,
   },
   d8: {
-    // d8.ts: 6 axis vertices. 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z.
-    verts: [
-      [ 1,  0,  0],
-      [-1,  0,  0],
-      [ 0,  1,  0],
-      [ 0, -1,  0],
-      [ 0,  0,  1],
-      [ 0,  0, -1],
-    ],
-    // FACE_INDICES (d8.ts:41-50)
-    faces: [
-      [0, 2, 4],
-      [0, 2, 5],
-      [0, 3, 4],
-      [0, 3, 5],
-      [1, 2, 4],
-      [1, 2, 5],
-      [1, 3, 4],
-      [1, 3, 5],
-    ],
+    verts: [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]],
+    faces: [[0,2,4],[0,2,5],[0,3,4],[0,3,5],[1,2,4],[1,2,5],[1,3,4],[1,3,5]],
+    sides: 8,
   },
   d10: (() => {
-    // d10.ts: pentagonal trapezohedron. APEX_Y=1, RING_Y=0.25, RING_R=0.85.
     const APEX_Y = 1.0, RING_Y = 0.25, RING_R = 0.85;
     const UPPER_ANGLE = (i) => (i * 2 * Math.PI) / 5;
     const LOWER_ANGLE = (i) => ((i * 2 + 1) * Math.PI) / 5;
-    const verts = [
-      [0,  APEX_Y, 0], // 0: north apex
-      [0, -APEX_Y, 0], // 1: south apex
-    ];
-    for (let i = 0; i < 5; i++) {
-      verts.push([RING_R * Math.cos(UPPER_ANGLE(i)),  RING_Y, RING_R * Math.sin(UPPER_ANGLE(i))]);
-    }
-    for (let i = 0; i < 5; i++) {
-      verts.push([RING_R * Math.cos(LOWER_ANGLE(i)), -RING_Y, RING_R * Math.sin(LOWER_ANGLE(i))]);
-    }
-    // FACE_INDICES (d10.ts:56-69)
-    const faces = [
-      [0, 2, 7, 3],
-      [0, 3, 8, 4],
-      [0, 4, 9, 5],
-      [0, 5, 10, 6],
-      [0, 6, 11, 2],
-      [1, 7, 3, 8],
-      [1, 8, 4, 9],
-      [1, 9, 5, 10],
-      [1, 10, 6, 11],
-      [1, 11, 2, 7],
-    ];
-    return { verts, faces };
+    const verts = [[0, APEX_Y, 0], [0, -APEX_Y, 0]];
+    for (let i = 0; i < 5; i++) verts.push([RING_R * Math.cos(UPPER_ANGLE(i)),  RING_Y, RING_R * Math.sin(UPPER_ANGLE(i))]);
+    for (let i = 0; i < 5; i++) verts.push([RING_R * Math.cos(LOWER_ANGLE(i)), -RING_Y, RING_R * Math.sin(LOWER_ANGLE(i))]);
+    return { verts, faces: [[0,2,7,3],[0,3,8,4],[0,4,9,5],[0,5,10,6],[0,6,11,2],[1,7,3,8],[1,8,4,9],[1,9,5,10],[1,10,6,11],[1,11,2,7]], sides: 10 };
   })(),
   d12: {
-    // d12.ts: 20 dodecahedron vertices.
     verts: [
-      [-1, -1, -1], // 0
-      [-1, -1,  1], // 1
-      [-1,  1, -1], // 2
-      [-1,  1,  1], // 3
-      [ 1, -1, -1], // 4
-      [ 1, -1,  1], // 5
-      [ 1,  1, -1], // 6
-      [ 1,  1,  1], // 7
-      [ 0, -PHI, -INV_PHI], // 8
-      [ 0, -PHI,  INV_PHI], // 9
-      [ 0,  PHI, -INV_PHI], // 10
-      [ 0,  PHI,  INV_PHI], // 11
-      [-INV_PHI, 0, -PHI],  // 12
-      [-INV_PHI, 0,  PHI],  // 13
-      [ INV_PHI, 0, -PHI],  // 14
-      [ INV_PHI, 0,  PHI],  // 15
-      [-PHI, -INV_PHI, 0],  // 16
-      [-PHI,  INV_PHI, 0],  // 17
-      [ PHI, -INV_PHI, 0],  // 18
-      [ PHI,  INV_PHI, 0],  // 19
+      [-1,-1,-1],[-1,-1,1],[-1,1,-1],[-1,1,1],[1,-1,-1],[1,-1,1],[1,1,-1],[1,1,1],
+      [0,-PHI,-INV_PHI],[0,-PHI,INV_PHI],[0,PHI,-INV_PHI],[0,PHI,INV_PHI],
+      [-INV_PHI,0,-PHI],[-INV_PHI,0,PHI],[INV_PHI,0,-PHI],[INV_PHI,0,PHI],
+      [-PHI,-INV_PHI,0],[-PHI,INV_PHI,0],[PHI,-INV_PHI,0],[PHI,INV_PHI,0],
     ],
-    // FACE_INDICES (d12.ts:62-75)
     faces: [
-      [6, 10, 11, 7, 19],
-      [2, 10, 11, 3, 17],
-      [4,  8,  9, 5, 18],
-      [0,  8,  9, 1, 16],
-      [3, 11,  7, 15, 13],
-      [2, 10,  6, 14, 12],
-      [1,  9,  5, 15, 13],
-      [0,  8,  4, 14, 12],
-      [5, 18, 19, 7, 15],
-      [1, 16, 17, 3, 13],
-      [4, 18, 19, 6, 14],
-      [0, 16, 17, 2, 12],
+      [6,10,11,7,19],[2,10,11,3,17],[4,8,9,5,18],[0,8,9,1,16],
+      [3,11,7,15,13],[2,10,6,14,12],[1,9,5,15,13],[0,8,4,14,12],
+      [5,18,19,7,15],[1,16,17,3,13],[4,18,19,6,14],[0,16,17,2,12],
     ],
+    sides: 12,
   },
   d20: {
-    // d20.ts: 12 icosahedron vertices.
     verts: [
-      [-1, PHI, 0],
-      [ 1, PHI, 0],
-      [-1, -PHI, 0],
-      [ 1, -PHI, 0],
-      [ 0, -1, PHI],
-      [ 0,  1, PHI],
-      [ 0, -1, -PHI],
-      [ 0,  1, -PHI],
-      [ PHI, 0, -1],
-      [ PHI, 0,  1],
-      [-PHI, 0, -1],
-      [-PHI, 0,  1],
+      [-1,PHI,0],[1,PHI,0],[-1,-PHI,0],[1,-PHI,0],
+      [0,-1,PHI],[0,1,PHI],[0,-1,-PHI],[0,1,-PHI],
+      [PHI,0,-1],[PHI,0,1],[-PHI,0,-1],[-PHI,0,1],
     ],
-    // FACE_INDICES (d20.ts:59-64)
     faces: [
-      [0, 11, 5],  [0, 5, 1],   [0, 1, 7],   [0, 7, 10],  [0, 10, 11],
-      [1, 5, 9],   [5, 11, 4],  [11, 10, 2], [10, 7, 6],  [7, 1, 8],
-      [3, 9, 4],   [3, 4, 2],   [3, 2, 6],   [3, 6, 8],   [3, 8, 9],
-      [4, 9, 5],   [2, 4, 11],  [6, 2, 10],  [8, 6, 7],   [9, 8, 1],
+      [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+      [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+      [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+      [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
     ],
+    sides: 20,
   },
 };
 
@@ -178,8 +110,7 @@ const DICE = {
 // URL param + nav
 // ---------------------------------------------------------------------------
 
-const params = new URLSearchParams(location.search);
-const dieKind = params.get("die") || "d20";
+const dieKind = new URLSearchParams(location.search).get("die") || "d20";
 if (!DICE[dieKind]) {
   document.body.innerHTML = `<p>Unknown die: ${dieKind}. Try ?die=d4|d8|d10|d12|d20.</p>`;
   throw new Error("unknown die");
@@ -213,68 +144,96 @@ const faceNormals = data.faces.map((idx) => {
   return c.normalize();
 });
 
-document.querySelector("header h1").textContent =
+document.getElementById("title").textContent =
   `Dice face mapping — ${dieKind} (${faceNormals.length} faces)`;
 
 // ---------------------------------------------------------------------------
-// Load FBX + texture
+// Load FBX + texture (404s for embedded asset refs are harmless — overridden)
 // ---------------------------------------------------------------------------
 
 const loader = new FBXLoader();
 const fbx = await new Promise((res, rej) =>
-  loader.load(`/shared/dice-asset-preview/${dieKind}.fbx`, res, undefined, rej));
+  loader.load(`/shared/dice-asset-preview/${dieKind}.fbx`, res, undefined, (e) => rej(new Error(e.message || "FBX load failed"))));
 const tex = await new Promise((res, rej) =>
   new THREE.TextureLoader().load(`/shared/dice-asset-preview/${dieKind}-color.png`, res, undefined, rej));
 
 const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.05 });
 fbx.traverse((c) => { if (c.isMesh) c.material = mat; });
 
-// Use bbox to pick a sensible camera distance
 const bbox = new THREE.Box3().setFromObject(fbx);
 const size = new THREE.Vector3(); bbox.getSize(size);
 const radius = Math.max(size.x, size.y, size.z) / 2;
 
 // ---------------------------------------------------------------------------
-// Render one panel per face
+// Single 500×500 viewer with orbit controls
 // ---------------------------------------------------------------------------
 
-const Z = new THREE.Vector3(0, 0, 1);
-const grid = document.getElementById("grid");
+const canvas = document.getElementById("main");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(500, 500);
+renderer.setClearColor(0xeeeeee);
+
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dl = new THREE.DirectionalLight(0xffffff, 1.0);
+dl.position.set(2, 4, 3);
+scene.add(dl);
+scene.add(fbx);
+
+const dist = radius * 4;
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, dist * 5);
+camera.position.set(0, 0, dist);
+camera.lookAt(0, 0, 0);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+
+(function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+})();
+
+// ---------------------------------------------------------------------------
+// Per-face form
+// ---------------------------------------------------------------------------
+
+const facesDiv = document.getElementById("faces");
+const inputs = [];
+const snapButtons = [];
 
 faceNormals.forEach((normal, i) => {
-  const cell = document.createElement("div");
-  cell.className = "cell";
-  cell.innerHTML = `<h3>Face index ${i}</h3>`;
-  const canvas = document.createElement("canvas");
-  canvas.width = 200; canvas.height = 200;
-  cell.appendChild(canvas);
-  const p = document.createElement("p");
-  p.textContent = `n = (${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)})`;
-  cell.appendChild(p);
-  grid.appendChild(cell);
-
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setSize(200, 200);
-  renderer.setClearColor(0xeeeeee);
-
-  const scene = new THREE.Scene();
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const dl = new THREE.DirectionalLight(0xffffff, 1.0);
-  dl.position.set(2, 4, 3);
-  scene.add(dl);
-
-  const dist = radius * 4;
-  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, dist * 5);
-  camera.position.set(0, 0, dist);
-  camera.lookAt(0, 0, 0);
-
-  const clone = fbx.clone(true);
-  clone.traverse((c) => { if (c.isMesh) c.material = mat; });
-  // Rotate so the face's procedural normal aligns with world +Z (camera-facing).
-  clone.quaternion.setFromUnitVectors(normal, Z);
-  scene.add(clone);
-
-  renderer.render(scene, camera);
+  const row = document.createElement("div");
+  row.className = "row";
+  row.innerHTML = `
+    <label>face[${i}] · n=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)})</label>
+    <input type="number" min="0" placeholder="?">
+    <button>snap</button>
+  `;
+  const input = row.querySelector("input");
+  const button = row.querySelector("button");
+  button.onclick = () => {
+    // Move camera to look at the die from face N's normal direction
+    camera.position.copy(normal).multiplyScalar(dist);
+    controls.target.set(0, 0, 0);
+    controls.update();
+    snapButtons.forEach((b) => b.classList.remove("active"));
+    button.classList.add("active");
+  };
+  input.oninput = updateOutput;
+  inputs.push(input);
+  snapButtons.push(button);
+  facesDiv.appendChild(row);
 });
+
+const output = document.getElementById("output");
+function updateOutput() {
+  const values = inputs.map((i) => i.value || "?");
+  output.textContent = `const FACE_NUMBERS = [${values.join(", ")}];`;
+}
+updateOutput();
+
+// Auto-snap to face 0 on load
+snapButtons[0]?.click();
 </script>
 </body></html>

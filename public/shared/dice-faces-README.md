@@ -11,56 +11,72 @@ the integer value that should be reported when face `i` is "up". For
 procedural-only rendering (FaceLabels), this is whatever convention the
 library chose. For FBX-rendered dice, it MUST match what the FBX
 texture actually paints on each face, which can only be determined by
-looking at the model.
+visual inspection.
 
 ## Pages
 
-- `/shared/d6-faces.html` — d6 only. Renders the cube from each of the
-  6 axis directions (±X/±Y/±Z). The painted number visible in each
-  panel is the value of `FACE_NUMBERS` for that face.
+- `/shared/d6-faces.html` — d6 only. Cube rendered from each of the 6
+  axis directions (±X/±Y/±Z). The painted number in each panel is the
+  `FACE_NUMBERS` value for that face.
 - `/shared/dice-faces.html?die=d4|d8|d10|d12|d20` — generic visualizer.
-  Renders one panel per procedural face, with the FBX rotated so that
-  face's normal points at the camera. Read off the painted number
-  visible in each panel.
+  Single 500×500 canvas with **OrbitControls**: drag to rotate, scroll
+  to zoom. A side panel lists every procedural face with a `snap`
+  button that points the camera at that face's normal direction. Type
+  the painted number you see into each face's input; the JS
+  `FACE_NUMBERS = [...]` snippet at the bottom updates live.
 
 ## Workflow
 
-1. Open `http://localhost:3000/shared/dice-faces.html?die=d8` (or
+1. `cd ~/Projects/words && PORT=3911 npm start`
+2. Open `http://localhost:3911/shared/dice-faces.html?die=d8` (or
    whichever die).
-2. For each panel, note the painted number visible in the center of
-   the canvas. Record it as `FACE_NUMBERS[face_index] = painted_value`.
-3. Edit `~/Projects/dice-lib/src/dN.ts` and replace `FACE_NUMBERS`
-   with the values you read.
-4. Rebuild dice-lib + verify in-game that rolls report the correct
-   face value.
+3. Click `snap` on `face[0]` → camera jumps to that direction. The
+   FBX may not be axis-aligned with lib coords — drag to fine-tune
+   until the face is square-on and you can read its number.
+4. Type the painted number into the input.
+5. Repeat for each face.
+6. Copy the `FACE_NUMBERS = [...]` line from the bottom box and paste
+   into `~/Projects/dice-lib/src/dN.ts`, replacing the existing
+   `FACE_NUMBERS` constant.
 
-## Example
+## Captured mappings
 
-```
-d8 face mapping (after visual inspection):
-Face 0 (+X +Y +Z): saw "5" → FACE_NUMBERS[0] = 5
-Face 1 (+X +Y -Z): saw "1" → FACE_NUMBERS[1] = 1
-Face 2 (+X -Y +Z): saw "3" → FACE_NUMBERS[2] = 3
-...
-```
+### d20 (verified 2026-05-13)
 
-Then update `~/Projects/dice-lib/src/d8.ts`:
+Reading face 0..19 from the original auto-rotated visualizer (which
+happened to align well for d20 specifically):
 
 ```ts
-const FACE_NUMBERS = [5, 1, 3, /* ... */];
+const FACE_NUMBERS = [9, 3, 2, 8, 6, 11, 19, 1, 4, 7, 18, 12, 17, 15, 14, 16, 13, 10, 5, 20];
 ```
+
+Re-verify with the orbit visualizer before committing to FBX rendering.
+
+### d6 (already in dice-lib)
+
+```ts
+const FACE_NUMBERS = [2, 5, 6, 1, 3, 4];
+```
+
+### d4, d8, d10, d12
+
+Pending visual verification — use the orbit visualizer.
 
 ## Caveats
 
-- Assumes the FBX is in the same orientation as the procedural geometry
-  (lib axes ↔ model axes). If you see a partial-face / edge view in a
-  panel, the FBX is rotated relative to the procedural normals — apply
-  a per-die rotation offset before the per-face quaternion.
-- d6 already verified: `FACE_NUMBERS = [2, 5, 6, 1, 3, 4]` (see
-  `dice-lib/src/d6.ts`).
+- **d10 uses the percentile FBX** (`d10_Percentile_03.fbx`, FBX 7500).
+  The standard `d10_03.fbx` is FBX 6100 which the modern three.js
+  FBXLoader does not support. The percentile mesh shares the
+  trapezohedron topology with the standard d10, but the Devil's
+  Workshop d10 color textures paint the regular 1-10 numerals — the
+  loaded model will show those (not 00-90), which is what we want.
+- Texture 404s in the console for `dN_LOD0_Base_Color.png` /
+  `dN_LOD0_Normal.png` are harmless — those are filenames the FBX
+  embedded internally; we override the material with our own texture
+  on every mesh.
 
 ## Assets
 
 `/shared/dice-asset-preview/dN.fbx` + `dN-color.png`. Sourced from the
-Devil's Workshop Low Poly Dice Pack v3.01. These are tooling-only — the
-runtime dice library does not depend on them.
+Devil's Workshop Low Poly Dice Pack v3.01. These are tooling-only —
+the runtime dice library does not depend on them.
