@@ -114,11 +114,15 @@ export function buildSolverTiles(rack) {
   });
 }
 
-export function placementFromResult(result) {
+// `newCells` must contain only the cells played from the rack this turn —
+// the engine rejects any placement entry that lands on an occupied cell, so
+// passing solver's full `result.cells` (which includes anchor tiles already
+// on the board) would stall every cross-word and extension play.
+export function placementFromResult(newCells) {
   return {
     type: 'move',
     payload: {
-      placement: result.cells.map((cell) => ({
+      placement: newCells.map((cell) => ({
         r: cell.y,
         c: cell.x,
         letter: cell.tile.character,

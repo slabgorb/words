@@ -203,7 +203,7 @@ export function buildShortlist(state, botSide) {
     slots.push({
       id: slotId,
       slot: slotId,
-      action: placementFromResult(entry.result),
+      action: placementFromResult(entry.newCells),
       summary: `${word} ${range}; ${entry.result.points} pts${bingoMark}; leaves ${leaveStr}`,
     });
     return true;
