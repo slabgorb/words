@@ -9,8 +9,6 @@
   "scripts": {
     "start": "node src/server/server.js",
     "test": "node --test 'test/**/*.test.js'",
-    "test:dice": "vitest run --config vitest.config.ts",
-    "test:dice:watch": "vitest --config vitest.config.ts",
     "build:dice": "vite build --config vite.config.dice.js",
     "dev:dice": "vite build --config vite.config.dice.js --watch",
     "prepare": "npm run build:dice",
@@ -18,6 +16,7 @@
   },
   "dependencies": {
     "@kamilmielnik/trie": "^5.0.0",
+    "@local/dice-lib": "file:../dice-lib",
     "@scrabble-solver/solver": "^2.16.4",
     "@scrabble-solver/types": "^2.16.4",
     "better-sqlite3": "^11.0.0",

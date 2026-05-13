@@ -10,11 +10,15 @@
 
 import { createRoot, Root } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
-import { DiceScene } from "./DiceScene";
-import { parseDiceNotation } from "./parseDiceNotation";
-import { dieKindForSides } from "./dieRegistry";
-import { THEME_PRESETS } from "./diceTheme";
-import type { ThrowParams, DiceThrowParams, DieKind } from "./types";
+import {
+  DiceScene,
+  parseDiceNotation,
+  dieKindForSides,
+  THEME_PRESETS,
+  type ThrowParams,
+  type DiceThrowParams,
+  type DieKind,
+} from "@local/dice-lib";
 
 type Mode = "active" | "replay" | "idle";
 
