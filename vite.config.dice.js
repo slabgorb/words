@@ -11,13 +11,21 @@ export default defineConfig({
     'process.env.NODE_ENV': JSON.stringify('production'),
   },
   resolve: {
-    // stats-gl ships its own nested copy of three; if Rollup inlines both
-    // alongside the top-level three the page ends up with two THREE
-    // namespaces (one Canvas/scene context invisible to the other) and
-    // React hook bindings come back null at consume time. Force every
-    // three import to the project root's copy so the bundle has exactly
-    // one — same for react/react-dom out of paranoia.
-    dedupe: ["three", "react", "react-dom"],
+    // @local/dice-lib is a file: dep with its own node_modules — without
+    // dedupe, vite resolves react/three/@react-three/* through the lib's
+    // copy AND the consumer's copy, producing two instances of each in
+    // dice.js. Symptoms: "Multiple instances of Three.js" warning;
+    // useRef bindings come back null; "R3F: Hooks can only be used within
+    // the Canvas component" (rapier's hooks see one fiber context,
+    // Canvas registers in the other).
+    dedupe: [
+      "react",
+      "react-dom",
+      "three",
+      "@react-three/fiber",
+      "@react-three/drei",
+      "@react-three/rapier",
+    ],
   },
   build: {
     target: "es2022",
