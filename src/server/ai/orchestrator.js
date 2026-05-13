@@ -264,7 +264,10 @@ export function createOrchestrator({ db, llm, sse, personas, adapters, logger = 
           llm, persona, sessionId: resuming ? session.claudeSessionId : null,
           state, botPlayerIdx, rng: rngFor(gameId),
         });
-        if (resuming) {
+        if (r.usedLlm === false) {
+          // Adapter short-circuited (e.g., cribbage pegging with one legal
+          // card) — no subprocess was launched, so don't burn a resume slot.
+        } else if (resuming) {
           bumpResumeCount(db, gameId);
           session.resumeCount = (session.resumeCount ?? 0) + 1;
         } else if (r.sessionId) {

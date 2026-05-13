@@ -81,6 +81,27 @@ test('chooseAction: propagates underlying LlmClient errors as-is', async () => {
   );
 });
 
+test('chooseAction: pegging phase with single legal play — skips LLM entirely', async () => {
+  // running=29 + only legal play is the Ace (29+1=30 ≤ 31); the King (29+10=39 > 31)
+  // is unplayable. With one forced move, calling the LLM wastes a round-trip,
+  // so chooseAction must short-circuit. Empty FakeLlmClient throws on send,
+  // so any LLM invocation here would fail the test.
+  const state = {
+    phase: 'pegging',
+    hands: [[CARD('K','H'), CARD('A','D')], []],
+    scores: [60, 58],
+    matchTarget: 121,
+    pegging: { running: 29, history: [], pile: [[],[]], next: 0 },
+    sides: { a:1, b:2 },
+  };
+  const llm = new FakeLlmClient([]);
+  const r = await chooseAction({ llm, persona, sessionId: 'sid-prior', state, botPlayerIdx: 0 });
+  assert.equal(r.action.type, 'play');
+  assert.deepEqual(r.action.payload.card, CARD('A','D'));
+  assert.equal(llm.calls.length, 0, 'LLM should not be invoked when only one peg is legal');
+  assert.equal(r.usedLlm, false, 'usedLlm flag signals the orchestrator to skip resume bookkeeping');
+});
+
 test('chooseAction: pegging phase — picks among playable cards', async () => {
   const state = {
     phase: 'pegging',

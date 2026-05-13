@@ -23,6 +23,13 @@ export async function chooseAction({ llm, persona, sessionId, state, botPlayerId
   if (legalMoves.length === 0) {
     throw new Error(`no legal moves for phase '${state.phase}'`);
   }
+  // Pegging short-circuit: when exactly one card is playable (the others
+  // would push the running total past 31), there is no decision for the
+  // LLM to make. Skipping the round-trip saves ~3–80s of latency per
+  // forced peg and avoids burning a session-resume slot.
+  if (state.phase === 'pegging' && legalMoves.length === 1) {
+    return { action: legalMoves[0].action, banter: null, sessionId, usedLlm: false };
+  }
   const prompt = buildTurnPrompt({ state, legalMoves, botPlayerIdx, discardCandidates });
 
   const r = await llm.send({
