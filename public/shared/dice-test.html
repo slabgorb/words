@@ -8,28 +8,21 @@
       body { font-family: system-ui, sans-serif; margin: 2rem; background: #1c1c1f; color: #f4ead4; }
       h1 { font-size: 1.2rem; }
       .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+      .cell { display: flex; flex-direction: column; gap: 0.4rem; }
+      .controls { display: flex; gap: 0.4rem; align-items: center; font-size: 0.85rem; }
+      .controls label { display: inline-flex; gap: 0.25rem; align-items: center; }
+      .controls select, .controls input { background: #2a2a2d; color: #f4ead4; border: 1px solid #444; border-radius: 4px; padding: 0.2rem 0.4rem; font: inherit; }
+      .controls button { background: #3a3a3d; color: #f4ead4; border: 1px solid #555; border-radius: 4px; padding: 0.2rem 0.6rem; font: inherit; cursor: pointer; }
+      .controls button:hover { background: #4a4a4d; }
       .panel { width: 360px; height: 360px; background: #2a2a2d; border-radius: 12px; padding: 0.5rem; }
       pre { background: #0a0a0a; padding: 0.5rem; border-radius: 6px; font-size: 0.85rem; overflow-x: auto; }
     </style>
   </head>
   <body>
     <h1>&lt;dice-tray&gt; smoke test</h1>
-    <p>Drag a die to throw. Refresh to reset.</p>
+    <p>Drag a die to throw. Use the controls to swap kind/count/theme — refreshes the tray in place.</p>
 
-    <div class="row">
-      <div>
-        <h2>1d6 (ivory)</h2>
-        <div class="panel"><dice-tray dice="1d6" mode="active" theme="ivory"></dice-tray></div>
-      </div>
-      <div>
-        <h2>2d6 (obsidian)</h2>
-        <div class="panel"><dice-tray dice="2d6" mode="active" theme="obsidian"></dice-tray></div>
-      </div>
-      <div>
-        <h2>1d20 (ivory)</h2>
-        <div class="panel"><dice-tray dice="1d20" mode="active" theme="ivory"></dice-tray></div>
-      </div>
-    </div>
+    <div class="row" id="trays"></div>
 
     <h2>Event log</h2>
     <pre id="log"></pre>
@@ -40,11 +33,86 @@
       function append(msg) {
         log.textContent = `${new Date().toLocaleTimeString()}  ${msg}\n` + log.textContent;
       }
-      for (const tray of document.querySelectorAll("dice-tray")) {
+
+      const KINDS = ["d4", "d6", "d8", "d10", "d12", "d20"];
+      const THEMES = ["default", "ivory", "obsidian"];
+      const PANELS = [
+        { kind: "d6", count: 1, theme: "ivory" },
+        { kind: "d6", count: 2, theme: "obsidian" },
+        { kind: "d20", count: 1, theme: "ivory" },
+      ];
+
+      function buildCell(initial) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+
+        const controls = document.createElement("div");
+        controls.className = "controls";
+
+        const kindSel = document.createElement("select");
+        for (const k of KINDS) {
+          const o = document.createElement("option");
+          o.value = k; o.textContent = k;
+          if (k === initial.kind) o.selected = true;
+          kindSel.appendChild(o);
+        }
+
+        const countInput = document.createElement("input");
+        countInput.type = "number";
+        countInput.min = "1"; countInput.max = "10";
+        countInput.value = initial.count;
+        countInput.style.width = "4rem";
+
+        const themeSel = document.createElement("select");
+        for (const t of THEMES) {
+          const o = document.createElement("option");
+          o.value = t; o.textContent = t;
+          if (t === initial.theme) o.selected = true;
+          themeSel.appendChild(o);
+        }
+
+        const resetBtn = document.createElement("button");
+        resetBtn.textContent = "reset";
+
+        controls.append(
+          Object.assign(document.createElement("label"), { textContent: "kind " }).appendChild(kindSel).parentElement,
+          Object.assign(document.createElement("label"), { textContent: "× " }).appendChild(countInput).parentElement,
+          Object.assign(document.createElement("label"), { textContent: "theme " }).appendChild(themeSel).parentElement,
+          resetBtn,
+        );
+
+        const panel = document.createElement("div");
+        panel.className = "panel";
+
+        const tray = document.createElement("dice-tray");
+        tray.setAttribute("dice", `${initial.count}d${initial.kind.slice(1)}`);
+        tray.setAttribute("mode", "active");
+        tray.setAttribute("theme", initial.theme);
+        panel.appendChild(tray);
+
         tray.addEventListener("dice-throw", (e) => append(`throw → ${JSON.stringify(e.detail).slice(0, 120)}`));
         tray.addEventListener("dice-settle", (e) => append(`settle → values=${JSON.stringify(e.detail.values)}`));
         tray.addEventListener("dice-error", (e) => append(`error → ${e.detail.message}`));
+
+        function sync() {
+          const sides = kindSel.value.slice(1);
+          tray.setAttribute("dice", `${countInput.value}d${sides}`);
+          tray.setAttribute("theme", themeSel.value);
+        }
+        kindSel.addEventListener("change", sync);
+        countInput.addEventListener("change", sync);
+        themeSel.addEventListener("change", sync);
+        resetBtn.addEventListener("click", () => {
+          if (typeof tray.reset === "function") tray.reset();
+          else { tray.removeAttribute("mode"); tray.setAttribute("mode", "active"); }
+        });
+
+        cell.append(controls, panel);
+        return cell;
       }
+
+      const trays = document.getElementById("trays");
+      for (const initial of PANELS) trays.appendChild(buildCell(initial));
     </script>
   </body>
 </html>
